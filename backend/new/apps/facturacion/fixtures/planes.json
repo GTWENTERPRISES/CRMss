@@ -1,0 +1,82 @@
+[
+  {
+    "model": "facturacion.planvelocidad",
+    "pk": "22222222-2222-2222-2222-222222222201",
+    "fields": {
+      "nombre": "Plan Hogar 100 Mbps",
+      "categoria": "residencial",
+      "bajada_kbps": 100000,
+      "subida_kbps": 50000,
+      "burst_limit": "120M/60M",
+      "precio": "20.00",
+      "precio_incluye_iva": false,
+      "traffic_table_index": 1,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "facturacion.planvelocidad",
+    "pk": "22222222-2222-2222-2222-222222222202",
+    "fields": {
+      "nombre": "Plan Hogar 200 Mbps",
+      "categoria": "residencial",
+      "bajada_kbps": 200000,
+      "subida_kbps": 100000,
+      "burst_limit": "240M/120M",
+      "precio": "30.00",
+      "precio_incluye_iva": false,
+      "traffic_table_index": 2,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "facturacion.planvelocidad",
+    "pk": "22222222-2222-2222-2222-222222222203",
+    "fields": {
+      "nombre": "Plan Empresarial 500 Mbps",
+      "categoria": "empresarial",
+      "bajada_kbps": 500000,
+      "subida_kbps": 250000,
+      "burst_limit": "600M/300M",
+      "precio": "80.00",
+      "precio_incluye_iva": false,
+      "traffic_table_index": 5,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "facturacion.planvelocidad",
+    "pk": "22222222-2222-2222-2222-222222222204",
+    "fields": {
+      "nombre": "Plan Básico 50 Mbps",
+      "categoria": "residencial",
+      "bajada_kbps": 50000,
+      "subida_kbps": 25000,
+      "burst_limit": "60M/30M",
+      "precio": "15.00",
+      "precio_incluye_iva": false,
+      "traffic_table_index": 0,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "facturacion.planvelocidad",
+    "pk": "22222222-2222-2222-2222-222222222205",
+    "fields": {
+      "nombre": "Plan Premium 1 Gbps",
+      "categoria": "empresarial",
+      "bajada_kbps": 1000000,
+      "subida_kbps": 500000,
+      "burst_limit": "1200M/600M",
+      "precio": "150.00",
+      "precio_incluye_iva": false,
+      "traffic_table_index": 10,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  }
+]

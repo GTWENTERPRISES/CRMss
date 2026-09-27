@@ -1,0 +1,108 @@
+/* Las tipografías del tema. Van primero porque CSS exige que todo `@import`
+   preceda a cualquier otra regla.
+
+   Con fallback completo en `tema.css`: si Google Fonts no responde —una
+   instalación detrás de un firewall, un ISP sin salida a internet— las
+   pantallas se ven con la tipografía del sistema, no en blanco. */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@import 'tailwindcss';
+
+/* El tema: tokens de color, tipografías y clases reutilizables.
+   Va DESPUÉS de tailwindcss para que su bloque `@theme` pise la paleta
+   por defecto. Ver el encabezado de ese archivo para el porqué del enfoque. */
+@import './tema.css';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--tema-fondo);
+  color: #0f172a;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar discreta para las tablas largas de ONUs */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+/* ---------------------------------------------------------------------------
+   Tema de las pantallas de campo
+   ---------------------------------------------------------------------------
+   El expediente de venta y la bandeja de cobros se usan en el celular, parado
+   en la vereda, con sol de frente. Por eso estas pantallas tienen su propio
+   interruptor —`lib/temaCampo.js`, guardado por dispositivo— y no siguen sin
+   más al resto del sistema.
+
+   Con el sistema entero en claro, lo que cambia es qué significa cada posición
+   del interruptor. Antes era oscuro contra claro; ahora es el tema normal
+   contra una versión de MÁXIMO CONTRASTE para el sol: blanco puro y texto casi
+   negro, 16:1, que es lo que se lee cuando el brillo del ambiente compite con
+   el de la pantalla.
+
+   El interruptor no cambió: sigue guardando 'claro' u 'oscuro' y sigue
+   viviendo en el dispositivo. Lo único que se tocó son los colores detrás de
+   cada valor.
+
+   Los colores de estado —verde de "listo", ámbar de "pendiente", rojo de
+   "vencido"— NO están acá a propósito: significan lo mismo en las dos
+   variantes y cambiarlos rompería la lectura que ya aprendió quien usa el
+   sistema.
+--------------------------------------------------------------------------- */
+.campo {
+  --campo-fondo: #e4e9f0;
+  --campo-sup: #ffffff;
+  --campo-borde: rgba(15, 23, 42, 0.08);
+  --campo-texto: #0f172a;
+  --campo-suave: #475569;
+  --campo-tenue: #64748b;
+  --campo-acento: #0369a1;
+}
+
+/* La variante de sol: blanco puro y borde marcado. El gris del fondo normal
+   es lo primero que se pierde con reflejo. */
+.campo[data-tema='claro'] {
+  --campo-fondo: #ffffff;
+  --campo-sup: #f1f5f9;
+  --campo-borde: #cbd5e1;
+  --campo-texto: #0f172a;
+  --campo-suave: #334155;
+  --campo-tenue: #475569;
+  --campo-acento: #075985;
+}
+
+.campo-fondo { background-color: var(--campo-fondo); }
+.campo-sup { background-color: var(--campo-sup); }
+.campo-borde { border-color: var(--campo-borde); }
+.campo-txt { color: var(--campo-texto); }
+.campo-suave { color: var(--campo-suave); }
+.campo-tenue { color: var(--campo-tenue); }
+.campo-acento { background-color: var(--campo-acento); color: #ffffff; }
+
+.campo input,
+.campo textarea,
+.campo select {
+  background-color: #ffffff;
+  border-color: var(--campo-borde);
+  color: var(--campo-texto);
+}
+
+/* ---------------------------------------------------------------------------
+   Nota sobre el bloque que se borró
+   ---------------------------------------------------------------------------
+   Acá había veinte reglas que reasignaban la paleta oscura a una clara SOLO
+   dentro de `.campo[data-tema='claro']` (`.bg-slate-800 { background: #e2e8f0 }`
+   y así). Existían porque los componentes de `components/ui` estaban escritos
+   con la paleta oscura fija y quedaban ilegibles sobre blanco.
+
+   Ya no hacen falta: `tema.css` remapea esa misma paleta para el sistema
+   entero, así que `bg-slate-800` ya es un gris claro en todas partes. Dejarlas
+   sería pisar el tema con valores que después habría que mantener en dos
+   lugares.
+--------------------------------------------------------------------------- */

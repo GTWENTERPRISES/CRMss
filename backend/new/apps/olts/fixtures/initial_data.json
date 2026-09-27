@@ -1,0 +1,79 @@
+[
+  {
+    "model": "olts.tipoont",
+    "pk": "00000000-0000-0000-0000-000000000001",
+    "fields": {
+      "marca": "Huawei",
+      "modelo": "HG8245H",
+      "puertos_ethernet": 4,
+      "puertos_fxs": 2,
+      "wifi": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "olts.tipoont",
+    "pk": "00000000-0000-0000-0000-000000000002",
+    "fields": {
+      "marca": "ZTE",
+      "modelo": "F670L",
+      "puertos_ethernet": 4,
+      "puertos_fxs": 0,
+      "wifi": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "olts.tipoont",
+    "pk": "00000000-0000-0000-0000-000000000003",
+    "fields": {
+      "marca": "VSOL",
+      "modelo": "V2802RGW",
+      "puertos_ethernet": 4,
+      "puertos_fxs": 0,
+      "wifi": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "olts.olt",
+    "pk": "11111111-1111-1111-1111-111111111111",
+    "fields": {
+      "nombre": "OLT-NORTE-01",
+      "marca": "Huawei",
+      "ip_host": "192.168.1.100",
+      "puerto_ssh": 22,
+      "usuario": "admin",
+      "password_encrypted": "enc::encrypted_password_here",
+      "enable_password_encrypted": null,
+      "activo": true,
+      "estado_ultimo_sondeo": "online",
+      "ultima_conexion": "2024-08-20T10:00:00Z",
+      "modelo": "MA5608T",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-08-20T10:00:00Z"
+    }
+  },
+  {
+    "model": "olts.olt",
+    "pk": "11111111-1111-1111-1111-111111111112",
+    "fields": {
+      "nombre": "OLT-SUR-01",
+      "marca": "VSOL",
+      "ip_host": "192.168.1.101",
+      "puerto_ssh": 22,
+      "usuario": "admin",
+      "password_encrypted": "enc::encrypted_password_here",
+      "enable_password_encrypted": null,
+      "activo": true,
+      "estado_ultimo_sondeo": "online",
+      "ultima_conexion": "2024-08-20T10:05:00Z",
+      "modelo": "V1600G",
+      "created_at": "2024-02-01T00:00:00Z",
+      "updated_at": "2024-08-20T10:05:00Z"
+    }
+  }
+]

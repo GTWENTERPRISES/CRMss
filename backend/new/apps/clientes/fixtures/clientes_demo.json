@@ -1,0 +1,81 @@
+[
+  {
+    "model": "clientes.cliente",
+    "pk": "33333333-3333-3333-3333-333333333301",
+    "fields": {
+      "cedula": "1204567890",
+      "nombre": "Jefferson Oña",
+      "telefono": "+593991234567",
+      "email": "jefferson.ona@example.com",
+      "direccion": "Av. Amazonas N45-67 y Pereira, Quito",
+      "latitud": "-0.180653",
+      "longitud": "-78.467838",
+      "estado_servicio": "ACTIVO",
+      "codigo_pago": "10245",
+      "created_at": "2024-03-15T00:00:00Z",
+      "updated_at": "2024-08-20T00:00:00Z"
+    }
+  },
+  {
+    "model": "clientes.cliente",
+    "pk": "33333333-3333-3333-3333-333333333302",
+    "fields": {
+      "cedula": "1300000000",
+      "nombre": "Carmen Vélez",
+      "telefono": "+593987654321",
+      "email": "carmen.velez@example.com",
+      "direccion": "Av. 6 de Diciembre y Orellana, Quito",
+      "latitud": "-0.185000",
+      "longitud": "-78.480000",
+      "estado_servicio": "ACTIVO",
+      "codigo_pago": "10300",
+      "created_at": "2024-05-10T00:00:00Z",
+      "updated_at": "2024-08-20T00:00:00Z"
+    }
+  },
+  {
+    "model": "clientes.cliente",
+    "pk": "33333333-3333-3333-3333-333333333303",
+    "fields": {
+      "cedula": "1712345678",
+      "nombre": "María González",
+      "telefono": "+593998765432",
+      "email": "maria.gonzalez@example.com",
+      "direccion": "Calle García Moreno 456, Centro Histórico",
+      "latitud": "-0.220000",
+      "longitud": "-78.515000",
+      "estado_servicio": "SUSPENDIDO_POR_CORTE",
+      "codigo_pago": "10173",
+      "created_at": "2024-01-20T00:00:00Z",
+      "updated_at": "2024-08-18T00:00:00Z"
+    }
+  },
+  {
+    "model": "clientes.contrato",
+    "pk": "44444444-4444-4444-4444-444444444401",
+    "fields": {
+      "cliente": "33333333-3333-3333-3333-333333333301",
+      "numero": "CONT-2024-0001",
+      "fecha_inicio": "2024-03-15",
+      "fecha_vencimiento": "2025-03-15",
+      "estado": "vigente",
+      "archivo_url": "",
+      "created_at": "2024-03-15T00:00:00Z",
+      "updated_at": "2024-03-15T00:00:00Z"
+    }
+  },
+  {
+    "model": "clientes.contrato",
+    "pk": "44444444-4444-4444-4444-444444444402",
+    "fields": {
+      "cliente": "33333333-3333-3333-3333-333333333302",
+      "numero": "CONT-2024-0045",
+      "fecha_inicio": "2024-05-10",
+      "fecha_vencimiento": "2025-05-10",
+      "estado": "vigente",
+      "archivo_url": "",
+      "created_at": "2024-05-10T00:00:00Z",
+      "updated_at": "2024-05-10T00:00:00Z"
+    }
+  }
+]

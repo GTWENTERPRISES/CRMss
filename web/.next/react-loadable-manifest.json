@@ -1,0 +1,33 @@
+{
+  "node_modules\\next\\dist\\client\\dev\\hot-reloader\\app\\use-websocket.js -> @vercel/turbopack-ecmascript-runtime/browser/dev/hmr-client/hmr-client.ts": {
+    "id": "node_modules\\next\\dist\\client\\dev\\hot-reloader\\app\\use-websocket.js -> @vercel/turbopack-ecmascript-runtime/browser/dev/hmr-client/hmr-client.ts",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js"
+    ]
+  },
+  "src\\components\\layout\\PantallaInicial.jsx -> ../../crm-pages/Dashboard": {
+    "id": "src\\components\\layout\\PantallaInicial.jsx -> ../../crm-pages/Dashboard",
+    "files": [
+      "static/chunks/_app-pages-browser_src_crm-pages_Dashboard_jsx.js"
+    ]
+  },
+  "src\\components\\layout\\PantallaInicial.jsx -> ../../crm-pages/recaudacion/InicioPage": {
+    "id": "src\\components\\layout\\PantallaInicial.jsx -> ../../crm-pages/recaudacion/InicioPage",
+    "files": [
+      "static/chunks/_app-pages-browser_src_crm-pages_recaudacion_InicioPage_jsx.js"
+    ]
+  },
+  "src\\components\\layout\\PantallaInicial.jsx -> ../../crm-pages/tecnico/InicioPage": {
+    "id": "src\\components\\layout\\PantallaInicial.jsx -> ../../crm-pages/tecnico/InicioPage",
+    "files": [
+      "static/css/_app-pages-browser_src_crm-pages_tecnico_InicioPage_jsx.css",
+      "static/chunks/_app-pages-browser_src_crm-pages_tecnico_InicioPage_jsx.js"
+    ]
+  },
+  "src\\components\\tecnico\\MapaCampo.jsx -> leaflet": {
+    "id": "src\\components\\tecnico\\MapaCampo.jsx -> leaflet",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_leaflet_dist_leaflet-src_js.js"
+    ]
+  }
+}

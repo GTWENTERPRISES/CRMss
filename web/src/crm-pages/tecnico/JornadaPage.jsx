@@ -1,0 +1,693 @@
+import { useCallback, useEffect, useState } from 'react'
+import { Camera, Check, Fuel, Gauge, PlayCircle, Route, StopCircle, TriangleAlert, Wrench } from 'lucide-react'
+import { supabase } from '../../lib/supabaseClient'
+import { usePermisos } from '../../lib/AuthContext'
+import { hoyISO } from '../../lib/campo'
+import { subirFotoIngreso, ubicacionDelIngreso } from '../../lib/jornadaFoto'
+import { RADIO_LLEGADA_M } from '../../lib/soporte'
+import { cuantoFalta, urgencia } from '../../lib/mantenimiento'
+import { Button, Field, Input, Select } from '../../components/ui'
+
+/**
+ * Mi jornada: con qué salí y cuánto marcaba el tablero.
+ *
+ * ── Por qué se pide a mano y no se calcula ──
+ *
+ * Se evaluó sumar las distancias entre las coordenadas de llegada de cada
+ * trabajo. No sirve: son líneas rectas —el camino real entre dos casas no lo
+ * es— e ignora todo lo que no es una parada registrada: ir a bodega, volver al
+ * taller, la vuelta a casa. Puede ser la mitad del día.
+ *
+ * Un número que parece kilómetros y no lo es se usa para decidir, y decide mal.
+ * Dos lecturas del tablero son diez segundos y son ciertas.
+ *
+ * ── Qué hace posible ──
+ *
+ * Responder "cada cuántos kilómetros hay que cargar", que se preguntó
+ * expresamente. Ese cálculo necesita el odómetro sí o sí: el combustible es del
+ * vehículo, no de la ruta.
+ */
+export default function JornadaPage() {
+  const { perfil } = usePermisos()
+  const [vehiculos, setVehiculos] = useState([])
+  const [jornada, setJornada] = useState(null)
+  const [estado, setEstado] = useState(null)
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState(null)
+  const [guardando, setGuardando] = useState(false)
+
+  const [form, setForm] = useState({ vehiculo_id: '', km_inicio: '', km_fin: '' })
+  const [carga, setCarga] = useState(null)
+
+  /**
+   * Lo que le falta al vehículo de hoy.
+   *
+   * Se pide acá y no en el tablero de inicio porque el aviso solo tiene sentido
+   * al lado del odómetro: el técnico está mirando el tablero del vehículo, que
+   * es el único momento del día en que "faltan 300 km para el aceite" significa
+   * algo concreto.
+   */
+  const [pendiente, setPendiente] = useState([])
+
+  /**
+   * La foto de ingreso.
+   *
+   * `foto` es lo que se sacó y todavía no subió; `subiendo` corta el doble
+   * toque; `avisoFoto` es lo que se le dice al técnico cuando la subida
+   * falla — que NO es un error de la jornada, porque la jornada ya se abrió.
+   */
+  const [foto, setFoto] = useState(null)
+  const [subiendo, setSubiendo] = useState(false)
+  const [avisoFoto, setAvisoFoto] = useState(null)
+
+  const recargar = useCallback(async () => {
+    if (!perfil?.tecnico_id) {
+      setCargando(false)
+      return
+    }
+    const [v, j] = await Promise.all([
+      supabase.from('vehiculos').select('*').eq('activo', true).order('nombre'),
+      supabase
+        .from('v_jornadas')
+        .select('*')
+        .eq('tecnico_id', perfil.tecnico_id)
+        .eq('fecha', hoyISO())
+        .maybeSingle(),
+    ])
+    setVehiculos(v.data ?? [])
+    setJornada(j.data ?? null)
+    if (j.data) {
+      setForm({
+        vehiculo_id: j.data.vehiculo_id ?? '',
+        km_inicio: j.data.km_inicio ?? '',
+        km_fin: j.data.km_fin ?? '',
+      })
+      // Lo que el vehículo tiene por hacer, vencido o por vencer.
+      if (j.data.vehiculo_id) {
+        const { data: mant } = await supabase
+          .from('v_mantenimiento')
+          .select('*')
+          .eq('vehiculo_id', j.data.vehiculo_id)
+        setPendiente(
+          (mant ?? []).filter((m) => ['vencido', 'pronto'].includes(urgencia(m))),
+        )
+      }
+
+      // Cuánto falta para la próxima carga de ESE vehículo.
+      if (j.data.vehiculo_id) {
+        const { data: est } = await supabase
+          .from('v_vehiculos')
+          .select('*')
+          .eq('id', j.data.vehiculo_id)
+          .maybeSingle()
+        setEstado(est ?? null)
+      }
+    } else if (v.data?.length === 1) {
+      // Con un solo vehículo no se pregunta: se elige solo.
+      setForm((f) => ({ ...f, vehiculo_id: v.data[0].id }))
+    }
+    setCargando(false)
+  }, [perfil?.tecnico_id])
+
+  useEffect(() => {
+    recargar()
+  }, [recargar])
+
+  async function abrir() {
+    if (!form.vehiculo_id || form.km_inicio === '') return
+    setGuardando(true)
+    setError(null)
+    try {
+      /**
+       * La ubicación se pide ANTES de escribir, y su demora se nota.
+       *
+       * El GPS puede tardar varios segundos; pedirlo después dejaría la jornada
+       * ya abierta y la coordenada llegando tarde, o no llegando. Pedirlo antes
+       * la deja guardada en la misma escritura.
+       *
+       * Si falla, devuelve todo en NULL y la jornada se abre igual: el técnico
+       * sin señal o con el permiso de ubicación negado tiene que poder empezar.
+       */
+      const donde = await ubicacionDelIngreso(perfil.tecnico_id, hoyISO())
+
+      // `upsert` sobre (tecnico_id, fecha), que es único: si el técnico toca dos
+      // veces —o si un reintento llega tarde— actualiza en vez de duplicar.
+      const { error: err } = await supabase.from('jornadas').upsert(
+        {
+          tecnico_id: perfil.tecnico_id,
+          fecha: hoyISO(),
+          vehiculo_id: form.vehiculo_id,
+          km_inicio: Number(form.km_inicio),
+          inicio_at: new Date().toISOString(),
+          lat_ingreso: donde.lat,
+          lng_ingreso: donde.lng,
+          precision_ingreso_m: donde.precision,
+          primer_trabajo_id: donde.primerTrabajoId,
+          distancia_ingreso_m: donde.distancia,
+        },
+        { onConflict: 'tecnico_id,fecha' },
+      )
+      if (err) throw err
+
+      /**
+       * La foto va DESPUÉS de que la jornada existe, y su fallo no la voltea.
+       *
+       * Necesita el id de la fila para saber en qué carpeta guardarse, así que
+       * no puede ir antes. Y si no sube —sin señal, que es la mitad de los
+       * días— la jornada igual quedó abierta: el técnico tiene que poder
+       * empezar a trabajar, y la foto se reintenta desde acá mismo cuando
+       * agarre cobertura.
+       */
+      const { data: nueva } = await supabase
+        .from('jornadas')
+        .select('id')
+        .eq('tecnico_id', perfil.tecnico_id)
+        .eq('fecha', hoyISO())
+        .maybeSingle()
+
+      if (foto && nueva?.id) {
+        const r = await subirFotoIngreso(nueva.id, foto)
+        if (r.ok) setFoto(null)
+        else setAvisoFoto('La jornada quedó abierta, pero la foto no subió. Probá de nuevo cuando tengas señal.')
+      }
+
+      await recargar()
+    } catch (err) {
+      setError(err)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  /** Reintentar la foto, o sacarla de nuevo si salió movida. */
+  async function guardarFoto() {
+    if (!foto || !jornada?.id) return
+    setSubiendo(true)
+    setAvisoFoto(null)
+    const r = await subirFotoIngreso(jornada.id, foto)
+    setSubiendo(false)
+    if (r.ok) {
+      setFoto(null)
+      await recargar()
+    } else {
+      setAvisoFoto('No se pudo subir. Si no tenés señal, vas a poder más tarde.')
+    }
+  }
+
+  async function cerrar() {
+    if (form.km_fin === '') return
+    if (Number(form.km_fin) < Number(jornada.km_inicio)) {
+      return setError(
+        new Error(
+          `El tablero no puede marcar menos que al salir (${jornada.km_inicio} km). Revisá el número.`,
+        ),
+      )
+    }
+    setGuardando(true)
+    setError(null)
+    try {
+      const { error: err } = await supabase
+        .from('jornadas')
+        .update({ km_fin: Number(form.km_fin), fin_at: new Date().toISOString() })
+        .eq('id', jornada.id)
+      if (err) throw err
+      await recargar()
+    } catch (err) {
+      setError(err)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  if (cargando) return <div className="h-40 animate-pulse rounded-2xl bg-[#F6F8FB]" />
+
+  if (!perfil?.tecnico_id) {
+    return (
+      <p className="py-16 text-center text-[14px] text-slate-400">
+        Tu usuario no está vinculado a un técnico, así que no se puede registrar jornada.
+      </p>
+    )
+  }
+
+  if (!vehiculos.length) {
+    return (
+      <div className="py-16 text-center">
+        <Route size={28} className="mx-auto mb-2 text-slate-700" />
+        <p className="text-slate-400">No hay vehículos cargados.</p>
+        <p className="mt-1 text-[12px] text-slate-600">
+          La oficina tiene que darlos de alta antes de poder registrar kilómetros.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-lg space-y-3">
+      {error && (
+        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-[13px] text-rose-300">
+          {error.message}
+        </div>
+      )}
+
+      {/* Cuánto falta para cargar. Es la respuesta a la pregunta que originó
+          todo esto, y sale del promedio real de ESTE vehículo — una camioneta y
+          una moto no cargan cada los mismos kilómetros. */}
+      {estado?.km_para_cargar != null && (
+        <div
+          className={`flex items-start gap-2.5 rounded-2xl border p-4 ${
+            estado.km_para_cargar <= 50
+              ? 'border-amber-500/40 bg-amber-500/10'
+              : 'border-slate-800 bg-[#F6F8FB]'
+          }`}
+        >
+          <Fuel
+            size={18}
+            className={`mt-0.5 shrink-0 ${
+              estado.km_para_cargar <= 50 ? 'text-amber-400' : 'text-slate-500'
+            }`}
+          />
+          <div>
+            <p className="text-[14px] font-semibold text-slate-100">
+              {estado.km_para_cargar <= 50
+                ? `Cargá pronto: quedan unos ${estado.km_para_cargar} km`
+                : `Quedan unos ${estado.km_para_cargar} km para cargar`}
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              Este vehículo hace {estado.km_promedio_tanque} km por tanque en promedio. Llevás{' '}
+              {estado.km_desde_la_carga} km desde la última carga.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <AvisoMantenimiento items={pendiente} />
+
+      <section className="t-card p-4">
+        <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <Gauge size={12} /> Jornada de hoy
+        </p>
+
+        {!jornada?.inicio_at ? (
+          <div className="space-y-3">
+            <Field label="Vehículo">
+              <Select
+                value={form.vehiculo_id}
+                onChange={(e) => setForm({ ...form, vehiculo_id: e.target.value })}
+              >
+                <option value="">— elegí con cuál salís —</option>
+                {vehiculos.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.nombre}
+                    {v.placa ? ` · ${v.placa}` : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Kilometraje al salir" hint="El número del tablero, tal cual.">
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={form.km_inicio}
+                onChange={(e) => setForm({ ...form, km_inicio: e.target.value })}
+                placeholder="Ej: 84520"
+              />
+            </Field>
+            <FotoIngreso foto={foto} onFoto={setFoto} />
+
+            <Button
+              variante="primario"
+              icon={PlayCircle}
+              className="w-full py-3"
+              onClick={abrir}
+              cargando={guardando}
+              disabled={!form.vehiculo_id || form.km_inicio === '' || guardando}
+            >
+              Iniciar jornada
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <Dato label="Salida" valor={`${jornada.km_inicio} km`} />
+              <Dato
+                label="Recorrido"
+                valor={jornada.km_recorridos != null ? `${jornada.km_recorridos} km` : '—'}
+              />
+            </div>
+            <p className="text-center text-[11px] text-slate-500">
+              {jornada.vehiculo}
+              {jornada.placa ? ` · ${jornada.placa}` : ''} · desde las{' '}
+              {new Date(jornada.inicio_at).toLocaleTimeString('es-EC', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </p>
+
+            <DistanciaIngreso j={jornada} />
+
+            {/* La foto, ya con la jornada abierta: dice si está o no, y deja
+                reintentar. Aparece también con la jornada cerrada — quien
+                trabajó todo el día sin señal la sube al volver. */}
+            {jornada.foto_ingreso ? (
+              <p className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-emerald-400">
+                <Check size={13} /> Foto de ingreso subida
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <FotoIngreso foto={foto} onFoto={setFoto} />
+                {foto && (
+                  <Button
+                    icon={Camera}
+                    className="w-full"
+                    onClick={guardarFoto}
+                    cargando={subiendo}
+                  >
+                    Subir la foto
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {avisoFoto && (
+              <p className="text-center text-[11px] leading-snug text-amber-400">{avisoFoto}</p>
+            )}
+
+            {jornada.km_fin == null ? (
+              <>
+                <Field label="Kilometraje al volver">
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    value={form.km_fin}
+                    onChange={(e) => setForm({ ...form, km_fin: e.target.value })}
+                    placeholder={`Más de ${jornada.km_inicio}`}
+                  />
+                </Field>
+                <Button
+                  icon={StopCircle}
+                  className="w-full py-3"
+                  onClick={cerrar}
+                  cargando={guardando}
+                  disabled={form.km_fin === '' || guardando}
+                >
+                  Cerrar jornada
+                </Button>
+              </>
+            ) : (
+              <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-center text-[13px] text-emerald-300">
+                Jornada cerrada · {jornada.km_recorridos} km
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={() =>
+                setCarga({ odometro: form.km_fin || jornada.km_inicio, litros: '', monto: '' })
+              }
+              className="w-full rounded-xl border border-slate-700 py-2.5 text-[13px] text-slate-300 active:bg-slate-800"
+            >
+              <Fuel size={14} className="mr-1.5 inline" />
+              Registrar carga de combustible
+            </button>
+          </div>
+        )}
+      </section>
+
+      {carga && (
+        <CargaCombustible
+          jornada={jornada}
+          tecnicoId={perfil.tecnico_id}
+          inicial={carga}
+          onCerrar={() => setCarga(null)}
+          onError={setError}
+          onGuardado={async () => {
+            setCarga(null)
+            await recargar()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+const Dato = ({ label, valor }) => (
+  <div className="t-panel py-3">
+    <p className="text-lg font-semibold tabular-nums text-slate-100">{valor}</p>
+    <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
+  </div>
+)
+
+/**
+ * La carga de combustible.
+ *
+ * ── Por qué el odómetro es obligatorio y los litros no ──
+ *
+ * Sin odómetro, la carga solo dice cuánta plata se gastó. Con odómetro se puede
+ * decir "hicimos 340 km con el tanque anterior", que es de donde sale el aviso
+ * de cuándo volver a cargar.
+ *
+ * Los litros y el monto son opcionales porque a veces se carga "lo que entre" y
+ * el ticket se pierde. Exigirlos haría que la carga no se registre, y perder el
+ * odómetro por no tener el monto es perder lo que importa por lo que no.
+ *
+ * ── Esta pantalla necesita señal ──
+ *
+ * No pasa por la cola. Una carga se hace en una estación de servicio, que está
+ * sobre una ruta; y a diferencia de una instalación, si no se registra en el
+ * momento se puede cargar después sin perder nada: el odómetro sigue escrito en
+ * el ticket.
+ */
+function CargaCombustible({ jornada, tecnicoId, inicial, onCerrar, onError, onGuardado }) {
+  const [f, setF] = useState(inicial)
+  const [guardando, setGuardando] = useState(false)
+
+  async function guardar() {
+    if (!f.odometro) return
+    setGuardando(true)
+    try {
+      // Se busca antes de insertar: dos cargas del mismo vehículo con el mismo
+      // odómetro son la misma carga cargada dos veces, y duplicarla arruinaría
+      // el promedio de rendimiento.
+      const { data: repetida } = await supabase
+        .from('cargas_combustible')
+        .select('id')
+        .eq('vehiculo_id', jornada.vehiculo_id)
+        .eq('odometro', Number(f.odometro))
+        .maybeSingle()
+
+      if (repetida) {
+        onError?.(new Error('Ya hay una carga registrada con ese kilometraje.'))
+        return
+      }
+
+      const { error } = await supabase.from('cargas_combustible').insert({
+        vehiculo_id: jornada.vehiculo_id,
+        tecnico_id: tecnicoId,
+        odometro: Number(f.odometro),
+        litros: f.litros === '' ? null : Number(f.litros),
+        monto: f.monto === '' ? null : Number(f.monto),
+      })
+      if (error) throw error
+      await onGuardado?.()
+    } catch (err) {
+      onError?.(err)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <section className="t-card p-4">
+      <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <Fuel size={12} /> Carga de combustible
+      </p>
+      <div className="space-y-3">
+        <Field
+          label="Kilometraje al cargar"
+          hint="Es lo que permite saber cuánto rindió el tanque anterior."
+        >
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={f.odometro}
+            onChange={(e) => setF({ ...f, odometro: e.target.value })}
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Litros" hint="Opcional">
+            <Input
+              type="number"
+              step="0.01"
+              inputMode="decimal"
+              value={f.litros}
+              onChange={(e) => setF({ ...f, litros: e.target.value })}
+            />
+          </Field>
+          <Field label="Monto" hint="Opcional">
+            <Input
+              type="number"
+              step="0.01"
+              inputMode="decimal"
+              value={f.monto}
+              onChange={(e) => setF({ ...f, monto: e.target.value })}
+            />
+          </Field>
+        </div>
+        {!navigator.onLine && (
+          <p className="flex items-start gap-1.5 text-[11px] text-amber-400">
+            <TriangleAlert size={12} className="mt-0.5 shrink-0" />
+            Sin señal esto no se guarda. Anotá el kilometraje del ticket y cargalo después.
+          </p>
+        )}
+        <div className="flex gap-2">
+          <Button className="flex-1" onClick={onCerrar}>
+            Cancelar
+          </Button>
+          <Button
+            variante="primario"
+            className="flex-1"
+            onClick={guardar}
+            cargando={guardando}
+            disabled={!f.odometro || guardando}
+          >
+            Guardar
+          </Button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Sacar la foto de ingreso.
+ *
+ * `capture="user"` abre la cámara FRONTAL: la foto es de quien está marcando,
+ * y con la trasera la sacaría apuntando a otro lado. Es lo contrario de las
+ * fotos del expediente, que son de un documento y usan la de atrás.
+ *
+ * La vista previa se arma con `URL.createObjectURL` y se libera al cambiar: sin
+ * eso, un técnico que saca cinco fotos hasta que sale bien deja cinco imágenes
+ * retenidas en memoria.
+ */
+function FotoIngreso({ foto, onFoto }) {
+  const [previa, setPrevia] = useState(null)
+
+  useEffect(() => {
+    if (!foto) return setPrevia(null)
+    const url = URL.createObjectURL(foto)
+    setPrevia(url)
+    return () => URL.revokeObjectURL(url)
+  }, [foto])
+
+  return (
+    <div>
+      <span className="mb-1 block text-xs font-semibold text-slate-400">Foto de ingreso</span>
+
+      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-700 p-3 transition active:bg-slate-800">
+        {previa ? (
+          <img src={previa} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-slate-800">
+            <Camera size={20} className="text-slate-500" />
+          </span>
+        )}
+        <span className="min-w-0 text-[13px] leading-snug text-slate-300">
+          {previa ? 'Tocá para sacarla de nuevo' : 'Tocá para sacar la foto'}
+          <span className="mt-0.5 block text-[11px] text-slate-500">
+            Queda con la hora de inicio. Si no tenés señal ahora, la subís después.
+          </span>
+        </span>
+        <input
+          type="file"
+          accept="image/*"
+          capture="user"
+          className="hidden"
+          onChange={(e) => onFoto(e.target.files?.[0] ?? null)}
+        />
+      </label>
+    </div>
+  )
+}
+
+/**
+ * A qué distancia del primer trabajo quedó el ingreso.
+ *
+ * ── Por qué se le muestra al técnico y no solo al jefe ──
+ *
+ * Porque si el número solo lo ve la oficina, el técnico se entera de que algo
+ * estaba mal cuando ya no puede explicarlo. Viéndolo en el momento, el que
+ * marcó desde la esquina equivocada lo sabe ahí y puede decirlo.
+ *
+ * ── Por qué la precisión se muestra al lado ──
+ *
+ * Una distancia de 300 m con un GPS que informa 400 m de error no significa
+ * nada, y sin ese dato parecería que sí. Cuando el error es mayor que la
+ * distancia, el cartel lo dice en vez de acusar.
+ */
+function DistanciaIngreso({ j }) {
+  if (j?.distancia_ingreso_m == null) {
+    // Sin dato no se dibuja nada. Un "no se pudo medir" permanente arriba de la
+    // pantalla es ruido: el técnico no puede hacer nada al respecto.
+    return null
+  }
+
+  const d = j.distancia_ingreso_m
+  const err = j.precision_ingreso_m
+  const dudoso = err != null && err >= d
+  const lejos = d > RADIO_LLEGADA_M && !dudoso
+
+  return (
+    <p
+      className={`text-center text-[11px] leading-snug ${
+        lejos ? 'text-amber-400' : 'text-slate-500'
+      }`}
+    >
+      {dudoso
+        ? `Marcaste a ${d} m del primer trabajo, pero el GPS informó ${err} m de error: el dato no alcanza para concluir nada.`
+        : lejos
+          ? `Marcaste a ${d} m del primer trabajo del día.`
+          : `Marcaste a ${d} m del primer trabajo. Dentro del rango.`}
+    </p>
+  )
+}
+
+/**
+ * Lo que el vehículo necesita, dicho al técnico.
+ *
+ * ── Por qué acá y no en un listado aparte ──
+ *
+ * Porque una pantalla de "mantenimientos pendientes" es una que el técnico no
+ * abre nunca: no es su trabajo, es el del que administra. Lo que sí hace todos
+ * los días es escribir el kilometraje del tablero — y ahí, con el número del
+ * odómetro delante, "faltan 300 km para el aceite" es accionable.
+ *
+ * ── Por qué no bloquea ──
+ *
+ * Porque el técnico no decide cuándo se lleva la camioneta al taller. Avisarle
+ * sirve para que lo diga; impedirle trabajar por algo que no depende de él solo
+ * lo dejaría parado.
+ */
+function AvisoMantenimiento({ items }) {
+  if (!items?.length) return null
+
+  return (
+    <div className="campo-borde flex items-start gap-2.5 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
+      <Wrench size={18} className="mt-0.5 shrink-0 text-amber-400" />
+      <div className="min-w-0">
+        <p className="text-[14px] font-semibold text-slate-100">
+          {items.length === 1 ? 'El vehículo necesita un servicio' : `El vehículo necesita ${items.length} servicios`}
+        </p>
+        <ul className="mt-1 space-y-0.5">
+          {items.map((m) => (
+            <li key={m.tipo_id} className="text-[11px] text-slate-500">
+              <b className="text-slate-400">{m.tipo}</b> · {cuantoFalta(m)}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-1.5 text-[11px] leading-snug text-slate-500">
+          Avisale a la oficina para que lo agenden.
+        </p>
+      </div>
+    </div>
+  )
+}

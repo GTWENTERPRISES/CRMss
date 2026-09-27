@@ -1,0 +1,371 @@
+import { db } from '../lib/db.js'
+import { cuandoSePuede, esperaLaFranja } from '../lib/horarioAvisos.js'
+import { canalesPara } from './avisosPago.js'
+import { enviar, seEntrego } from './mensajeria.js'
+import { correoDePago } from './correoPago.js'
+
+/**
+ * Los avisos que dispara la base.
+ *
+ * Hoy hay uno: la confirmación de pago. Va acá y no en la pantalla de cobro
+ * porque se cobra desde varios lugares —la ficha, la caja, el buscador— y cada
+ * uno que se olvide de avisar deja a un abonado sin acuse de recibo. Ese olvido
+ * no da error: simplemente no llega nada, y el abonado llama preguntando si el
+ * pago entró. O peor, vuelve a pagar.
+ *
+ * Con la cola da igual desde dónde se cobre.
+ */
+
+/** Qué plantilla usa cada tipo de aviso, según el canal. */
+const PLANTILLAS = {
+  pago_confirmado: { email: 'mail_pago_confirmado', corta: 'sms_pago_confirmado' },
+  corte_servicio: { email: 'mail_corte_servicio', corta: 'sms_corte_servicio' },
+  bienvenida: { email: 'mail_bienvenida', corta: 'sms_bienvenida' },
+  ticket_abierto: { email: 'mail_ticket_abierto', corta: 'sms_ticket_abierto' },
+  ticket_asignado: { email: 'mail_ticket_asignado', corta: 'sms_ticket_asignado' },
+  ticket_respuesta: { email: 'mail_ticket_respuesta', corta: 'sms_ticket_respuesta' },
+}
+
+/** El dinero como lo lee una persona, no como lo guarda la base. */
+const dinero = (n) => `$${Number(n ?? 0).toFixed(2)}`
+
+/**
+ * Manda un aviso a un abonado, por el primer canal que se pueda.
+ *
+ * Devuelve qué pasó en vez de lanzar: quien llama está en medio de otra cosa
+ * —cortando abonados, drenando una cola— y un mensaje que no sale no puede
+ * interrumpir ese trabajo.
+ */
+/** Espera sin bloquear el proceso. */
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Cuánto esperar entre dos mensajes de WhatsApp.
+ *
+ * ── Por qué solo WhatsApp ──
+ *
+ * El correo no tiene este problema: un servidor SMTP acepta una tanda seguida
+ * sin objetar. WhatsApp sí, y de dos formas distintas:
+ *
+ *   · Por la Cloud API de Meta hay un tope de conversaciones por día que sube
+ *     con la calificación de calidad del número.
+ *   · Por un CRM no oficial —Evolution y parecidos— el riesgo es peor: WhatsApp
+ *     puede BLOQUEAR el número por comportamiento automatizado, y ahí no se
+ *     pierde una tanda, se pierde la línea.
+ *
+ * Por eso vive en la configuración de WhatsApp y no en la de la cola: es una
+ * característica de ese canal, no del sistema de avisos.
+ *
+ * 0 lo desactiva, que es lo razonable para un ISP chico entregando por correo.
+ */
+async function pausaDeWhatsapp() {
+  const { data } = await db()
+    .from('config_mensajeria')
+    .select('whatsapp_pausa_segundos')
+    .maybeSingle()
+
+  const s = Number(data?.whatsapp_pausa_segundos ?? 0)
+  return Number.isFinite(s) && s > 0 ? Math.min(s, 300) * 1000 : 0
+}
+
+/**
+ * La franja configurada, con los valores de fábrica si falta la columna.
+ *
+ * Que no esté la migración no puede impedir que salgan los avisos: se cae al
+ * horario razonable y el sistema sigue andando.
+ */
+async function franjaConfigurada() {
+  const { data } = await db()
+    .from('config_mensajeria')
+    .select('avisos_desde, avisos_hasta')
+    .maybeSingle()
+
+  return { desde: data?.avisos_desde ?? '08:00', hasta: data?.avisos_hasta ?? '20:00' }
+}
+
+/**
+ * Deja el aviso en la cola con la hora a la que le toca salir.
+ *
+ * `upsert` sobre la clave que ya evita repetidos: si el mismo aviso se generó
+ * dos veces —un reintento, una corrida repetida— no quedan dos mensajes
+ * esperando para la misma persona sobre la misma cosa.
+ */
+async function encolarParaLuego({ clienteId, tipo, referencia_id, cuando }) {
+  await db()
+    .from('avisos_pendientes')
+    .upsert(
+      {
+        cliente_id: clienteId,
+        tipo,
+        referencia_id: referencia_id ?? null,
+        enviar_desde: cuando.toISOString(),
+      },
+      { onConflict: 'cliente_id,tipo,referencia_id', ignoreDuplicates: true },
+    )
+}
+
+export async function avisarAlAbonado({
+  cliente,
+  tipo,
+  variables = {},
+  factura_id = null,
+  desdeLaCola = false,
+}) {
+  try {
+    const claves = PLANTILLAS[tipo]
+    if (!claves) return { enviado: false, motivo: `tipo de aviso desconocido: ${tipo}` }
+
+    /**
+     * El identificador, se llame como se llame.
+     *
+     * Las vistas de cola devuelven `cliente_id` —porque también traen un
+     * `aviso_id` y dos columnas no pueden llamarse igual— y una ficha devuelve
+     * `id`. Quien llama no debería tener que acordarse de cuál le tocó.
+     *
+     * Esto costó un error real: la cola pasaba su fila tal cual y `enviar`
+     * recibía `undefined`, así que contestaba "No existe ese cliente" sobre un
+     * abonado que estaba perfectamente en la base.
+     */
+    const clienteId = cliente?.id ?? cliente?.cliente_id
+    if (!clienteId) return { enviado: false, motivo: 'el aviso no dice de qué abonado es' }
+
+    /**
+     * La hora.
+     *
+     * La facturación corre a la 01:30 y el corte a las 05:00, y hasta ahora el
+     * aviso salía en ese mismo momento. Una abonada pidió el retiro del
+     * servicio por un mensaje de madrugada — no por la deuda, por el susto.
+     *
+     * `desdeLaCola` evita el bucle: el drenaje ya comprobó que a este aviso le
+     * toca salir, y volver a posponerlo acá lo dejaría encolado para siempre.
+     */
+    if (!desdeLaCola && esperaLaFranja(tipo)) {
+      const franja = await franjaConfigurada()
+      const cuando = cuandoSePuede(new Date(), franja)
+      if (cuando) {
+        await encolarParaLuego({ clienteId, tipo, referencia_id: factura_id, cuando })
+        return {
+          enviado: false,
+          pospuesto: true,
+          cuando: cuando.toISOString(),
+          motivo: `fuera del horario de avisos (${franja.desde}–${franja.hasta}): sale a las ${franja.desde}`,
+        }
+      }
+    }
+
+    // El que pidió que no lo molesten no recibe ni esto. Es su decisión, y vale
+    // también para el aviso de que se le cortó.
+    if (cliente.avisos_activos === false) {
+      return { enviado: false, motivo: 'el abonado pidió no recibir avisos' }
+    }
+
+    const { data: plantillas } = await db()
+      .from('plantillas_mensaje')
+      .select('clave, id, asunto, cuerpo')
+      .in('clave', [claves.email, claves.corta])
+      .eq('activa', true)
+
+    const porClave = new Map((plantillas ?? []).map((p) => [p.clave, p]))
+    if (!porClave.size) {
+      return { enviado: false, motivo: 'no hay plantilla activa para este aviso' }
+    }
+
+    let ultimoError = null
+    /**
+     * El canal que quedó preparado para mandar a mano, si hubo alguno.
+     *
+     * No corta el recorrido: WhatsApp en modo manual no entregó nada, así que hay
+     * que seguir probando el correo. Pero se recuerda, porque si NINGÚN canal
+     * entregó, dejar el aviso en la cola lo haría reintentar y cada reintento
+     * prepararía otro WhatsApp a mano para el mismo pago.
+     */
+    let preparado = null
+
+    for (const canal of canalesPara(cliente)) {
+      // La larga para el correo, la corta para el teléfono: mismo criterio que
+      // los avisos de pago.
+      const plantilla = porClave.get(canal === 'email' ? claves.email : claves.corta)
+      if (!plantilla) continue
+
+      /**
+       * Por correo va la tarjeta; por el teléfono, el texto.
+       *
+       * El acuse de pago salía con el cuerpo crudo de la plantilla, así que el
+       * abonado leía las etiquetas: "<p>Estimado/a Juan:</p>". Lo que el ISP
+       * escribe —el tono del mensaje— sigue viniendo de la plantilla; lo que no
+       * debería tener que escribir es una tabla que se vea bien en Outlook.
+       *
+       * Si el armado falla se manda la plantilla tal cual: un acuse simple es
+       * mucho mejor que ninguno.
+       */
+      let conFormato = null
+      if (canal === 'email' && tipo === 'pago_confirmado') {
+        try {
+          conFormato = await correoDePago({ pago: cliente, cliente, plantilla })
+        } catch {
+          // Se cae al texto de la plantilla.
+        }
+      }
+
+      try {
+        const r = await enviar({
+          client_id: clienteId,
+          canal,
+          asunto: conFormato?.asunto ?? plantilla.asunto,
+          cuerpo: conFormato?.texto ?? plantilla.cuerpo,
+          html: conFormato?.html ?? null,
+          adjuntos: conFormato?.adjuntos ?? [],
+          plantilla_id: plantilla.id,
+          factura_id: factura_id ?? cliente.factura_id ?? null,
+          automatico: true,
+          variables,
+        })
+
+        if (!seEntrego(r)) {
+          preparado = preparado ?? canal
+          continue
+        }
+
+        return { enviado: true, canal }
+      } catch (e) {
+        ultimoError = e.message
+      }
+    }
+
+    /**
+     * Nada llegó, pero algo quedó listo para mandar a mano.
+     *
+     * Se devuelve `enviado` para que la cola se cierre —el mensaje ya está escrito
+     * y esperando en Comunicaciones— y `pendiente` para que quien informe pueda
+     * decir la verdad: "whatsapp (pendiente)", no "enviado por whatsapp".
+     */
+    if (preparado) return { enviado: true, canal: preparado, pendiente: true }
+
+    return { enviado: false, motivo: ultimoError ?? 'sin canal utilizable' }
+  } catch (e) {
+    return { enviado: false, motivo: e.message }
+  }
+}
+
+/**
+ * Atiende la cola.
+ *
+ * Corre junto con la de reconexiones y por la misma razón: el abonado que acaba
+ * de pagar espera el acuse mientras todavía está en la ventanilla.
+ */
+export async function drenarAvisos() {
+  const { data, error } = await db().from('v_avisos_a_enviar').select('*').limit(100)
+
+  if (error) {
+    // Sin la migración corrida, esto no existe todavía. No es un fallo del
+    // sistema: es que la función no está instalada.
+    if (/does not exist/i.test(error.message)) return { enviados: 0, fallidos: [] }
+    throw new Error(`No se pudo leer la cola de avisos: ${error.message}`)
+  }
+
+  if (!data?.length) return { enviados: 0, fallidos: [] }
+
+  const enviados = []
+  const fallidos = []
+
+  // Una sola vez por tanda: es el mismo valor para los cien avisos, y pedirlo
+  // en cada vuelta serían cien consultas para leer un número.
+  const pausaMs = await pausaDeWhatsapp()
+
+  for (const a of data) {
+    const r = await avisarAlAbonado({
+      cliente: a,
+      tipo: a.tipo,
+      // Ya le tocaba: la vista solo devuelve lo que pasó su hora. Sin esto, el
+      // aviso se volvería a posponer en cada pasada y no saldría nunca.
+      desdeLaCola: true,
+      /**
+       * Todo lo que las plantillas de estos avisos pueden usar.
+       *
+       * Se mandan todas juntas y no las de cada tipo: una plantilla la edita el
+       * ISP, y bien puede querer meter el plan en el mensaje de bienvenida o el
+       * técnico en la respuesta de un ticket. Filtrarlas por tipo obligaría a
+       * volver acá cada vez que alguien agrega un marcador.
+       */
+      variables: {
+        monto: dinero(a.monto),
+        saldo: dinero(a.saldo),
+        fecha: a.fecha_pago
+          ? new Date(`${a.fecha_pago}T12:00:00`).toLocaleDateString('es-EC')
+          : '',
+        forma_pago: a.forma_pago ?? '',
+        /**
+         * La factura que se pagó y el número de cuenta del abonado.
+         *
+         * Los ofrece el editor de plantillas, así que tienen que llegar: un
+         * marcador que la pantalla propone y el sistema no reemplaza sale tal cual
+         * en el mensaje —"su factura N° {{factura}}"— y eso solo se descubre
+         * leyendo un correo ya enviado.
+         */
+        factura: a.factura_numero != null ? String(a.factura_numero) : '',
+        codigo: a.codigo != null ? String(a.codigo) : '',
+        plan: a.plan ?? '',
+        dia_pago: a.dia_pago != null ? String(a.dia_pago) : '',
+        ticket: a.ticket != null ? String(a.ticket) : '',
+        motivo: a.motivo ?? '',
+        tecnico: a.tecnico ?? 'nuestro técnico',
+        // "a coordinar" y no una fecha vacía: el abonado tiene que entender que
+        // todavía no hay día, no leer un renglón cortado.
+        fecha_visita: a.fecha_visita
+          ? new Date(`${a.fecha_visita}T12:00:00`).toLocaleDateString('es-EC')
+          : 'a coordinar',
+        respuesta: a.respuesta ?? '',
+      },
+    })
+
+    if (r.enviado) {
+      await db()
+        .from('avisos_pendientes')
+        .update({ procesado_en: new Date().toISOString() })
+        .eq('id', a.aviso_id)
+      // El `(pendiente)` importa: es la diferencia entre "le llegó" y "quedó
+      // escrito esperando que alguien lo mande desde WhatsApp".
+      enviados.push({
+        cliente: a.nombre,
+        tipo: a.tipo,
+        canal: r.pendiente ? `${r.canal} (pendiente)` : r.canal,
+      })
+
+      /*
+        La pausa va DESPUÉS de marcar el aviso como procesado.
+
+        Si fuera antes y el proceso se reiniciara en el medio —un despliegue, un
+        corte de luz— el mensaje ya habría salido y el aviso seguiría en la cola:
+        al abonado le llegaría dos veces.
+
+        Y solo cuando salió de verdad por WhatsApp: un `pendiente` es un mensaje
+        que quedó escrito para mandar a mano, así que no consumió ningún cupo.
+      */
+      if (pausaMs && !r.pendiente && /whatsapp/i.test(String(r.canal ?? ''))) {
+        await esperar(pausaMs)
+      }
+      continue
+    }
+
+    /**
+     * Lo que no se pudo mandar se cierra igual después de tres intentos.
+     *
+     * Un abonado sin correo ni celular no va a tener uno mañana, y su aviso
+     * quedaría en la cola para siempre haciendo ruido. Se cierra con el motivo
+     * escrito, que es lo que permite ir a pedirle el número.
+     */
+    const intentos = (a.intentos ?? 0) + 1
+    await db()
+      .from('avisos_pendientes')
+      .update({
+        intentos,
+        error: r.motivo,
+        ...(intentos >= 3 ? { procesado_en: new Date().toISOString() } : {}),
+      })
+      .eq('id', a.aviso_id)
+
+    fallidos.push({ cliente: a.nombre, tipo: a.tipo, motivo: r.motivo, intentos })
+  }
+
+  return { enviados: enviados.length, detalle: enviados, fallidos }
+}
