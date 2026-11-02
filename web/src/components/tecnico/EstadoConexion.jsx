@@ -9,6 +9,7 @@ import {
   reintentar,
   trabados,
 } from '../../lib/cola'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * La franja que dice si el trabajo llegó o no.
@@ -94,7 +95,7 @@ export default function EstadoConexion() {
               Sin conexión.{' '}
               {pendientes > 0
                 ? `${pendientes} ${pendientes === 1 ? 'cosa espera' : 'cosas esperan'} para enviarse.`
-                : 'Podés seguir trabajando.'}
+                : 'Puedes seguir trabajando.'}
             </>
           ) : (
             <>
@@ -140,7 +141,7 @@ export default function EstadoConexion() {
               <p className="font-medium">{DESCRIPCION[op.tipo] ?? op.tipo}</p>
               <p className="mt-0.5 text-[11px] opacity-70">{op.error}</p>
               <p className="text-[10px] opacity-50">
-                {new Date(op.creado).toLocaleString('es-EC')} · {op.intentos} intentos
+                {fmtFechaHora(op.creado)} · {op.intentos} intentos
               </p>
               <div className="mt-1.5 flex gap-2">
                 <button

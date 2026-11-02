@@ -119,20 +119,20 @@ export default function ServidorCorreoPage() {
       <form onSubmit={guardar} className="space-y-4">
         <Card title="Conexión" icon={Mail}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Servidor SMTP" hint="Gmail: smtp.gmail.com">
-              <Input value={config?.smtp_host ?? ''} onChange={set('smtp_host')} required />
+            <Field campo="smtp_host" label="Servidor SMTP" hint="Gmail: smtp.gmail.com">
+              <Input placeholder="Ej.: smtp.gmail.com" value={config?.smtp_host ?? ''} onChange={set('smtp_host')} required />
             </Field>
-            <Field label="Puerto" hint="587 con STARTTLS · 465 con TLS directo">
-              <Input type="number" value={config?.smtp_port ?? 587} onChange={set('smtp_port')} />
+            <Field campo="smtp_port" label="Puerto" hint="587 con STARTTLS · 465 con TLS directo">
+              <Input placeholder="Ej.: 1" type="number" value={config?.smtp_port ?? 587} onChange={set('smtp_port')} />
             </Field>
-            <Field label="Usuario">
-              <Input value={config?.smtp_user ?? ''} onChange={set('smtp_user')} />
+            <Field campo="smtp_user" label="Usuario">
+              <Input placeholder="Ej.: jperez" value={config?.smtp_user ?? ''} onChange={set('smtp_user')} />
             </Field>
-            <Field
+            <Field campo="smtp_pass"
               label="Contraseña"
               hint={
                 config?.tiene_smtp
-                  ? 'Ya hay una guardada: dejala vacía para no cambiarla.'
+                  ? 'Ya hay una guardada: déjala vacía para no cambiarla.'
                   : 'En Gmail hace falta una contraseña de aplicación, no la de la cuenta.'
               }
             >
@@ -149,11 +149,11 @@ export default function ServidorCorreoPage() {
 
         <Card title="Remitente" subtitle="Lo que ve el abonado cuando le llega el correo">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Dirección" hint="ej. facturacion@tuisp.com">
-              <Input type="email" value={config?.email_from ?? ''} onChange={set('email_from')} />
+            <Field campo="email_from" label="Dirección" hint="ej. facturacion@tuisp.com">
+              <Input placeholder="Ej.: Av. 9 de Octubre 123 y Boyacá" type="email" value={config?.email_from ?? ''} onChange={set('email_from')} />
             </Field>
-            <Field label="Nombre" hint="ej. Internet del Valle">
-              <Input value={config?.email_from_name ?? ''} onChange={set('email_from_name')} />
+            <Field campo="email_from_name" label="Nombre" hint="ej. Internet del Valle">
+              <Input placeholder="Ej.: Juan Pérez" value={config?.email_from_name ?? ''} onChange={set('email_from_name')} />
             </Field>
           </div>
 
@@ -166,7 +166,7 @@ export default function ServidorCorreoPage() {
               <Aviso tipo="alerta">
                 El remitente no es el mismo que el usuario del SMTP. Suele funcionar solo si el
                 dominio te autoriza a enviar en su nombre; si no, el correo sale pero termina en
-                spam o rebota. Probalo antes de confiarle las facturas.
+                spam o rebota. Pruébalo antes de confiarle las facturas.
               </Aviso>
             )}
         </Card>
@@ -205,14 +205,14 @@ export default function ServidorCorreoPage() {
 
           {!config?.tiene_smtp && (
             <p className="text-xs text-slate-500">
-              Guardá primero la contraseña para poder probar.
+              Guarda primero la contraseña para poder probar.
             </p>
           )}
 
           {prueba && (
             <Aviso>
               Enviado a {prueba}. Que el servidor lo haya aceptado no quiere decir que haya
-              llegado: revisá la casilla, y también la carpeta de spam.
+              llegado: revisa la casilla, y también la carpeta de spam.
             </Aviso>
           )}
         </div>

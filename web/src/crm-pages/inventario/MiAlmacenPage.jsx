@@ -16,6 +16,7 @@ import {
 } from '../../components/ui'
 import { usePermisos } from '../../lib/AuthContext'
 import { ESTADOS_EQUIPO, inventarioApi } from '../../lib/inventario'
+import { numero as fmtNumero } from '@/lib/formato'
 
 /**
  * Mi almacén — lo que el técnico lleva encima.
@@ -78,7 +79,7 @@ export default function MiAlmacenPage() {
     return (
       <div className="mx-auto max-w-xl py-10">
         <Aviso tipo="alerta">
-          Tu usuario no está vinculado a un técnico, así que todavía no tiene almacén. Pedile a un
+          Tu usuario no está vinculado a un técnico, así que todavía no tiene almacén. Pídele a un
           administrador que te vincule en <b>Ajustes → Gestión de personal</b>, en el campo "Técnico
           vinculado".
         </Aviso>
@@ -91,7 +92,7 @@ export default function MiAlmacenPage() {
       <div className="mx-auto max-w-xl py-10">
         <Aviso tipo="alerta">
           Todavía no se creó tu almacén. Se crean solos al correr la migración de inventario para
-          los técnicos activos; si sos nuevo, pedile a bodega que te lo dé de alta.
+          los técnicos activos; si eres nuevo, pídele a bodega que te lo dé de alta.
         </Aviso>
       </div>
     )
@@ -105,25 +106,25 @@ export default function MiAlmacenPage() {
           Mi almacén
         </h1>
         <p className="text-sm text-slate-400">
-          {almacen?.nombre} — el material que tenés asignado y todavía no usaste.
+          {almacen?.nombre} — el material que tienes asignado y todavía no usaste.
         </p>
       </div>
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <Stat label="Artículos distintos" valor={existencias.length} />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Artículos distintos" valor={existencias.length} />
+        <Stat cargando={cargando}
           label="Equipos con serie"
           valor={equipos.filter((q) => ['en_stock', 'asignado'].includes(q.estado)).length}
           color="text-sky-400"
         />
-        <Stat label="Instalados por vos" valor={equipos.filter((q) => q.estado === 'instalado').length} />
+        <Stat cargando={cargando} label="Instalados por ti" valor={equipos.filter((q) => q.estado === 'instalado').length} />
       </div>
 
       <Card
         title="Material"
-        subtitle="Lo que se descuenta solo cuando cerrás una instalación"
+        subtitle="Lo que se descuenta solo cuando cierras una instalación"
       >
         {cargando ? (
           <SkeletonTabla filas={4} columnas={3} />
@@ -131,12 +132,12 @@ export default function MiAlmacenPage() {
           <Table
             columnas={['Artículo', 'Cantidad', '']}
             filas={existencias}
-            vacio="No tenés material asignado. Pedíselo a bodega."
+            vacio="No tienes material asignado. Pídeselo a bodega."
             renderFila={(e) => (
               <tr key={e.articulo_id} className="hover:bg-slate-800/40">
                 <td className="px-3 py-2 text-slate-200">{e.articulo}</td>
                 <td className="px-3 py-2 tabular-nums text-slate-100">
-                  {Number(e.cantidad).toLocaleString('es-EC')} {e.unidad}
+                  {fmtNumero(e.cantidad)} {e.unidad}
                 </td>
                 <td className="px-3 py-2 text-right">
                   <Button
@@ -161,7 +162,7 @@ export default function MiAlmacenPage() {
         )}
       </Card>
 
-      <Card title="Equipos que tenés" subtitle="ONT y routers asignados a tu nombre">
+      <Card title="Equipos que tienes" subtitle="ONT y routers asignados a tu nombre">
         {cargando ? (
           <SkeletonTabla filas={4} columnas={3} />
         ) : (
@@ -193,10 +194,10 @@ export default function MiAlmacenPage() {
         {devolviendo && (
           <div className="space-y-3">
             <Aviso>
-              Lo que devolvés vuelve al stock de bodega. Devolver lo que sobró es lo que hace que el
+              Lo que devuelves vuelve al stock de bodega. Devolver lo que sobró es lo que hace que el
               inventario cuadre: si se queda en la camioneta, el sistema lo da por consumido.
             </Aviso>
-            <Field label="Devolver a">
+            <Field hint="A qué almacén vuelve el equipo." label="Devolver a">
               <Select
                 value={devolviendo.destino}
                 onChange={(e) => setDevolviendo({ ...devolviendo, destino: e.target.value })}
@@ -215,6 +216,7 @@ export default function MiAlmacenPage() {
                 max={devolviendo.articulo?.cantidad}
                 value={devolviendo.cantidad}
                 onChange={(e) => setDevolviendo({ ...devolviendo, cantidad: e.target.value })}
+                placeholder="Ej.: 1"
               />
             </Field>
             <div className="flex justify-end gap-2">

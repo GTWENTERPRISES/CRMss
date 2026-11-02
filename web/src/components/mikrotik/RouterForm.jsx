@@ -105,41 +105,44 @@ export default function RouterForm({ router = null, onGuardado, onCancelar }) {
       {esBinaria ? (
         <Aviso>
           Se usa la <b>API de RouterOS</b> por IP y puerto. Si cambiaste el puerto de la API por
-          seguridad, poné el tuyo — no tiene que ser 8728. Verificalo con{' '}
+          seguridad, pon el tuyo — no tiene que ser 8728. Verifícalo con{' '}
           <code>/ip service print</code>. El usuario necesita el permiso <code>api</code> en{' '}
           <code>/user group</code>.
         </Aviso>
       ) : (
         <Aviso tipo="alerta">
           Se usa la <b>REST API de RouterOS v7</b>. Conviene solo si el puerto de la API está
-          bloqueado por firewall. Habilitá el servicio <code>www</code> en <code>/ip service</code>.
+          bloqueado por firewall. Habilita el servicio <code>www</code> en <code>/ip service</code>.
         </Aviso>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Nombre">
+        <Field campo="nombre" label="Nombre">
           <Input value={form.nombre} onChange={set('nombre')} placeholder="Router Borde" required />
         </Field>
 
-        <Field label="IP o host">
+        <Field campo="ip_host" label="IP o host">
           <Input value={form.ip_host} onChange={set('ip_host')} placeholder="10.8.0.11" required />
         </Field>
 
-        <Field label="Modo de conexión">
+        <Field campo="modo_api" hint="PPPoE pide usuario y clave; IPoE usa IP fija o DHCP." label="Modo de conexión">
           <Select value={form.modo_api} onChange={cambiarConexion('modo_api')}>
             <option value="binaria">API de RouterOS</option>
             <option value="rest">REST API v7</option>
           </Select>
         </Field>
 
-        <Field label={esBinaria ? 'Cifrado' : 'Protocolo'}>
+        <Field campo="usa_https"
+          label={esBinaria ? 'Cifrado' : 'Protocolo'}
+          hint={esBinaria ? 'Con TLS la conexión al router va cifrada.' : 'HTTPS si el router tiene certificado; si no, HTTP.'}
+        >
           <Select value={form.usa_https} onChange={cambiarConexion('usa_https')}>
             <option value="false">{esBinaria ? 'api (sin TLS)' : 'HTTP (www)'}</option>
             <option value="true">{esBinaria ? 'api-ssl (TLS)' : 'HTTPS (www-ssl)'}</option>
           </Select>
         </Field>
 
-        <Field
+        <Field campo="puerto_api"
           label="Puerto"
           hint={`Cualquiera, el que tengas en /ip service. El estándar es ${PUERTOS[form.modo_api][seguro ? 'seguro' : 'plano']}.`}
         >
@@ -153,15 +156,15 @@ export default function RouterForm({ router = null, onGuardado, onCancelar }) {
           />
         </Field>
 
-        <Field label="Usuario">
-          <Input value={form.usuario} onChange={set('usuario')} autoComplete="off" required />
+        <Field campo="usuario" label="Usuario">
+          <Input placeholder="Ej.: jperez" value={form.usuario} onChange={set('usuario')} autoComplete="off" required />
         </Field>
 
-        <Field
+        <Field campo="password"
           label="Contraseña"
           hint={
             editando
-              ? 'Dejala vacía para conservar la actual. Escribí una nueva solo si querés cambiarla.'
+              ? 'Déjala vacía para conservar la actual. Escribe una nueva solo si quieres cambiarla.'
               : undefined
           }
           className="sm:col-span-2"
@@ -181,7 +184,7 @@ export default function RouterForm({ router = null, onGuardado, onCancelar }) {
       {esBinaria && !seguro && Number(form.puerto_api) === 8729 && (
         <Aviso tipo="alerta">
           El 8729 es el puerto estándar de <code>api-ssl</code>, pero elegiste conexión sin TLS. Si
-          tu API va cifrada, cambiá <b>Cifrado</b> a <code>api-ssl</code>.
+          tu API va cifrada, cambia <b>Cifrado</b> a <code>api-ssl</code>.
         </Aviso>
       )}
 

@@ -7,7 +7,7 @@ import { createHmac } from 'node:crypto'
  * El portal del abonado, por el lado que importa: que nadie vea la cuenta de
  * otro.
  *
- * Estas pruebas no consultan la base — para eso haría falta Supabase de verdad.
+ * Estas pruebas no consultan la base — para eso haría falta la base de verdad.
  * Leen el código y verifican las reglas estructurales que, si se rompen,
  * abren el portal entero. Son las que un cambio distraído puede violar sin que
  * nada falle a la vista.
@@ -167,7 +167,7 @@ test('el cambio de WiFi se promete como pendiente, no como hecho', () => {
   const bloque = portal.slice(portal.indexOf('export async function pedirCambioWifi'))
   assert.ok(bloque.includes("estado: 'pendiente'"), 'tiene que devolverse como pendiente')
   assert.ok(
-    bloque.includes('seguí usando la clave actual'),
+    bloque.includes('sigue usando la clave actual'),
     'hay que decirle que la clave vieja sigue andando',
   )
 })

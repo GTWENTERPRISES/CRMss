@@ -1,37 +1,38 @@
 import { config } from '../config.js'
-import { db } from './db.js'
 import { AppError } from './errors.js'
 
 /**
- * Valida el access token de Supabase que manda el frontend.
+ * Quién puede llamar a esta API: Django, y nada más.
  *
- * Sin esto, cualquiera que alcance el puerto del middleware puede operar las OLTs
- * y los routers — el middleware guarda la service_role key y las credenciales
- * descifradas de todos los equipos.
+ * El navegador ya no golpea acá — entra por el proxy de Django
+ * (/api/v1/red/...), que valida la sesión del personal y agrega dos cosas:
+ *
+ *   X-Clave-Interna  → el secreto compartido con Django (backend/.env y
+ *                      middleware/.env, CLAVE_INTERNA_MW).
+ *   X-Usuario-Id     → quién tiene la sesión, para que la auditoría siga
+ *                      diciendo quién hizo qué.
+ *
+ * Sin la clave configurada no se exige nada (desarrollo directo al :4000).
+ * Con ella, un pedido sin clave o con la clave equivocada no entra: este
+ * proceso guarda las credenciales descifradas de todos los equipos.
  */
 export async function requireAuth(req, _res, next) {
-  if (!config.requireAuth) return next()
+  if (!config.claveInterna) return next()
 
-  const header = req.headers.authorization || ''
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null
-
-  if (!token) {
+  const clave = req.headers['x-clave-interna']
+  if (clave !== config.claveInterna) {
     return next(
-      new AppError('Falta el token de autenticación', {
+      new AppError('Esta API solo acepta llamadas del backend Django', {
         status: 401,
-        hint: 'El frontend tiene que mandar el access token de Supabase en el header Authorization.',
+        hint: 'El navegador no habla con el middleware: va por http://TU-DJANGO:8000/api/v1/red/... Verifica que CLAVE_INTERNA_MW coincida en backend/new/.env y middleware/.env.',
       }),
     )
   }
 
-  try {
-    const { data, error } = await db().auth.getUser(token)
-    if (error || !data?.user) {
-      return next(new AppError('Sesión inválida o expirada', { status: 401 }))
-    }
-    req.usuario = data.user
-    next()
-  } catch (err) {
-    next(err)
-  }
+  const id = req.headers['x-usuario-id']
+  req.usuario = id
+    ? { id, email: req.headers['x-usuario-email'] || null, aud: 'authenticated' }
+    : null
+
+  next()
 }

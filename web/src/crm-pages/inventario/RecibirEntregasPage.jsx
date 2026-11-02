@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { FileSignature, FileText, Inbox, PackageCheck } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { entregasApi } from '../../lib/entregas'
 import { api } from '../../lib/apiNetwork'
 import { abrirPdf } from '../../lib/pdf'
@@ -17,6 +17,7 @@ import {
   Table,
   Textarea,
 } from '../../components/ui'
+import { fecha as fmtFecha, fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Las actas que esperan una firma.
@@ -63,7 +64,7 @@ export default function RecibirEntregasPage() {
 
   useEffect(() => {
     recargar()
-    supabase
+    django
       .from('almacenes')
       .select('id, nombre, tipo')
       .is('tecnico_id', null)
@@ -100,7 +101,7 @@ export default function RecibirEntregasPage() {
                 <td className="px-3 py-2">
                   <span className="font-mono text-slate-100">N° {a.numero}</span>
                   <div className="text-[11px] text-slate-500">
-                    {new Date(a.creado_en).toLocaleString('es-EC')}
+                    {fmtFechaHora(a.creado_en)}
                   </div>
                 </td>
                 <td className="px-3 py-2 text-xs">
@@ -153,7 +154,7 @@ export default function RecibirEntregasPage() {
                 <td className="px-3 py-2">
                   <span className="font-mono text-slate-100">N° {a.numero}</span>
                   <div className="text-[11px] text-slate-500">
-                    {new Date(a.firmado_en ?? a.creado_en).toLocaleDateString('es-EC')}
+                    {fmtFecha(a.firmado_en ?? a.creado_en)}
                   </div>
                 </td>
                 <td className="px-3 py-2 text-xs">{a.entrega ?? '—'}</td>
@@ -238,7 +239,7 @@ function Firmar({ acta, almacenes, onCerrar, onListo, onError }) {
         {/* Lo que se está por firmar, con las series a la vista: firmar una
             lista que no se leyó es lo mismo que no firmar nada. */}
         <div>
-          <p className="mb-1 text-xs text-slate-400">Contá y revisá antes de firmar:</p>
+          <p className="mb-1 text-xs text-slate-400">Cuenta y revisa antes de firmar:</p>
           <div className="max-h-48 space-y-1 overflow-y-auto t-panel p-2">
             {items.map((i) => (
               <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
@@ -267,7 +268,7 @@ function Firmar({ acta, almacenes, onCerrar, onListo, onError }) {
             rows={2}
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
-            placeholder="Si algo llegó dañado o falta, escribilo acá antes de firmar."
+            placeholder="Si algo llegó dañado o falta, escríbelo acá antes de firmar."
             className="mt-1"
           />
         </label>

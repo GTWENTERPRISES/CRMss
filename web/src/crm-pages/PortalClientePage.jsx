@@ -13,6 +13,7 @@ import {
 import { Link } from '@/lib/nextNavigation'
 import { api } from '../lib/apiNetwork'
 import { Aviso, Button, Card, Cargando, ErrorBanner, Input } from '../components/ui'
+import { fecha as fmtFecha, fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * El portal del abonado, visto desde la oficina.
@@ -175,13 +176,13 @@ function Pedidos({ pedidos, onCambio, onError }) {
               <p className="text-sm text-slate-200">{p.cliente}</p>
               <p className="text-xs text-slate-500">
                 {p.tipo === 'clave_wifi' ? 'Clave nueva' : 'Nombre de red nuevo'} ·{' '}
-                {new Date(p.creada_en).toLocaleDateString('es-EC')}
+                {fmtFecha(p.creada_en)}
               </p>
             </div>
 
             {p.ilegible ? (
               <span className="text-xs text-rose-400">
-                No se pudo descifrar — pedile que lo vuelva a cargar
+                No se pudo descifrar — pídele que lo vuelva a cargar
               </span>
             ) : (
               <code className="select-all rounded border border-slate-700 bg-[#F6F8FB] px-2 py-1 font-mono text-sm text-emerald-300">
@@ -347,7 +348,7 @@ function Buscador({ onError }) {
               )}
               {c.ultimo_acceso && (
                 <span className="text-slate-500">
-                  Último acceso: {new Date(c.ultimo_acceso).toLocaleString('es-EC')}
+                  Último acceso: {fmtFechaHora(c.ultimo_acceso)}
                 </span>
               )}
             </div>
@@ -357,7 +358,7 @@ function Buscador({ onError }) {
         {/* Lo que esta pantalla NO puede hacer, dicho para que nadie lo busque. */}
         <p className="pt-1 text-xs leading-relaxed text-slate-500">
           Resetear <b>borra</b> la contraseña: el abonado vuelve a entrar con el código a su celular
-          y elige otra. Desde acá no se puede poner una contraseña que vos conozcas — si se pudiera,
+          y elige otra. Desde acá no se puede poner una contraseña que tú conozcas — si se pudiera,
           alguien de la oficina podría entrar a su cuenta y no habría forma de distinguirlo de él.
         </p>
       </div>

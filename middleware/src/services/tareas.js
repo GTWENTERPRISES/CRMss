@@ -16,6 +16,8 @@ import { programarPausasVencidas } from './pausasVencidas.js'
 import { programarAvisosPago, estadoAvisosPago } from './avisosPago.js'
 import { programarCorteMora, estadoMora } from './corteMora.js'
 import { programarFirmas, estadoFirmas } from './firmasProgramadas.js'
+import { programarFotoRouters, estadoFotoRouters } from './fotoRouters.js'
+import { programarSubida, estadoSubida } from './subidaSaturada.js'
 
 /**
  * Los automatismos: qué corre solo, cada cuánto y a qué hora.
@@ -65,7 +67,7 @@ export const TAREAS = [
      */
     nombre: 'Corte por promesa incumplida',
     que: 'Corta a quien pidió plazo, se le devolvió el servicio, y dejó vencer la promesa sin pagar. No corta por deuda: eso lo hace "Corte por mora".',
-    cuidado: 'Deja gente sin internet. Encendelo cuando ya revisaste la lista a mano y confiás en ella.',
+    cuidado: 'Deja gente sin internet. Enciéndelo cuando ya revisaste la lista a mano y confías en ella.',
     tipo: 'diaria',
     arrancar: (v, extra) =>
       programarCortes({ activo: v.cortes_automaticos, hora: v.cortes_hora, ...extra }),
@@ -74,7 +76,7 @@ export const TAREAS = [
     clave: 'facturacion',
     nombre: 'Facturación mensual',
     que: 'Crea la factura de cada abonado en su día de facturación. No emite nada ante el SRI.',
-    cuidado: 'Empiezan a aparecer cobros solos. Encendelo con los días de facturación ya revisados.',
+    cuidado: 'Empiezan a aparecer cobros solos. Enciéndelo con los días de facturación ya revisados.',
     tipo: 'diaria',
     arrancar: (v, extra) =>
       programarFacturacion({ activo: v.facturacion_automatica, hora: v.facturacion_hora, ...extra }),
@@ -84,7 +86,7 @@ export const TAREAS = [
     nombre: 'Comisiones: refresco y cierre mensual',
     que: 'Actualiza qué hitos alcanzó cada venta y, el día de cierre, congela el mes anterior por vendedor.',
     cuidado:
-      'El cierre fija lo que se le va a pagar a cada uno. Encendelo cuando las bases y los escalones estén como los querés: un período cerrado no se recalcula.',
+      'El cierre fija lo que se le va a pagar a cada uno. Enciéndelo cuando las bases y los escalones estén como los quieres: un período cerrado no se recalcula.',
     tipo: 'diaria',
     arrancar: (v, extra) =>
       programarComisiones({ activo: v.comisiones_automatico, hora: v.comisiones_hora, ...extra }),
@@ -181,7 +183,7 @@ export const TAREAS = [
     nombre: 'Corte por mora y reconexión automática',
     que: 'La grande: corta a TODOS los que deben, según los meses de atraso de cada ficha, y respeta a quien tiene promesa vigente. Le devuelve el servicio al que paga, en segundos.',
     cuidado:
-      'Deja gente sin internet. Antes de encenderla, mirá la corrida en seco de acá abajo y revisá que cada abonado tenga bien sus meses en la ficha: el que paga cada tres meses configurado en uno se corta el primer mes.',
+      'Deja gente sin internet. Antes de encenderla, mira la corrida en seco de acá abajo y revisa que cada abonado tenga bien sus meses en la ficha: el que paga cada tres meses configurado en uno se corta el primer mes.',
     tipo: 'diaria',
     arrancar: (v, extra) =>
       programarCorteMora({
@@ -197,7 +199,7 @@ export const TAREAS = [
     nombre: 'Avisos de pago',
     que: 'Manda los tres recordatorios de pago —antes de vencer, vencido y último antes del corte— con los textos del editor de plantillas.',
     cuidado:
-      'Le escribe a los abonados. Antes de encenderla, revisá los textos en Ajustes → Editor de plantillas y probá una corrida en seco desde acá: un aviso mal redactado sale para todos a la vez.',
+      'Le escribe a los abonados. Antes de encenderla, revisa los textos en Ajustes → Editor de plantillas y prueba una corrida en seco desde acá: un aviso mal redactado sale para todos a la vez.',
     tipo: 'diaria',
     arrancar: (v, extra) =>
       programarAvisosPago({ activo: v.avisos_pago_automatico, hora: v.avisos_pago_hora, ...extra }),
@@ -211,6 +213,26 @@ export const TAREAS = [
     tipo: 'diaria',
     arrancar: (v, extra) =>
       programarPausasVencidas({ activo: v.pausas_automatico, hora: v.pausas_hora, ...extra }),
+  },
+  {
+    clave: 'foto_routers',
+    nombre: 'Foto mensual por router',
+    que: 'Anota cuántos activos, cortados y pausados tiene cada router, y cuánto se le debe. Es lo que alimenta el reporte de crecimiento mes a mes.',
+    cuidado:
+      'Solo lee y escribe su propia tabla: no toca routers ni abonados. Apagada, el reporte queda con meses sin datos de morosos que después no se pueden recuperar.',
+    tipo: 'diaria',
+    arrancar: (v, extra) =>
+      programarFotoRouters({ activo: v.foto_routers_automatico, hora: v.foto_routers_hora, ...extra }),
+  },
+  {
+    clave: 'subida',
+    nombre: 'Subida saturada',
+    que: 'Mide la subida de cada abonado en las colas del router y avisa por la campana —y por los destinos de Alertas— cuando alguien la satura de forma sostenida.',
+    cuidado:
+      'Solo lee las colas: no corta ni limita a nadie. El porcentaje y los minutos se ajustan en Ajustes → Alertas, regla "Subida saturada". Para que salga por WhatsApp o Telegram también tiene que estar encendida la tarea de alertas.',
+    tipo: 'intervalo',
+    arrancar: (v, extra) =>
+      v.subida_automatico ? programarSubida({ cada_minutos: v.subida_cada_minutos, ...extra }) : null,
   },
   {
     clave: 'stock',
@@ -244,6 +266,10 @@ const DEL_ARCHIVO = () => ({
   nms_automatico: config.nms.automatico,
   nms_cada_minutos: config.nms.cada_minutos,
   nms_paquetes: config.nms.paquetes,
+  // Contra el aviso falso de "router caído": cuántas pasadas seguidas sin
+  // respuesta hacen falta, y cuánto se espera a la VPN después de arrancar.
+  nms_router_fallas: 3,
+  nms_gracia_minutos: 5,
   optica_automatica: config.optica.automatica,
   optica_cada_minutos: config.optica.cada_minutos,
   esperando_automatico: config.esperando.automatico,
@@ -269,6 +295,14 @@ const DEL_ARCHIVO = () => ({
   // sin servicio y sin facturar durante meses.
   pausas_automatico: true,
   pausas_hora: '08:00',
+  // Encendida, por lo mismo: solo lee y anota. Y tarde, porque la foto del
+  // último día del mes es la que queda como cierre.
+  foto_routers_automatico: true,
+  foto_routers_hora: '23:30',
+  // Encendida: solo lee las colas, una consulta por router. Cinco minutos es
+  // lo bastante fino para ver algo sostenido sin cargar el equipo.
+  subida_automatico: true,
+  subida_cada_minutos: 5,
   // Apagada hasta que los mínimos estén cargados: encendida sin mínimos no
   // avisa de nada, y con mínimos mal puestos avisa todos los días de lo mismo
   // hasta que dejan de mirarse.
@@ -375,12 +409,14 @@ export async function valores() {
  */
 export async function rearrancar() {
   const { efectivo } = await valores()
+  const apagadas = tareasApagadas()
 
   for (const tarea of TAREAS) {
     if (temporizadores[tarea.clave]) {
       clearInterval(temporizadores[tarea.clave])
       delete temporizadores[tarea.clave]
     }
+    if (apagadas) continue
     try {
       const t = tarea.arrancar(efectivo)
       if (t) temporizadores[tarea.clave] = t
@@ -398,11 +434,43 @@ export async function rearrancar() {
   }
 }
 
+/**
+ * Una copia del middleware que solo atiende la API, sin automatismos.
+ *
+ * ── Por qué hace falta ──
+ *
+ * La configuración de las tareas vive en la base, y la base es una sola. Dos
+ * copias del middleware contra la misma base —el servidor y una PC que sigue
+ * atendiendo un túnel— corrían las MISMAS tareas dos veces: dos cortes por
+ * mora, dos facturaciones. Apagarlas desde la pantalla no sirve, porque las
+ * apagaría en las dos.
+ *
+ * Se decide por el entorno de cada copia: `TAREAS_APAGADAS=1` en su .env. Se
+ * mira en cada rearranque, así que tampoco las enciende guardar desde Ajustes.
+ *
+ * ── Solo fuera de producción ──
+ *
+ * Es una herramienta de la PC de desarrollo, no una opción del sistema. Una
+ * instalación de producción —la de cada ISP, que arranca con
+ * NODE_ENV=production desde deploy/— la IGNORA: ahí un .env copiado de otro
+ * lado o una línea escrita sin querer dejaría a un ISP sin cortes, sin
+ * facturación y sin alertas, y nadie lo notaría hasta fin de mes.
+ */
+export function pidieronApagarTareas(env = process.env) {
+  return /^(1|true|si|sí)$/i.test(String(env.TAREAS_APAGADAS ?? '').trim())
+}
+
+export function tareasApagadas(env = process.env) {
+  return env.NODE_ENV !== 'production' && pidieronApagarTareas(env)
+}
+
 /** Para la pantalla: qué está corriendo, con qué valores y cuándo corrió. */
 export async function estado() {
   const { efectivo, guardado } = await valores()
 
   return {
+    // La pantalla lo avisa: si no, las tareas se ven encendidas y no corren.
+    apagadas_por_entorno: tareasApagadas(),
     tareas: TAREAS.map((t) => ({
       clave: t.clave,
       nombre: t.nombre,
@@ -416,6 +484,13 @@ export async function estado() {
       desde_archivo: guardado[llaveActiva(t)] == null,
     })),
     valores: efectivo,
+    // El detalle de la última medición de subida: es lo que dice por qué no se
+    // mide a alguien (sin cola, sin límite, primera lectura).
+    subida: estadoSubida?.ultimaCorrida
+      ? { ...(estadoSubida.ultimoResultado ?? {}), error: estadoSubida.error ?? null }
+      : estadoSubida?.error
+        ? { error: estadoSubida.error }
+        : null,
     ultimas_corridas: {
       cortes: estadoCortes?.ultimaCorrida ?? null,
       facturacion: estadoFacturacion?.ultimaCorrida ?? null,
@@ -426,6 +501,8 @@ export async function estado() {
       avisos_pago: estadoAvisosPago?.ultimaCorrida ?? null,
       mora: estadoMora?.ultimaCorrida ?? null,
       firmas: estadoFirmas?.ultimaCorrida ?? null,
+      foto_routers: estadoFotoRouters?.ultimaCorrida ?? null,
+      subida: estadoSubida?.ultimaCorrida ?? null,
     },
 
     /**
@@ -471,14 +548,20 @@ export function _resumenDeFallas(resultado) {
   if (resultado.error) return { error: resultado.error, fallidos: 0, ejemplos: [] }
 
   const fallidos = resultado.fallidos ?? []
+  const caso = (f) => ({
+    cliente: f.cliente ?? f.nombre ?? null,
+    accion: f.accion ?? null,
+    motivo: f.error ?? f.motivo ?? null,
+  })
   return {
     error: null,
     fallidos: fallidos.length,
-    ejemplos: fallidos.slice(0, 3).map((f) => ({
-      cliente: f.cliente ?? f.nombre ?? null,
-      accion: f.accion ?? null,
-      motivo: f.error ?? f.motivo ?? null,
-    })),
+    ejemplos: fallidos.slice(0, 3).map(caso),
+    // La lista entera, para el "ver todos" del panel, con el router de cada
+    // uno: es lo que permite mandar directo a "Reparar" el router que falló.
+    // Con tope: una corrida con el router caído puede dejar cientos.
+    lista: fallidos.slice(0, 200).map((f) => ({ ...caso(f), router_id: f.router_id ?? null })),
+    routers: [...new Set(fallidos.map((f) => f.router_id).filter(Boolean))],
   }
 }
 
@@ -515,6 +598,7 @@ function llaveActiva(t) {
 export const _llaveActiva = llaveActiva
 export const _TAREAS = TAREAS
 export const _COLUMNAS = () => Object.keys(DEL_ARCHIVO())
+export const _DEL_ARCHIVO = () => DEL_ARCHIVO()
 
 const COLUMNAS = Object.keys(DEL_ARCHIVO())
 
@@ -579,6 +663,16 @@ export async function guardar(datos = {}) {
       || campo === 'nms_paquetes'
       || campo === 'cortes_limite'
       || CERO_ES_SIN_TOPE.includes(campo)
+      /**
+       * Y cualquier otro cuyo valor de fábrica sea un número.
+       *
+       * La lista de arriba se armaba a mano y se olvidaba de los nuevos:
+       * `incidencias_lote` caía en el caso de los interruptores, se guardaba
+       * como `true` y la base contestaba "invalid input syntax for type
+       * integer". Como la pantalla manda todos los campos juntos, eso no dejaba
+       * guardar NINGUNA tarea — tampoco encender la medición de consumo.
+       */
+      || typeof DEL_ARCHIVO()[campo] === 'number'
     ) {
       if (v === '' || v == null) {
         fila[campo] = null
@@ -590,7 +684,7 @@ export async function guardar(datos = {}) {
       if (!Number.isInteger(n) || n < minimo) {
         throw badRequest(
           minimo === 0
-            ? `${campo.replace(/_/g, ' ')} tiene que ser un número entero. Poné 0 para no limitar.`
+            ? `${campo.replace(/_/g, ' ')} tiene que ser un número entero. Pon 0 para no limitar.`
             : `${campo.replace(/_/g, ' ')} tiene que ser un número entero mayor que cero`,
         )
       }

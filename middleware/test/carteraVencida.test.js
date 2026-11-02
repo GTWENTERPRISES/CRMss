@@ -30,7 +30,7 @@ import {
  * ── Por qué se prueba desde acá ──
  *
  * Por lo mismo que `abonados.test.js`: `abonados.js` no importa nada —ni
- * Supabase, ni React— así que corre en este runner sin montar un navegador.
+ * la base, ni React— así que corre en este runner sin montar un navegador.
  * Lo que se verifica no es que la tabla se pinte, sino a quién hay que ir a
  * cobrarle.
  */

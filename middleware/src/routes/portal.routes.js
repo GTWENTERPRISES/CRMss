@@ -27,7 +27,7 @@ import {
  * El portal del abonado.
  *
  * Separado del resto del API a propósito. Todo lo demás lo usa el personal del
- * ISP, con sesión de Supabase; esto lo usa el abonado, con su propia sesión y
+ * ISP, con la sesión de Django; esto lo usa el abonado, con su propia sesión y
  * desde su celular. Mezclarlos haría que un error de permisos en un lado abra
  * una puerta en el otro.
  *
@@ -50,7 +50,7 @@ async function conSesion(req, res, next) {
   const clienteId = await clienteDeLaSesion(tokenDe(req))
   if (!clienteId) {
     return res.status(401).json({
-      error: 'Tu sesión venció. Volvé a entrar con tu cédula.',
+      error: 'Tu sesión venció. Vuelve a entrar con tu cédula.',
       sesion_vencida: true,
     })
   }

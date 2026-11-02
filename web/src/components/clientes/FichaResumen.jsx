@@ -1,3 +1,4 @@
+import { usePais } from '../../lib/pais'
 import { useEffect, useState } from 'react'
 import { dineroCero as dinero } from '../../lib/formato'
 import {
@@ -11,9 +12,10 @@ import {
   Save,
   Wallet,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import IdentidadCliente from './IdentidadCliente'
 import { Aviso, Button, Card, Field, Input, Select, Textarea } from '../ui'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Datos del cliente y su situación de cuenta.
@@ -23,7 +25,7 @@ import { Aviso, Button, Card, Field, Input, Select, Textarea } from '../ui'
  * cuándo paga, si está por cortarse—.
  */
 
-const fecha = (f) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(`${String(f).slice(0, 10)}T12:00:00`) : '—')
 
 /** Campos que se pueden editar desde acá. El resto vive en su propia pantalla. */
 const EDITABLES = [
@@ -49,6 +51,8 @@ const EDITABLES = [
 ]
 
 export default function FichaResumen({ cliente, onGuardado, onError }) {
+  // La factura electrónica es la del SRI: fuera de Ecuador no hay cola a la que entrar.
+  const pais = usePais()
   const [form, setForm] = useState(() =>
     Object.fromEntries(EDITABLES.map((c) => [c, cliente[c] ?? ''])),
   )
@@ -64,8 +68,8 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
     let vigente = true
 
     Promise.all([
-      supabase.from('sri_config').select('dia_maximo_pago').limit(1).maybeSingle(),
-      supabase
+      django.from('sri_config').select('dia_maximo_pago').limit(1).maybeSingle(),
+      django
         .from('promesas_pago')
         .select('*')
         .eq('client_id', cliente.id)
@@ -77,7 +81,7 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
       // Se mira `factura_id`, no `document_id`: este último es el comprobante
       // del SRI, y un cobro imputado a una factura sin comprobante fiscal —lo
       // normal en quien no pide factura— no es un saldo a favor.
-      supabase
+      django
         .from('pagos')
         .select('monto')
         .eq('client_id', cliente.id)
@@ -86,7 +90,7 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
 
       // Y lo que pagó de más sobre facturas que ya estaban cubiertas: si trae
       // $50 por una factura de $34.50, esos $15.50 también son suyos.
-      supabase.from('v_facturas').select('saldo').eq('client_id', cliente.id),
+      django.from('v_facturas').select('saldo').eq('client_id', cliente.id),
     ]).then(([cfg, prom, abonos, facturas]) => {
       if (!vigente) return
       setDiaMaximo(cfg.data?.dia_maximo_pago ?? 5)
@@ -133,7 +137,7 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
       // El interruptor es booleano: false no es "vacío".
       cambios.factura_electronica = Boolean(form.factura_electronica)
 
-      const { error } = await supabase.from('clientes').update(cambios).eq('id', cliente.id)
+      const { error } = await django.from('clientes').update(cambios).eq('id', cliente.id)
       if (error) throw error
 
       setGuardado(true)
@@ -175,11 +179,11 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
 
         <form onSubmit={guardar} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Cliente" className="sm:col-span-2">
-              <Input value={form.nombre} onChange={set('nombre')} required />
+            <Field campo="nombre" label="Cliente" className="sm:col-span-2">
+              <Input placeholder="Ej.: Juan Pérez" value={form.nombre} onChange={set('nombre')} required />
             </Field>
 
-            <Field label="Tipo de identificación">
+            <Field campo="tipo_identificacion" hint="Cédula, RUC o pasaporte; define cómo sale la factura." label="Tipo de identificación">
               <Select value={form.tipo_identificacion || '05'} onChange={set('tipo_identificacion')}>
                 <option value="05">Cédula</option>
                 <option value="04">RUC</option>
@@ -188,12 +192,12 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
                 <option value="08">Identificación del exterior</option>
               </Select>
             </Field>
-            <Field label="N° de identificación" hint="Sin esto no se le puede facturar">
-              <Input value={form.identificacion} onChange={set('identificacion')} />
+            <Field campo="identificacion" label="N° de identificación" hint="Sin esto no se le puede facturar">
+              <Input placeholder="Ej.: 0912345678" value={form.identificacion} onChange={set('identificacion')} />
             </Field>
 
-            <Field label="Dirección principal" className="sm:col-span-2">
-              <Input value={form.direccion} onChange={set('direccion')} />
+            <Field campo="direccion" label="Dirección principal" className="sm:col-span-2">
+              <Input placeholder="Ej.: Av. 9 de Octubre 123 y Boyacá" value={form.direccion} onChange={set('direccion')} />
             </Field>
 
             {/*
@@ -205,7 +209,7 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
               lo que se imprime, y esto se ve solo por dentro y en el selector
               del portal del abonado.
             */}
-            <Field
+            <Field campo="referencia_servicio"
               label="Referencia del servicio"
               hint="Casa, Local, Bodega. Para distinguirlo por dentro: no sale en la factura."
               className="sm:col-span-2"
@@ -221,25 +225,25 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
             {/* La zona es de gestión, no de red: es con la que se arma a quién
                 llamar y a quién ir a visitar. Se escribe libre porque cada ISP
                 divide su cobertura como le sirve. */}
-            <Field label="Zona" hint="Con la que se filtra el listado y se arman las visitas">
+            <Field campo="zona" label="Zona" hint="Con la que se filtra el listado y se arman las visitas">
               <Input value={form.zona} onChange={set('zona')} placeholder="La Maná, Centro…" />
             </Field>
 
-            <Field label="Teléfono fijo">
-              <Input value={form.telefono} onChange={set('telefono')} />
+            <Field campo="telefono" label="Teléfono fijo">
+              <Input placeholder="Ej.: 042345678" value={form.telefono} onChange={set('telefono')} />
             </Field>
-            <Field label="Teléfono móvil">
-              <Input value={form.telefono_movil} onChange={set('telefono_movil')} />
+            <Field campo="telefono_movil" label="Teléfono móvil">
+              <Input placeholder="Ej.: 0991234567" value={form.telefono_movil} onChange={set('telefono_movil')} />
             </Field>
 
-            <Field label="E-mail" hint="Ahí llegan la factura y el RIDE">
-              <Input type="email" value={form.email} onChange={set('email')} />
+            <Field campo="email" label="E-mail" hint="Ahí llegan la factura y el RIDE">
+              <Input placeholder="Ej.: cliente@correo.com" type="email" value={form.email} onChange={set('email')} />
             </Field>
             {/* La pasarela y el código van juntos: el mismo número no
                 significa lo mismo en dos plataformas distintas, y quien
                 concilia los cobros del mes necesita saber contra qué reporte
                 cruzarlo. La lista sugiere, no obliga. */}
-            <Field label="Pasarela de cobro" hint="Dónde paga">
+            <Field campo="pasarela" label="Pasarela de cobro" hint="Dónde paga">
               <Input
                 value={form.pasarela}
                 onChange={set('pasarela')}
@@ -257,11 +261,11 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
                 <option value="Ventanilla" />
               </datalist>
             </Field>
-            <Field label="N° de código de pago" hint="El que usa para pagar ahí">
-              <Input value={form.codigo_pago} onChange={set('codigo_pago')} />
+            <Field campo="codigo_pago" label="N° de código de pago" hint="El que usa para pagar ahí">
+              <Input placeholder="Ej.: 000123" value={form.codigo_pago} onChange={set('codigo_pago')} />
             </Field>
 
-            <Field label="Día de facturación" hint="Día del mes en que se le emite">
+            <Field campo="dia_facturacion" label="Día de facturación" hint="Día del mes en que se le emite">
               <Select value={form.dia_facturacion ?? ''} onChange={set('dia_facturacion')}>
                 <option value="">— sin definir —</option>
                 {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
@@ -299,6 +303,7 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
             {/* Decide si sus cobros entran a la cola de facturación
                 electrónica. Hay abonados que no quieren factura y se llevan
                 solo el recibo. */}
+            {pais.modulos.facturacionElectronica && (
             <div className="sm:col-span-2 t-panel p-3">
               <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
                 <input
@@ -323,9 +328,10 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
                 </p>
               )}
             </div>
+            )}
 
-            <Field label="Notas" className="sm:col-span-2">
-              <Textarea rows={3} value={form.notas} onChange={set('notas')} />
+            <Field campo="notas" label="Notas" className="sm:col-span-2">
+              <Textarea placeholder="Ej.: Llamar antes de ir" rows={3} value={form.notas} onChange={set('notas')} />
             </Field>
           </div>
 

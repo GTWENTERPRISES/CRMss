@@ -17,8 +17,8 @@ class OLTViewSet(viewsets.ModelViewSet):
     queryset = OLT.objects.all()
     serializer_class = OLTSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ['marca', 'activo', 'estado_ultimo_sondeo']
-    search_fields = ['nombre', 'ip_host', 'modelo']
+    filterset_fields = ['marca', 'activo', 'estado']
+    search_fields = ['nombre', 'ip_host']
     ordering_fields = ['nombre', 'created_at']
 
     @action(detail=True, methods=['post'])
@@ -29,7 +29,7 @@ class OLTViewSet(viewsets.ModelViewSet):
             sondear_olt(olt)
         except Exception as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
-        return Response({'status': 'success', 'estado': olt.estado_ultimo_sondeo})
+        return Response({'status': 'success', 'estado': olt.estado})
 
 
 class TipoONTViewSet(viewsets.ModelViewSet):
@@ -71,16 +71,12 @@ class DiagnosticoONTView(viewsets.ViewSet):
 
         from apps.clientes.models import Cliente
 
-        filtro = Q(id=cliente_id) if cliente_id else Q(cedula=cedula)
+        filtro = Q(id=cliente_id) if cliente_id else Q(identificacion=cedula)
         cliente = Cliente.objects.filter(filtro).first()
         if cliente is None:
             return Response({'detail': 'Cliente no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
-        onu = (
-            ONU.objects.filter(servicios__cliente=cliente)
-            .select_related('olt')
-            .first()
-        )
+        onu = ONU.objects.select_related('olt').filter(pk=cliente.onu_id).first() if cliente.onu_id else None
         if onu is None:
             return Response({
                 'status': 'success',

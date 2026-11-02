@@ -1,3 +1,4 @@
+import { usePais } from '../lib/pais'
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Building2, Image } from 'lucide-react'
 import { Link } from '@/lib/nextNavigation'
@@ -21,6 +22,7 @@ import { Aviso, Button, Card, Cargando, ErrorBanner, Field, Input } from '../com
  * emite comprobantes.
  */
 export default function EmpresaPage() {
+  const pais = usePais()
   const [config, setConfig] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
@@ -112,7 +114,7 @@ export default function EmpresaPage() {
         <h1 className="t-titulo text-lg font-bold text-slate-100">Empresa</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
           Quién factura. Estos datos salen impresos en cada factura, en el recibo y en los
-          contratos, y son los que el SRI valida contra tu RUC.
+          contratos{pais.modulos.facturacionElectronica && ', y son los que el SRI valida contra tu RUC'}.
         </p>
       </div>
 
@@ -121,42 +123,42 @@ export default function EmpresaPage() {
       <form onSubmit={guardar} className="space-y-4">
         <Card title="Identificación" icon={Building2}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="RUC" hint="13 dígitos">
-              <Input value={config?.ruc ?? ''} onChange={set('ruc')} maxLength={13} required />
+            <Field campo="ruc" label="RUC" hint="13 dígitos">
+              <Input placeholder="Ej.: 0912345678001" value={config?.ruc ?? ''} onChange={set('ruc')} maxLength={13} required />
             </Field>
-            <Field label="Razón social" hint="Como figura en el RUC, sin abreviar">
-              <Input value={config?.razon_social ?? ''} onChange={set('razon_social')} required />
+            <Field campo="razon_social" label="Razón social" hint="Como figura en el RUC, sin abreviar">
+              <Input placeholder="Ej.: Servicios de Internet QA S.A." value={config?.razon_social ?? ''} onChange={set('razon_social')} required />
             </Field>
-            <Field
+            <Field campo="nombre_comercial"
               label="Nombre comercial"
               hint="Con el que te conocen los abonados, si es distinto"
               className="sm:col-span-2"
             >
-              <Input value={config?.nombre_comercial ?? ''} onChange={set('nombre_comercial')} />
+              <Input placeholder="Ej.: QA Net" value={config?.nombre_comercial ?? ''} onChange={set('nombre_comercial')} />
             </Field>
           </div>
         </Card>
 
         <Card title="Direcciones y contacto">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Dirección de la matriz" className="sm:col-span-2">
-              <Input value={config?.dir_matriz ?? ''} onChange={set('dir_matriz')} required />
+            <Field campo="dir_matriz" label="Dirección de la matriz" className="sm:col-span-2">
+              <Input placeholder="Ej.: Av. Quito 456, Guayaquil" value={config?.dir_matriz ?? ''} onChange={set('dir_matriz')} required />
             </Field>
-            <Field
+            <Field campo="dir_establecimiento"
               label="Dirección del establecimiento"
               hint="Solo si es distinta de la matriz"
               className="sm:col-span-2"
             >
-              <Input
+              <Input placeholder="Ej.: Av. Quito 456, Guayaquil"
                 value={config?.dir_establecimiento ?? ''}
                 onChange={set('dir_establecimiento')}
               />
             </Field>
-            <Field label="Teléfono" hint="Sale en el RIDE: es a donde llama el abonado">
-              <Input value={config?.telefono ?? ''} onChange={set('telefono')} />
+            <Field campo="telefono" label="Teléfono" hint="Sale en el RIDE: es a donde llama el abonado">
+              <Input placeholder="Ej.: 0991234567" value={config?.telefono ?? ''} onChange={set('telefono')} />
             </Field>
-            <Field label="Correo">
-              <Input type="email" value={config?.email ?? ''} onChange={set('email')} />
+            <Field campo="email" label="Correo">
+              <Input placeholder="Ej.: cliente@correo.com" type="email" value={config?.email ?? ''} onChange={set('email')} />
             </Field>
           </div>
         </Card>
@@ -164,14 +166,14 @@ export default function EmpresaPage() {
         <Card title="Condición tributaria">
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Contribuyente especial" hint="El número de resolución, si te designaron">
-                <Input
+              <Field campo="contribuyente_especial" label="Contribuyente especial" hint="El número de resolución, si te designaron">
+                <Input placeholder="Ej.: 12345"
                   value={config?.contribuyente_especial ?? ''}
                   onChange={set('contribuyente_especial')}
                 />
               </Field>
-              <Field label="Agente de retención" hint="El número de resolución, si aplica">
-                <Input value={config?.agente_retencion ?? ''} onChange={set('agente_retencion')} />
+              <Field campo="agente_retencion" label="Agente de retención" hint="El número de resolución, si aplica">
+                <Input placeholder="Ej.: 1" value={config?.agente_retencion ?? ''} onChange={set('agente_retencion')} />
               </Field>
             </div>
 
@@ -224,7 +226,9 @@ export default function EmpresaPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-slate-500">
-            El ambiente del SRI, el establecimiento y la numeración se configuran en{' '}
+            {pais.modulos.facturacionElectronica
+              ? 'El ambiente del SRI, el establecimiento y la numeración se configuran en '
+              : `El impuesto (${pais.impuesto.nombre}) se configura en `}
             <Link to="/facturacion?t=config" className="text-sky-400 hover:text-sky-300">
               Facturación
             </Link>

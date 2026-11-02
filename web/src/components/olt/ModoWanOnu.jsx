@@ -3,6 +3,7 @@ import { AlertTriangle, Globe, Network } from 'lucide-react'
 import { api } from '../../lib/apiNetwork'
 import { useConfirmar } from '../../lib/confirmar'
 import { Button, ErrorBanner, Modal } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Cómo sale a internet la ONT: el equivalente a "Update ONU mode" de SmartOLT.
@@ -49,7 +50,7 @@ const MOTIVOS_TR069 = {
   sin_acs: 'No hay servidor TR-069 configurado en este sistema.',
   acs_no_responde: 'El servidor TR-069 no respondió. Puede estar caído o sin camino de red.',
   equipo_desconocido:
-    'La ONT nunca se reportó al servidor TR-069: revisá el perfil, la IP de gestión, y si levantó la interfaz.',
+    'La ONT nunca se reportó al servidor TR-069: revisa el perfil, la IP de gestión, y si levantó la interfaz.',
 }
 
 const MODOS_WAN_TR069 = [
@@ -127,6 +128,12 @@ function CampoSelect({ etiqueta, value, onChange, children, disabled, hint }) {
 }
 
 /** Un campo de texto, al estilo del panel de SmartOLT. */
+const EJEMPLOS_WAN = {
+  'Nombre del perfil': 'Ej.: INTERNET', NAT: 'Ej.: Activado', Username: 'Ej.: jperez01', Password: 'Clave PPPoE',
+  'IPv4 Address': 'Ej.: 192.168.10.20', 'Subnet Mask': 'Ej.: 255.255.255.0', 'Default Gateway': 'Ej.: 192.168.10.1',
+  'DNS 1': 'Ej.: 8.8.8.8', 'DNS 2': 'Ej.: 1.1.1.1',
+}
+
 function CampoTexto({ etiqueta, value, onChange, type = 'text', hint }) {
   return (
     <div className="mb-3.5">
@@ -135,6 +142,7 @@ function CampoTexto({ etiqueta, value, onChange, type = 'text', hint }) {
         type={type}
         value={value}
         onChange={onChange}
+        placeholder={EJEMPLOS_WAN[etiqueta]}
         className="w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-[13px] text-slate-800 outline-none focus:border-sky-500"
       />
       {hint && <p className="mt-1 text-[11px] text-slate-400">{hint}</p>}
@@ -345,7 +353,7 @@ export default function ModoWanOnu({ olt, onu, onListo, onCerrar }) {
           <option>{vlan || '—'}</option>
         </CampoSelect>
         <p className="-mt-2.5 mb-3.5 text-[11px] text-slate-400">
-          Es la del puerto PON de esta ONT. Después de cambiarla revisá los puertos Ethernet.
+          Es la del puerto PON de esta ONT. Después de cambiarla revisa los puertos Ethernet.
         </p>
 
         <FilaRadio etiqueta="ONU mode" nombre="onu-mode" opciones={MODOS} valor={modo} onChange={setModo} />
@@ -377,7 +385,7 @@ export default function ModoWanOnu({ olt, onu, onListo, onCerrar }) {
                 : 'Guarda el modo y el NAT. Se comparte entre ONTs.'
             }
           >
-            <option value="">— elegí —</option>
+            <option value="">— elige —</option>
             {perfiles.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nombre} (id {p.id}) · {p.vinculos} ONTs
@@ -486,7 +494,7 @@ export default function ModoWanOnu({ olt, onu, onListo, onCerrar }) {
                 {' · '}
                 {datos.tr069.wan.estado}
                 {datos.tr069.ultimo_contacto
-                  ? ` · último contacto ${new Date(datos.tr069.ultimo_contacto).toLocaleString()}`
+                  ? ` · último contacto ${fmtFechaHora(datos.tr069.ultimo_contacto)}`
                   : ''}
               </p>
             )}

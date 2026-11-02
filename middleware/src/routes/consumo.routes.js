@@ -8,7 +8,7 @@ import { recolectar, sincronizarSesiones, estadoConsumo } from '../services/cons
 /**
  * Consumo de los abonados.
  *
- * La lectura del consumo la hace el navegador directo contra Supabase —es una
+ * La lectura del consumo la hace el navegador directo contra Django (/api/v1/tables) —es una
  * consulta más—. Acá vive lo que el navegador no puede: hablarle al router para
  * medir, y armar el PDF que se le entrega al abonado que reclama.
  */
@@ -60,7 +60,7 @@ router.get(
   '/:clientId/reporte',
   asyncHandler(async (req, res) => {
     const mes = String(req.query.mes ?? '').slice(0, 7)
-    if (!/^\d{4}-\d{2}$/.test(mes)) throw badRequest('Indicá el mes como YYYY-MM')
+    if (!/^\d{4}-\d{2}$/.test(mes)) throw badRequest('Indica el mes como YYYY-MM')
 
     const { data: cliente, error } = await db()
       .from('clientes')

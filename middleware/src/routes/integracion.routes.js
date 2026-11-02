@@ -47,7 +47,7 @@ const limitar = freno('v1', 120)
 const frenoProfundo = freno(
   'v1-equipos',
   6,
-  'Usá GET /diagnostico/:cedula, que no toca los equipos y no tiene este freno.',
+  'Usa GET /diagnostico/:cedula, que no toca los equipos y no tiene este freno.',
 )
 
 /** Health check de la integración: sirve para que el proveedor pruebe su llave. */

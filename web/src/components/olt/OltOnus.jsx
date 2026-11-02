@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { Download, Link2, Radio, RefreshCw, Search, Settings2, UserX } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { dbm, nivel } from '../../lib/optica'
 import ImportarOnus from './ImportarOnus'
 import EnlazarAbonados from './EnlazarAbonados'
@@ -36,13 +36,13 @@ export default function OltOnus({ olt }) {
   const cargar = useCallback(async () => {
     // Los planes se traen junto con las ONUs: los necesita el panel de acciones
     // y pedirlos al abrirlo agregaría una espera en cada clic.
-    supabase
+    django
       .from('planes_velocidad')
       .select('*')
       .order('bajada_kbps')
       .then(({ data }) => setPlanes(data ?? []))
 
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('v_onus_clientes')
       .select('*')
       .eq('olt_id', olt.id)
@@ -56,7 +56,7 @@ export default function OltOnus({ olt }) {
       if (err.code === '42P01') {
         setError({
           message: 'Falta la vista v_onus_clientes',
-          hint: 'Corré supabase/migracion-39-clientes-desde-onu.sql en el SQL Editor.',
+          hint: 'Actualiza la base: python manage.py migrate.',
         })
       } else setError(err)
       setFilas([])
@@ -95,7 +95,7 @@ export default function OltOnus({ olt }) {
         icon={Radio}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button icon={RefreshCw} onClick={cargar} />
+            <Button icon={RefreshCw} onClick={cargar} title="Actualizar" />
             <Button icon={Link2} onClick={() => setAsistente('abonados')}>
               Enlazar abonados
             </Button>
@@ -135,7 +135,7 @@ export default function OltOnus({ olt }) {
               filas={visibles}
               vacio={
                 filas.length === 0
-                  ? 'Esta OLT no tiene ONUs en el sistema. Usá «Importar del equipo».'
+                  ? 'Esta OLT no tiene ONUs en el sistema. Usa «Importar del equipo».'
                   : 'Ninguna coincide con el filtro.'
               }
               renderFila={(o) => {

@@ -12,9 +12,10 @@ import {
 } from 'lucide-react'
 
 import { api } from '../../lib/apiNetwork'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { MOTIVOS_CANCELAR_INCIDENCIA } from '../../lib/motivos'
+import ReparacionesRed from '../../components/red/ReparacionesRed'
 import {
   Aviso,
   Badge,
@@ -31,6 +32,7 @@ import {
   Table,
   Textarea,
 } from '../../components/ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Cortes masivos: avisarle al sector antes de que el sector escriba.
@@ -83,7 +85,7 @@ const FORM = {
 }
 
 const fecha = (v) =>
-  v ? new Date(v).toLocaleString('es-EC', { dateStyle: 'short', timeStyle: 'short' }) : '—'
+  v ? fmtFechaHora(v) : '—'
 
 const duracion = (min) => {
   if (min == null) return '—'
@@ -94,8 +96,10 @@ const duracion = (min) => {
 
 export default function IncidenciasPage() {
   const confirmar = useConfirmar()
-  const { puede } = usePermisos()
+  const { puede, perfil } = usePermisos()
   const puedeAvisar = puede('red.incidencias')
+  // Las mismas que `dirige_cuadrillas()` en la base: la que asigna es la base.
+  const asignaReparaciones = ['super_admin', 'admin', 'jefe_tecnico'].includes(perfil?.rol)
 
   const [estado, setEstado] = useState('abierta')
   const [filas, setFilas] = useState([])
@@ -128,11 +132,11 @@ export default function IncidenciasPage() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('clientes').select('zona').not('zona', 'is', null).neq('estado', 'baja'),
-      supabase.from('puntos_red').select('id, nombre, tipo').eq('activo', true).order('nombre'),
-      supabase.from('nodos_red').select('id, nombre, tipo, estado').order('nombre'),
-      supabase.from('olts').select('id, nombre').order('nombre'),
-      supabase.from('routers_mikrotik').select('id, nombre').order('nombre'),
+      django.from('clientes').select('zona').not('zona', 'is', null).neq('estado', 'baja'),
+      django.from('puntos_red').select('id, nombre, tipo').eq('activo', true).order('nombre'),
+      django.from('nodos_red').select('id, nombre, tipo, estado').order('nombre'),
+      django.from('olts').select('id, nombre').order('nombre'),
+      django.from('routers_mikrotik').select('id, nombre').order('nombre'),
     ])
       .then(([z, p, n, o, r]) => {
         setCatalogos({
@@ -173,21 +177,21 @@ export default function IncidenciasPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Abiertas ahora" valor={abiertas.length} icon={AlertOctagon} color="text-amber-400" />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Abiertas ahora" valor={abiertas.length} icon={AlertOctagon} color="text-amber-400" />
+        <Stat cargando={cargando}
           label="Abonados alcanzados"
           valor={abiertas.reduce((s, f) => s + Number(f.afectados ?? 0), 0)}
           icon={Users}
         />
-        <Stat label="Avisos en cola" valor={porAvisar} icon={Send} />
+        <Stat cargando={cargando} label="Avisos en cola" valor={porAvisar} icon={Send} />
       </div>
 
       {porAvisar > 0 && (
         <Aviso tipo="alerta">
           Hay <b>{porAvisar}</b> avisos esperando salir. Se mandan solos si la tarea{' '}
           <b>Aviso de cortes masivos</b> está encendida en Ajustes → Tareas programadas; si no,
-          usá el botón <b>Enviar ahora</b> de la incidencia.
+          usa el botón <b>Enviar ahora</b> de la incidencia.
         </Aviso>
       )}
 
@@ -263,7 +267,7 @@ export default function IncidenciasPage() {
                         onClick={() =>
                           accion(api.incidencias.abrir, f,
                             `Se le va a avisar a ${f.afectados ?? '?'} abonados que hay una avería en su sector.\n\n` +
-                              'Los mensajes que salgan no se pueden retirar. ¿Confirmás?')
+                              'Los mensajes que salgan no se pueden retirar. ¿Confirmas?')
                         }
                       >
                         Avisar
@@ -279,7 +283,7 @@ export default function IncidenciasPage() {
                               try {
                                 const r = await api.incidencias.enviarPendientes(200)
                                 await recargar()
-                                if (!r.enviados) setError(new Error('No salió ninguno: revisá los canales de mensajería.'))
+                                if (!r.enviados) setError(new Error('No salió ninguno: revisa los canales de mensajería.'))
                               } catch (err) {
                                 setError(err)
                               }
@@ -316,6 +320,8 @@ export default function IncidenciasPage() {
           />
         )}
       </Card>
+
+      {asignaReparaciones && <ReparacionesRed />}
 
       <FormIncidencia
         creando={creando}
@@ -388,8 +394,10 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
   // Recalcula cuando cambia algo del alcance. El resto del formulario —el
   // título, la descripción— no lo toca: escribir el texto no cambia a quién le
   // llega.
+  const abierto = Boolean(creando)
+
   useEffect(() => {
-    if (!creando) return setPrevia(null)
+    if (!abierto) return setPrevia(null)
 
     const alcance = {
       alcance: creando.alcance,
@@ -424,7 +432,9 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
     creando?.olt_id,
     creando?.puerto_pon,
     creando?.router_id,
-    creando,
+    // `abierto` y no `creando`: con el objeto entero, cada tecla del título
+    // volvía a calcular y el cuadro parpadeaba entre "Calculando…" y el número.
+    abierto,
   ])
 
   async function guardar(e) {
@@ -454,7 +464,7 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
       {creando && (
         <form onSubmit={guardar} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Qué pasó">
+            <Field campo="tipo" hint="El tipo de falla, para el reporte de incidencias." label="Qué pasó">
               <Select value={creando.tipo} onChange={set('tipo')}>
                 {TIPOS.map(([v, n]) => (
                   <option key={v} value={v}>
@@ -464,7 +474,7 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
               </Select>
             </Field>
 
-            <Field label="A quiénes afecta">
+            <Field campo="alcance" hint="A quiénes se avisa." label="A quiénes afecta">
               <Select value={creando.alcance} onChange={set('alcance')}>
                 {ALCANCES.map(([v, n]) => (
                   <option key={v} value={v}>
@@ -476,9 +486,9 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
           </div>
 
           {creando.alcance === 'zona' && (
-            <Field label="Zona">
+            <Field campo="zona" hint="Con la que se filtran listados y rutas." label="Zona">
               <Select value={creando.zona} onChange={set('zona')}>
-                <option value="">Elegí una zona…</option>
+                <option value="">Elige una zona…</option>
                 {catalogos.zonas.map((z) => (
                   <option key={z} value={z}>
                     {z}
@@ -489,9 +499,9 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
           )}
 
           {creando.alcance === 'punto' && (
-            <Field label="Caja NAP, antena o torre">
+            <Field campo="punto_id" hint="De dónde sale su conexión." label="Caja NAP, antena o torre">
               <Select value={creando.punto_id} onChange={set('punto_id')}>
-                <option value="">Elegí…</option>
+                <option value="">Elige…</option>
                 {catalogos.puntos.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nombre} ({p.tipo})
@@ -502,12 +512,12 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
           )}
 
           {creando.alcance === 'nodo' && (
-            <Field
+            <Field campo="nodo_id"
               label="Nodo del monitoreo"
-              hint="Incluye todo lo que cuelga de él: si elegís la torre, entran también los abonados de sus sectoriales."
+              hint="Incluye todo lo que cuelga de él: si eliges la torre, entran también los abonados de sus sectoriales."
             >
               <Select value={creando.nodo_id} onChange={set('nodo_id')}>
-                <option value="">Elegí…</option>
+                <option value="">Elige…</option>
                 {catalogos.nodos.map((n) => (
                   <option key={n.id} value={n.id}>
                     {n.nombre} {n.estado === 'down' ? '— CAÍDO' : ''}
@@ -519,9 +529,9 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
 
           {creando.alcance === 'olt' && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="OLT">
+              <Field campo="olt_id" hint="La OLT a la que está conectada la ONU." label="OLT">
                 <Select value={creando.olt_id} onChange={set('olt_id')}>
-                  <option value="">Elegí…</option>
+                  <option value="">Elige…</option>
                   {catalogos.olts.map((o) => (
                     <option key={o.id} value={o.id}>
                       {o.nombre}
@@ -529,7 +539,7 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
                   ))}
                 </Select>
               </Field>
-              <Field
+              <Field campo="puerto_pon"
                 label="Puerto PON"
                 hint="Vacío = la OLT entera. Una fibra rota casi siempre es un puerto, no la OLT."
               >
@@ -539,9 +549,9 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
           )}
 
           {creando.alcance === 'router' && (
-            <Field label="Router">
+            <Field campo="router_id" hint="El MikroTik que le da servicio." label="Router">
               <Select value={creando.router_id} onChange={set('router_id')}>
-                <option value="">Elegí…</option>
+                <option value="">Elige…</option>
                 {catalogos.routers.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.nombre}
@@ -559,7 +569,7 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
                 : 'border-slate-800 bg-[#F6F8FB]'
             }`}
           >
-            {calculando ? (
+            {calculando && !previa ? (
               <p className="text-[12px] text-slate-500">Calculando a quiénes alcanza…</p>
             ) : previa ? (
               <>
@@ -576,19 +586,19 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
                 )}
                 {previa.afectados === 0 && (
                   <p className="mt-1 text-[11px] text-amber-300">
-                    No alcanza a nadie. Revisá el alcance: puede que los abonados de ese sector no
+                    No alcanza a nadie. Revisa el alcance: puede que los abonados de ese sector no
                     tengan cargada la caja o la zona.
                   </p>
                 )}
               </>
             ) : (
-              <p className="text-[12px] text-slate-500">Elegí el alcance para ver a cuántos alcanza.</p>
+              <p className="text-[12px] text-slate-500">Elige el alcance para ver a cuántos alcanza.</p>
             )}
           </div>
 
-          <Field
+          <Field campo="titulo"
             label="Título"
-            hint="Este texto se le manda al abonado tal cual. Escribilo como se lo dirías por teléfono."
+            hint="Este texto se le manda al abonado tal cual. Escríbelo como se lo dirías por teléfono."
           >
             <Input
               value={creando.titulo}
@@ -598,21 +608,21 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
             />
           </Field>
 
-          <Field label="Detalle" hint="Va solo en el correo. El SMS y el WhatsApp llevan el título.">
-            <Textarea rows={2} value={creando.descripcion} onChange={set('descripcion')} />
+          <Field campo="descripcion" label="Detalle" hint="Va solo en el correo. El SMS y el WhatsApp llevan el título.">
+            <Textarea placeholder="Ej.: Corte de fibra en la Av. Quito" rows={2} value={creando.descripcion} onChange={set('descripcion')} />
           </Field>
 
           {programada ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Desde">
+              <Field campo="inicio_previsto" label="Desde">
                 <Input type="datetime-local" value={creando.inicio_previsto} onChange={set('inicio_previsto')} />
               </Field>
-              <Field label="Hasta">
+              <Field campo="fin_previsto" label="Hasta">
                 <Input type="datetime-local" value={creando.fin_previsto} onChange={set('fin_previsto')} />
               </Field>
             </div>
           ) : (
-            <Field
+            <Field campo="estimado_at"
               label="Estimamos restablecer"
               hint="Opcional, y es lo que más baja los mensajes repetidos. Sin esto se manda 'estamos trabajando'."
             >
@@ -637,7 +647,7 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
 
           <Aviso>
             <Wrench size={13} className="mr-1 inline" />
-            Se crea <b>sin avisar</b>. Los mensajes salen recién cuando apretás <b>Avisar</b> en la
+            Se crea <b>sin avisar</b>. Los mensajes salen recién cuando aprietas <b>Avisar</b> en la
             lista, y ahí se vuelve a pedir confirmación con el número de afectados.
           </Aviso>
 

@@ -301,7 +301,7 @@ export default router
  * ── Por qué está separado y sin sesión ──
  *
  * Porque quien llama es el servidor del proveedor, que no tiene usuario ni token
- * de Supabase. Exigirle sesión haría que la confirmación no llegue nunca y todos
+ * de Django. Exigirle sesión haría que la confirmación no llegue nunca y todos
  * los contratos queden esperando.
  *
  * ── Qué lo protege entonces ──

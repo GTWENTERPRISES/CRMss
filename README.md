@@ -12,93 +12,70 @@ Comandos reales validados contra el hardware en [`docs/comandos-referencia.md`](
 ```
   navegador
      │
-     ├──────────────► Supabase        (auth + PostgreSQL + RLS)
-     │                                 CRUD de OLTs, ONUs, perfiles, planes…
-     │
-     └──────────────► middleware      (Node + Express)
+     └──────────────► Django         (backend/new — auth JWT + base + seguridad por fila)
+                          │            CRUD de clientes, OLTs, ONUs, planes, cobros…
                           │
-                          ├── SSH ───► OLT Huawei (MA5800 / VRP)
-                          ├── SSH ───► OLT V-SOL
-                          └── REST ──► MikroTik (RouterOS v7)
+                          └──► middleware   (Node + Express, solo detrás de Django)
+                                   │
+                                   ├── SSH ───► OLT Huawei (MA5800 / VRP)
+                                   ├── SSH ───► OLT V-SOL
+                                   └── REST ──► MikroTik (RouterOS v7)
 ```
 
-El navegador no puede hablar SSH ni la API binaria de RouterOS, así que todo lo que toca
-la red pasa por el middleware. Lo que es puro CRUD va directo a Supabase, protegido por RLS.
+Django es el único backend expuesto: guarda los datos, entrega los tokens del
+personal y aplica la seguridad por fila. El navegador no puede hablar SSH ni la
+API binaria de RouterOS, así que lo que toca la red pasa por el middleware —pero
+siempre a través de Django (`/api/v1/red/...`), que le agrega una clave interna y
+quién hace el pedido.
 
 | Carpeta | Qué es |
 |---|---|
 | `web/` | Frontend — Next.js + React + Tailwind |
-| `supabase/migracion-*.sql` | Migraciones, en orden. Todas idempotentes |
+| `backend/new/` | Backend — Django + DRF (SQLite por omisión, PostgreSQL opcional) |
+| `backend/new/apps/dashboard/esquema_fuente.py` | Vistas, funciones, disparadores y políticas en SQL de Postgres |
 | `middleware/` | API de red — Node + Express + ssh2 |
-| `supabase/` | `schema.sql` con las 8 tablas, RLS y datos de ejemplo |
 | `docs/` | Especificación del taller y referencia de comandos |
 
 ---
 
-## Puesta en marcha rápida
+## Puesta en marcha
 
-Desde la raíz del proyecto, una sola vez:
-
-```bash
-npm install            # dependencias de la raíz
-npm run install:all    # dependencias de web/ y middleware/
-```
-
-Y para levantar todo (web + middleware en una sola terminal):
+### 1. Backend (Django)
 
 ```bash
-npm run dev
+cd backend/new
+pip install -r requirements.txt
+cp .env.example .env          # DJANGO_SECRET_KEY, FIELD_ENCRYPTION_KEY, CLAVE_INTERNA_MW...
+python manage.py migrate
+python manage.py sincronizar_personal   # crea el usuario de servicio del middleware
+python manage.py createsuperuser
+python manage.py runserver 8000
 ```
 
-- Web → http://localhost:5173
-- Middleware → http://localhost:4000
+`FIELD_ENCRYPTION_KEY` cifra los datos personales en la base: sin ella no se
+pueden leer. Guárdala aparte del respaldo de la base.
 
-`npm run dev:web` y `npm run dev:api` levantan cada uno por separado.
-
-> Antes de poder loguearte hay que completar los `.env` con los datos reales de
-> Supabase — los pasos están abajo. Mientras tengan los valores de ejemplo, la web
-> muestra un aviso y `/api/health` lista qué falta.
-
----
-
-## Puesta en marcha detallada
-
-### 1. Supabase
-
-1. Creá un proyecto en [supabase.com](https://supabase.com).
-2. **SQL Editor → New query** → pegá todo `supabase/schema.sql` → **Run**.
-3. **Authentication → Users → Add user** → creá el usuario de prueba (email + password,
-   marcando *Auto Confirm User*).
-4. **Project Settings → API** → anotá:
-   - `Project URL`
-   - `anon` key (va al frontend)
-   - `service_role` key (va **solo** al middleware)
-
-Las migraciones (`supabase/migracion-*.sql`) se pegan en el SQL Editor **en orden
-numérico**. Antes de correrlas contra la base del cliente se pueden probar contra
-un Postgres real en memoria:
+Cambiar una vista, una función, un disparador o una política se hace en
+`apps/dashboard/esquema_fuente.py` y después:
 
 ```bash
-cd supabase/pruebas
-npm install
-npm test
+python manage.py generar_vistas
+python manage.py generar_esquemas_zod
+python -m pytest tests
 ```
-
-Aplica la cadena completa, **ejecuta** las funciones —crear una función no prueba
-que corra: plpgsql compila el cuerpo recién al invocarla— y verifica el circuito
-de comisiones de punta a punta. Ver `supabase/pruebas/README.md`.
 
 ### 2. Middleware
 
 ```bash
 cd middleware
 npm install
-cp .env.example .env      # completá SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY y CREDENTIALS_KEY
+cp .env.example .env      # DJANGO_API_URL, DJANGO_SERVICIO_EMAIL/CLAVE, CLAVE_INTERNA_MW, CREDENTIALS_KEY
 npm run dev
 ```
 
-Queda escuchando en `http://localhost:4000`. Verificá con `GET /api/health` —
-te dice si falta algo del `.env`.
+Queda escuchando en `http://localhost:4000`, pero solo acepta pedidos de Django
+(`CLAVE_INTERNA_MW` tiene que ser la misma en los dos `.env`). `GET /api/health`
+dice si falta algo del `.env`.
 
 Los parsers de las OLTs y el cifrado tienen tests con salidas representativas de los
 equipos reales:
@@ -116,11 +93,12 @@ npm test
 ```bash
 cd web
 npm install
-cp .env.example .env      # completá NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY y NEXT_PUBLIC_API_URL
+cp .env.example .env      # NEXT_PUBLIC_DJANGO_API_URL=http://localhost:8000/api/v1
 npm run dev
 ```
 
-Abre en `http://localhost:5173`. Entrá con el usuario que creaste en el paso 1.3.
+Entrá con el usuario que creaste con `createsuperuser` (o el que te dé de alta
+un administrador en Gestión de personal).
 
 ---
 
@@ -128,25 +106,26 @@ Abre en `http://localhost:5173`. Entrá con el usuario que creaste en el paso 1.
 
 | Fase | Qué se hace | Dónde mirar |
 |---|---|---|
-| **1** Base de datos e interfaz | Tablas + RLS, login, layout | `supabase/schema.sql`, `web/src/components/layout/` |
+| **1** Base de datos e interfaz | Modelos, seguridad por fila, login, layout | `backend/new/apps/`, `web/src/components/layout/` |
 | **2** Integración MikroTik | Endpoint de red, crear un IP Pool desde la web | `middleware/src/drivers/mikrotik.js`, `web/src/components/mikrotik/` |
 | **3** Integración OLT y ONUs | Plantillas SSH, flujo detectar → perfil → registrar → guardar | `middleware/src/drivers/`, `web/src/components/onus/` |
 | **4** Panel de métricas | Potencia óptica en vivo, alerta bajo -27 dBm | `web/src/components/olt/ONUStatsCard.jsx` |
 
 ### Checkpoint de Fase 1
 
-- [ ] Las 8 tablas existen en Supabase con RLS activado.
+- [ ] `python manage.py migrate` corre sin errores y las pruebas pasan.
 - [ ] Login funciona con el usuario de prueba y redirige al Dashboard.
 - [ ] Sidebar/Navbar visibles y con navegación entre páginas.
 - [ ] Se puede crear una fila de prueba en `olts` desde la UI y verla listada.
-- [ ] Intentar leer `olts` **sin** estar autenticado falla (RLS protegiendo los datos).
+- [ ] Leer `/api/v1/tables/olts` **sin** token devuelve 401.
 
 ---
 
 ## Endpoints del middleware
 
-Todos requieren el header `Authorization: Bearer <access_token de Supabase>`
-(salvo `/api/health`). Se puede desactivar con `REQUIRE_AUTH=false` para probar con curl.
+Se llaman a través de Django: `http://TU-DJANGO:8000/api/v1/red/<ruta>`, con el
+header `Authorization: Bearer <access_token de Django>` (salvo `/api/health` y las
+rutas públicas: portal, webhooks e integraciones con llave).
 
 ### General
 
@@ -162,7 +141,7 @@ Todos requieren el header `Authorization: Bearer <access_token de Supabase>`
 | `GET` | `/api/olt/:id/test` | Prueba de conexión (`display version` / `show version`) |
 | `GET` | `/api/olt/:id/onus?puerto=N` | ONUs registradas del puerto |
 | `GET` | `/api/olt/:id/autofind?puerto=N` | ONUs sin registrar (sin `puerto`, barre todos) |
-| `POST` | `/api/olt/:id/onus` | Registra la ONU en la OLT y la guarda en Supabase |
+| `POST` | `/api/olt/:id/onus` | Registra la ONU en la OLT y la guarda en la base |
 | `POST` | `/api/olt/:id/onus/servicio` | VLAN de servicio (tcont → gemport → service-port, V-SOL) |
 | `DELETE` | `/api/olt/:id/onus/:onuId?puerto=N` | Baja de la ONU en la OLT y en la base |
 | `GET` | `/api/olt/:id/onus/:onuId/metricas?puerto=N` | Potencia óptica, distancia y alerta |
@@ -255,11 +234,8 @@ estaba en vez de empezar de cero.
 | `POST` | `/api/sri/certificado` | Sube y valida el `.p12` de firma |
 | `POST` | `/api/sri/probar-firma` · `/api/sri/probar-smtp` | Pruebas sin tocar comprobantes |
 
-Las migraciones `supabase/migracion-03…08` crean las tablas de facturación y cobros;
-hay que correrlas en orden desde el SQL Editor. El flujo de instalación necesita
-además la `migracion-31` y su `31b`, que crea el bucket de las fotos. La `b` va
-aparte porque el SQL Editor corre todo en una transacción: si el proyecto no deja
-crear buckets por SQL, el error tiraría abajo también las tablas.
+Las tablas de facturación y cobros las crea `python manage.py migrate`. Las fotos
+del flujo de instalación van al storage de Django (bucket `instalaciones`).
 
 ### Clientes
 
@@ -435,7 +411,7 @@ Dos reglas que el equipo real impuso a los golpes:
 
 ### Cobros
 
-Los pagos son CRUD puro, así que la web habla directo con Supabase y no pasan por el
+Los pagos son CRUD puro, así que la web habla directo con Django y no pasan por el
 middleware — salvo "registrar pago y activar", que quita al abonado del address-list
 de morosos y sí toca la red.
 
@@ -540,7 +516,7 @@ abonado no es algo que deba empezar a pasar solo por instalar el sistema.
 ### API de integración (CRM y bot de WhatsApp)
 
 Sistemas de terceros entran por `/api/integracion` con una **llave de API**, no con la
-sesión de Supabase de una persona: un bot no se loguea, y darle el usuario de un
+sesión de Django de una persona: un bot no se loguea, y darle el usuario de un
 empleado deja cada cosa que hace firmada por alguien que no la hizo.
 
 | Endpoint | Permiso | Qué devuelve |
@@ -756,7 +732,10 @@ código. Vale la pena conocerlas antes de tocar los drivers:
 
 - Las contraseñas de OLTs y routers se guardan cifradas con AES-256-GCM. La clave vive
   solo en el `.env` del middleware; el navegador nunca la ve.
-- La `service_role` key de Supabase es exclusiva del middleware — bypassea RLS por diseño.
-  Nunca la pongas en `web/.env`.
-- El middleware valida el access token de Supabase en cada request (`REQUIRE_AUTH`).
-  Dejarlo abierto equivale a exponer las OLTs y la base entera.
+- Django es el único backend expuesto. Cada tabla aplica la seguridad por fila del
+  esquema (`apps/core/rls.py`): el técnico ve sus trabajos, el vendedor sus comisiones.
+- El middleware solo acepta pedidos de Django (`CLAVE_INTERNA_MW`). Su usuario de
+  servicio —un superusuario de Django sin legajo— no pasa por la seguridad por fila:
+  sus credenciales van solo en `middleware/.env`, nunca en `web/.env`.
+- Los tokens del personal duran 15 minutos y se renuevan solos; cerrar sesión o
+  cambiar la contraseña revoca los de renovación.

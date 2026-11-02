@@ -50,6 +50,7 @@ import {
 } from '../../lib/comercial'
 import { ESTADOS, ESTADOS_ABIERTOS, ORIGENES, etiquetaEstado } from '../../lib/ventas'
 import { loQueFalta } from '../../lib/expedientes'
+import { hora as fmtHora } from '@/lib/formato'
 
 /**
  * Tablero comercial.
@@ -75,7 +76,7 @@ const CONSEJOS = [
   'Los mejores vendedores no esperan oportunidades: las crean.',
   'Un prospecto que no se llama en 48 horas ya está hablando con otro.',
   'La objeción del precio casi nunca es sobre el precio.',
-  'Cerrá el día dejando agendado el primer llamado de mañana.',
+  'Cierra el día dejando agendado el primer llamado de mañana.',
   'Al que dijo que no hace seis meses, hoy quizás le llegue la fibra.',
 ]
 
@@ -211,7 +212,7 @@ export default function DashboardComercialPage() {
           <h1 className="campo-txt text-2xl font-semibold">
             {saludo(perfil?.nombre)} <span className="ml-1">👋</span>
           </h1>
-          <p className="campo-suave text-sm">Acá tenés tu resumen comercial de hoy.</p>
+          <p className="campo-suave text-sm">Acá tienes tu resumen comercial de hoy.</p>
         </div>
         <div className="flex items-center gap-2">
           <BotonTema tema={tema} onAlternar={alternar} />
@@ -289,7 +290,7 @@ export default function DashboardComercialPage() {
       {/* ── Fila 1: a quién llamar · dinero · proyección · mi día ── */}
       <div className="grid gap-3 lg:grid-cols-4">
         <Panel
-          titulo="Oportunidades que podés cerrar hoy"
+          titulo="Oportunidades que puedes cerrar hoy"
           subtitulo="Ordenadas por puntaje de conversión"
           icono={Target}
           color={C.etapas[0]}
@@ -393,7 +394,7 @@ export default function DashboardComercialPage() {
           )}
         </Panel>
 
-        <Panel titulo="Si seguís este ritmo" subtitulo="No es una promesa: es una regla de tres" icono={TrendingUp} color={C.etapas[2]}>
+        <Panel titulo="Si sigues este ritmo" subtitulo="No es una promesa: es una regla de tres" icono={TrendingUp} color={C.etapas[2]}>
           <div className="campo-sup campo-borde rounded-xl border p-3 text-center">
             <div className="campo-tenue text-[11px]">Terminarías el mes en</div>
             <div className="campo-txt text-3xl font-semibold">{proy.proyectado}</div>
@@ -545,7 +546,7 @@ export default function DashboardComercialPage() {
             seguimientosHoy.map((s) => (
               <div key={s.id} className="flex gap-2 py-1.5">
                 <span className="campo-tenue shrink-0 text-[12px] tabular-nums">
-                  {new Date(s.programado_para).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}
+                  {fmtHora(s.programado_para)}
                 </span>
                 <div className="min-w-0">
                   <div className="campo-txt truncate text-[13px]">{s.prospecto}</div>
@@ -639,14 +640,14 @@ export default function DashboardComercialPage() {
               mes.
             </Aviso>
             <Field label="Altas (clientes nuevos)">
-              <Input
+              <Input placeholder="Ej.: 20"
                 type="number"
                 value={editandoMeta.meta_altas}
                 onChange={(e) => setEditandoMeta({ ...editandoMeta, meta_altas: e.target.value })}
               />
             </Field>
             <Field label="Monto (mensualidad sumada)">
-              <Input
+              <Input placeholder="Ej.: 500"
                 type="number"
                 step="0.01"
                 value={editandoMeta.meta_monto}
@@ -657,7 +658,7 @@ export default function DashboardComercialPage() {
               <Button variante="fantasma" onClick={() => setEditandoMeta(null)}>
                 Cancelar
               </Button>
-              <Button
+              <Button variante="primario"
                 onClick={async () => {
                   try {
                     await comercialApi.guardarMeta(editandoMeta)

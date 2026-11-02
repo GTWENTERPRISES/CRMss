@@ -31,9 +31,14 @@ import BotonTema from '../../components/ventas/BotonTema'
 import { enlaceMapa, etiquetaIncidencia } from '../../lib/soporte'
 import { mapaPreferido } from '../../lib/mapaPreferido'
 import { HORA, faltaPara, hoyISO, tableroDelDia } from '../../lib/campo'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { largoDeRuta } from '../../lib/ruta.js'
 import MapaCampo from '../../components/tecnico/MapaCampo'
+import { hora as fmtHora } from '@/lib/formato'
+import MiCuadrilla, { useMiCuadrilla } from '../../components/tecnico/MiCuadrilla'
+import ReparacionesCampo, { useReparaciones } from '../../components/tecnico/ReparacionesCampo'
+import RutaDelDia, { useMiRuta } from '../../components/tecnico/RutaDelDia'
+import { enlaceLlamada } from '../../lib/telefono'
 
 /**
  * El tablero del técnico de campo.
@@ -57,6 +62,12 @@ import MapaCampo from '../../components/tecnico/MapaCampo'
  */
 export default function InicioPage() {
   const { perfil } = usePermisos()
+  // Quién es el jefe de grupo hoy, y si es él: lo primero que tiene que ver.
+  const cuadrilla = useMiCuadrilla(perfil?.tecnico_id)
+  // La reparación de red asignada a su cuadrilla: va arriba, es lo urgente.
+  const { filas: reparaciones, recargar: recargarReparaciones } = useReparaciones()
+  // La ruta del día (migración 216): un trabajo a la vez, en el orden fijado.
+  const { ruta, recargar: recargarRuta } = useMiRuta()
   const { tema, alternar } = useTemaCampo('claro')
   const [d, setD] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -87,9 +98,9 @@ export default function InicioPage() {
     }
 
     if (perfil?.tecnico_id) {
-      const { data } = await supabase
+      const { data } = await django
         .from('v_jornadas')
-        .select('id, inicio_at, foto_ingreso')
+        .select('id, inicio_at, foto_ingreso, km_inicio')
         .eq('tecnico_id', perfil.tecnico_id)
         .eq('fecha', hoyISO())
         .maybeSingle()
@@ -102,9 +113,12 @@ export default function InicioPage() {
     // Cada dos minutos. La red cambia sola y el técnico no va a tirar para
     // recargar mientras trabaja; más seguido gastaría datos móviles por un dato
     // que no cambia tan rápido.
-    const t = setInterval(recargar, 120000)
+    const t = setInterval(() => {
+      recargar()
+      recargarRuta()
+    }, 120000)
     return () => clearInterval(t)
-  }, [recargar])
+  }, [recargar, recargarRuta])
 
   const critica = d?.red?.incidencias?.find((n) => n.estado === 'down') ?? null
 
@@ -149,9 +163,11 @@ export default function InicioPage() {
         </div>
       </div>
 
+      <MiCuadrilla c={cuadrilla} />
+
       {error && (
         <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-[13px] text-rose-400">
-          No se pudo cargar y no hay nada guardado de antes. Revisá la señal y tocá actualizar.
+          No se pudo cargar y no hay nada guardado de antes. Revisa la señal y toca actualizar.
         </div>
       )}
 
@@ -189,13 +205,23 @@ export default function InicioPage() {
           que son tres toques y adentro de donde uno va a cambiar el tema — no
           a empezar el día. Una acción diaria escondida en Ajustes es una
           acción que no se hace. */}
-      <AvisoJornada j={jornadaHoy} />
+      <AvisoJornada
+        j={jornadaHoy}
+        cargaKm={!cuadrilla || cuadrilla.sin_jefe || cuadrilla.soy_jefe}
+      />
+
+      <RutaDelDia ruta={ruta} onCambio={recargarRuta} />
+
+      <ReparacionesCampo filas={reparaciones} onCambio={recargarReparaciones} />
 
       {/* ── Fila 2 · Novedades · Jornada · Próxima ── */}
       <section className="grid gap-3 lg:grid-cols-3">
         <NovedadesRed novedades={d?.novedades} nuevas={d?.novedadesNuevas ?? 0} desde={d?.desdeUltimoIngreso} />
         <Jornada j={d?.jornada} resumen={d?.resumen} cargando={cargando} />
-        <Proxima o={d?.proxima} cargando={cargando} />
+        {/* "Próxima" se dejó de mostrar: era solo de instalaciones y podía
+            contradecir el orden de la ruta, que ahora va arriba de todo. Sin
+            ruta (la 216 sin correr), vuelve. */}
+        {!ruta && <Proxima o={d?.proxima} cargando={cargando} />}
       </section>
 
       {/* ── Fila 3 · Ruta y trabajos recientes ── */}
@@ -310,7 +336,7 @@ function IncidenciaCritica({ n, cargando }) {
         {n.desde && (
           <p>
             Última comunicación:{' '}
-            {new Date(n.desde).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}
+            {fmtHora(n.desde)}
           </p>
         )}
         {/* El número de afectados es lo que convierte "una torre caída" en algo
@@ -335,6 +361,11 @@ const CLASE = {
   caida: { punto: 'bg-rose-500', texto: 'perdió comunicación' },
   recuperado: { punto: 'bg-emerald-500', texto: 'recuperado' },
   degradado: { punto: 'bg-amber-500', texto: 'presentó alta latencia' },
+  // Lo que no responde al ping (migración 209). El texto es el detalle de la
+  // vista: "Fibra cortada", "6 ONTs sin señal a la vez", "Bajó 2.4 dB…".
+  corte_masivo: { punto: 'bg-rose-500', texto: null },
+  corte_grupo: { punto: 'bg-rose-500', texto: null },
+  nap_degradada: { punto: 'bg-amber-500', texto: null },
 }
 
 function NovedadesRed({ novedades, nuevas = 0, desde }) {
@@ -380,15 +411,15 @@ function NovedadesRed({ novedades, nuevas = 0, desde }) {
                 {/* Las ya vistas se atenúan en vez de esconderse: el técnico
                     igual quiere poder mirar qué pasó anoche. */}
                 <span className="campo-tenue shrink-0 text-[12px] tabular-nums">
-                  {new Date(e.momento).toLocaleTimeString('es-EC', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {fmtHora(e.momento)}
                 </span>
                 <span className={`h-2 w-2 shrink-0 rounded-full ${c.punto}`} />
                 <span className="campo-txt min-w-0 flex-1 truncate text-[13px]">
-                  <b className="font-medium">{e.nodo}</b>{' '}
-                  <span className="campo-suave">{c.texto}</span>
+                  <b className="font-medium">{e.titulo ?? e.nodo}</b>{' '}
+                  <span className="campo-suave">{c.texto ?? e.detalle}</span>
+                  {e.reparacion_cuadrilla && e.clase !== 'recuperado' && (
+                    <span className="text-sky-500"> · {e.reparacion_cuadrilla}</span>
+                  )}
                   {e.duracion_min != null && (
                     <span className="campo-tenue"> · {duracion(e.duracion_min)}</span>
                   )}
@@ -432,8 +463,8 @@ function Jornada({ j, resumen, cargando }) {
         <ClipboardList size={17} className="mt-0.5 shrink-0 text-sky-500" />
         <p className="campo-suave text-[12px]">
           {j.total === 0
-            ? 'No tenés trabajos agendados para hoy.'
-            : `Tenés ${j.total} ${j.total === 1 ? 'orden asignada' : 'órdenes asignadas'} para hoy.`}
+            ? 'No tienes trabajos agendados para hoy.'
+            : `Tienes ${j.total} ${j.total === 1 ? 'orden asignada' : 'órdenes asignadas'} para hoy.`}
           {j.atrasadas > 0 && (
             <>
               {' '}
@@ -454,10 +485,7 @@ function Jornada({ j, resumen, cargando }) {
           <div>
             <p className="campo-tenue text-[10px] uppercase tracking-wide">Inicio de jornada</p>
             <p className="campo-txt font-medium">
-              {new Date(resumen.inicio).toLocaleTimeString('es-EC', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {fmtHora(resumen.inicio)}
             </p>
           </div>
           <div>
@@ -544,7 +572,7 @@ function Proxima({ o, cargando }) {
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <Boton href={o.telefono ? `tel:${o.telefono}` : null} icono={Phone}>
+        <Boton href={enlaceLlamada(o.telefono)} icono={Phone}>
           Llamar
         </Boton>
         <Boton href={enlaceMapa(o, mapaPreferido())} icono={MapPin} externo>
@@ -939,19 +967,23 @@ function duracion(minutos) {
  * de "todo en orden" arriba de la pantalla se vuelve parte del fondo en dos
  * días, y el día que diga otra cosa tampoco se va a leer.
  */
-function AvisoJornada({ j }) {
+function AvisoJornada({ j, cargaKm }) {
   if (j?.inicio_at && j?.foto_ingreso) return null
 
+  // Desde la 212 el ingreso se marca solo en el primer cliente: lo único que
+  // falta antes de salir es la salida del vehículo, y solo para quien maneja.
   const sinIniciar = !j?.inicio_at
+  if (sinIniciar && (!cargaKm || j?.km_inicio != null)) return null
+
   const texto = sinIniciar
     ? {
-        titulo: 'Todavía no iniciaste tu jornada',
-        sub: 'Registrá el vehículo, el kilometraje y tu foto de ingreso.',
-        accion: 'Iniciar',
+        titulo: 'Registra la salida del vehículo',
+        sub: 'Los km al salir de la base. Tu ingreso se marca solo al llegar al primer cliente.',
+        accion: 'Registrar',
       }
     : {
         titulo: 'Falta tu foto de ingreso',
-        sub: 'La jornada está abierta. Subí la foto cuando tengas señal.',
+        sub: 'La jornada está abierta. Sube la foto cuando tengas señal.',
         accion: 'Subir',
       }
 

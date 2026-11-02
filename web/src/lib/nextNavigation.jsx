@@ -60,10 +60,15 @@ export function useSearchParams() {
   const pathname = usePathname() || '/'
   const current = useNextSearchParams()
   const params = useMemo(() => new URLSearchParams(current.toString()), [current])
-  const setParams = (next) => {
-    const value = next instanceof URLSearchParams ? next : new URLSearchParams(next)
+  // Como el de react-router: acepta los parámetros nuevos o una función que los
+  // calcula desde los actuales, y `{ replace: true }` para no sumar historial.
+  const setParams = (next, options = {}) => {
+    const calculado = typeof next === 'function' ? next(new URLSearchParams(current.toString())) : next
+    const value = calculado instanceof URLSearchParams ? calculado : new URLSearchParams(calculado ?? '')
     const query = value.toString()
-    router.push(query ? `${pathname}?${query}` : pathname)
+    const destino = query ? `${pathname}?${query}` : pathname
+    if (options.replace) router.replace(destino, { scroll: false })
+    else router.push(destino, { scroll: false })
   }
   return [params, setParams]
 }

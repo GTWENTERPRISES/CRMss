@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
 import { Link } from '@/lib/nextNavigation'
 import { Gauge, Plus, RefreshCw, Tag, Trash2, TriangleAlert } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import {
   Aviso,
@@ -50,7 +50,7 @@ export default function VelocidadesPage() {
   const [planCreado, setPlanCreado] = useState(null)
 
   useEffect(() => {
-    supabase
+    django
       .from('olts')
       .select('id, nombre, numero')
       .eq('activo', true)
@@ -172,14 +172,14 @@ export default function VelocidadesPage() {
       {nueva && (
         <Card title="Nuevo perfil de velocidad" icon={Gauge}>
           <div className="grid gap-2 sm:grid-cols-3">
-            <Field label="Nombre" hint="se le agrega -DOWN y -UP">
+            <Field campo="nombre" label="Nombre" hint="se le agrega -DOWN y -UP">
               <Input
                 value={nueva.nombre}
                 onChange={(e) => setNueva({ ...nueva, nombre: e.target.value })}
                 placeholder="PLAN_100M"
               />
             </Field>
-            <Field label="Bajada (Mbps)">
+            <Field campo="bajada" label="Bajada (Mbps)">
               <Input
                 type="number"
                 value={nueva.bajada}
@@ -187,7 +187,7 @@ export default function VelocidadesPage() {
                 placeholder="100"
               />
             </Field>
-            <Field label="Subida (Mbps)">
+            <Field campo="subida" label="Subida (Mbps)">
               <Input
                 type="number"
                 value={nueva.subida}
@@ -254,7 +254,7 @@ export default function VelocidadesPage() {
           <Cargando texto="Preguntándole a los equipos…" />
         ) : (
           <p className="py-8 text-center text-sm text-slate-500">
-            Todavía no se leyeron. Apretá <b>Leer de los equipos</b>: cuesta una sesión SSH por OLT.
+            Todavía no se leyeron. Aprieta <b>Leer de los equipos</b>: cuesta una sesión SSH por OLT.
           </p>
         )
       ) : (
@@ -367,10 +367,7 @@ export default function VelocidadesPage() {
                                 } catch (err) {
                                   setError(err)
                                 }
-                              }}
-                            >
-                              Borrar
-                            </Button>
+                              }} />
                           </td>
                         </tr>
                       )}
@@ -388,7 +385,7 @@ export default function VelocidadesPage() {
         <Card title={`Vender ${aVender.nombre}`} icon={Tag}>
           <div className="grid gap-2 sm:grid-cols-2">
             <Field label="Nombre comercial" hint="el que ve el abonado en su factura">
-              <Input
+              <Input placeholder="Ej.: QA Net"
                 value={aVender.nombre_plan}
                 onChange={(e) => setAVender({ ...aVender, nombre_plan: e.target.value })}
               />

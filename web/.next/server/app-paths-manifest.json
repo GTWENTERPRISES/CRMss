@@ -1,3 +1,8 @@
 {
-  "/page": "app/page.js"
+  "/ajustes/facturacion-electronica/page": "app/ajustes/facturacion-electronica/page.js",
+  "/ajustes/sistema/page": "app/ajustes/sistema/page.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/reportes/crecimiento-routers/page": "app/reportes/crecimiento-routers/page.js",
+  "/soporte/rutas/page": "app/soporte/rutas/page.js"
 }

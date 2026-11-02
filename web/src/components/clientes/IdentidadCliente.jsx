@@ -15,6 +15,8 @@ import { carteraApi } from '../../lib/cartera'
 import { dineroCero as dinero } from '../../lib/formato'
 import ConPermiso from '../layout/ConPermiso'
 import { Aviso, Badge, Button, Modal, Textarea, EnlaceIp } from '../ui'
+import { fecha as fmtFecha } from '@/lib/formato'
+import { COLOR_ESTADO } from '../../lib/estados'
 
 /**
  * Quién es este abonado para el sistema, arriba de todo.
@@ -30,12 +32,7 @@ import { Aviso, Badge, Button, Modal, Textarea, EnlaceIp } from '../ui'
  * lo que decide si al abonado se lo llama o se le va a retirar el equipo.
  */
 
-const COLOR = {
-  activo: 'verde',
-  cortado: 'rojo',
-  suspendido: 'ambar',
-  baja: 'gris',
-}
+const COLOR = COLOR_ESTADO.abonado // lib/estados
 
 /**
  * Una fecha SIN hora, como la escribe la base: "2026-09-22".
@@ -49,7 +46,7 @@ const soloDia = (f) => {
   if (!f) return null
   const d = new Date(`${String(f).slice(0, 10)}T12:00:00`)
   if (Number.isNaN(d.getTime())) return null
-  return d.toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return fmtFecha(d)
 }
 
 const fechaHora = (f) => {
@@ -311,7 +308,7 @@ const MOTIVOS_SALDO = [
     label: 'Otro arreglo',
     icono: null,
     nota: '',
-    aviso: 'Escribí qué se acordó y con quién. Es lo que va a explicar esta decisión más adelante.',
+    aviso: 'Escribe qué se acordó y con quién. Es lo que va a explicar esta decisión más adelante.',
   },
 ]
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Globe } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { Button, ErrorBanner, Modal } from '../ui'
 
@@ -175,7 +175,7 @@ export default function GestionRemotaOnu({ olt, onu, actual, onListo, onCerrar }
    */
   useEffect(() => {
     let vivo = true
-    supabase
+    django
       .from('v_pools_onu')
       .select('*')
       .eq('olt_id', olt.id)
@@ -203,7 +203,7 @@ export default function GestionRemotaOnu({ olt, onu, actual, onListo, onCerrar }
   useEffect(() => {
     if (!pool?.id) return
     let vivo = true
-    supabase
+    django
       .from('ip_addresses')
       .select('ip_address, estado')
       // `v_pools_onu.id` ES el id de la subred: la vista no renombra la clave.

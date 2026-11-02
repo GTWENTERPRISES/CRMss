@@ -19,7 +19,7 @@
  *   - un endpoint que devuelva el QR mientras no esté vinculado
  */
 const NO_IMPLEMENTADO =
-  'Baileys embebido todavía no está implementado. Usá Evolution API, que es la misma librería ' +
+  'Baileys embebido todavía no está implementado. Usa Evolution API, que es la misma librería ' +
   'corriendo como servicio aparte: gratis igual, y la sesión no se cae cuando se reinicia el middleware.'
 
 export async function enviar() {

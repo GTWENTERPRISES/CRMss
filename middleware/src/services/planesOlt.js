@@ -1,4 +1,5 @@
 import { db } from '../lib/db.js'
+import { ivaGeneral } from '../lib/iva.js'
 import { badRequest, AppError } from '../lib/errors.js'
 import * as olts from './oltService.js'
 
@@ -89,7 +90,7 @@ export async function verificarPlanes(oltId, { guardar = false } = {}) {
       problemas.push('no tiene índices de traffic table: no se puede aplicar velocidad en la OLT')
     } else if (subida == null) {
       problemas.push(
-        `solo tiene un índice (${bajada}) y el equipo pide uno por sentido. No se encontró su tabla hermana por el nombre: elegí la de subida a mano`,
+        `solo tiene un índice (${bajada}) y el equipo pide uno por sentido. No se encontró su tabla hermana por el nombre: elige la de subida a mano`,
       )
     }
     if (tSubida === false) problemas.push(`la tabla ${subida} (subida) no existe en el equipo`)
@@ -185,7 +186,7 @@ export async function guardarTablasDePlan(oltId, planId, { subida, bajada }) {
   const faltan = [subida, bajada].filter((i) => !porIndice.has(Number(i)))
   if (faltan.length) {
     throw badRequest(`La OLT no tiene la traffic table ${[...new Set(faltan)].join(' ni la ')}`, {
-      hint: 'Cargala en el equipo o elegí una de las que existen.',
+      hint: 'Cárgala en el equipo o elige una de las que existen.',
       disponibles: tablas.map((t) => ({ index: t.index, mbps: t.mbps })),
     })
   }
@@ -266,7 +267,7 @@ export async function listarTablasDeOlts(oltIds = []) {
  * Por eso se busca un hueco libre en TODAS antes de escribir en ninguna.
  */
 export async function crearParDeTablas(oltIds, { nombre, bajada_kbps, subida_kbps, priority = 0 }) {
-  if (!oltIds?.length) throw badRequest('Elegí al menos una OLT')
+  if (!oltIds?.length) throw badRequest('Elige al menos una OLT')
   if (!nombre?.trim()) throw badRequest('Falta el nombre')
   if (!bajada_kbps || !subida_kbps) {
     throw badRequest('Faltan las velocidades', {
@@ -483,7 +484,7 @@ export async function crearPlanDesdeTablas(oltId, datos) {
     categoria,
     precio: Number(precio) || 0,
     tipo_impuesto: datos.tipo_impuesto ?? 'incluido',
-    iva_porcentaje: datos.iva_porcentaje ?? 15,
+    iva_porcentaje: datos.iva_porcentaje ?? (await ivaGeneral()),
     bajada_kbps: tB.pir_kbps,
     subida_kbps: tS.pir_kbps,
     traffic_table_bajada: tB.index,

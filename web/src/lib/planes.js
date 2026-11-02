@@ -19,6 +19,11 @@ export const CATEGORIAS = {
     color: 'violeta',
     ayuda: 'Empresas. Suele llevar caudal garantizado y prioridad más alta.',
   },
+  empresarial: {
+    label: 'Empresarial',
+    color: 'violeta',
+    ayuda: 'Negocios y pymes. Como el corporativo, con caudal garantizado si el plan lo trae.',
+  },
   otro: { label: 'Otro', color: 'gris', ayuda: '' },
 }
 

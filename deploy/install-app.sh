@@ -286,12 +286,12 @@ azul "Listo. Falta completar las credenciales:"
 cat <<EOF
 
   1. nano $RAIZ/middleware/.env
-       SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CREDENTIALS_KEY
+       DJANGO_API_URL, DJANGO_SERVICIO_EMAIL, DJANGO_SERVICIO_CLAVE,
+       CLAVE_INTERNA_MW (la misma que en backend/new/.env), CREDENTIALS_KEY
        CORS_ORIGIN=https://TU-DOMINIO
 
   2. nano $RAIZ/web/.env
-       NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
-       NEXT_PUBLIC_API_URL=https://TU-DOMINIO          <-- solo el dominio, SIN /api ni localhost
+       NEXT_PUBLIC_DJANGO_API_URL=https://TU-DOMINIO/api/v1
        NEXT_PUBLIC_DEMO_MODE=false
 
   3. Recompilar y reiniciar:

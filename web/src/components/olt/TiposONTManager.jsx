@@ -45,17 +45,17 @@ export default function TiposONTManager() {
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
         <form onSubmit={agregar} className="grid items-end gap-3 sm:grid-cols-5">
-          <Field label="Marca">
+          <Field campo="marca" label="Marca">
             <Input value={form.marca} onChange={set('marca')} placeholder="Huawei" required />
           </Field>
-          <Field label="Modelo">
+          <Field campo="modelo" label="Modelo">
             <Input value={form.modelo} onChange={set('modelo')} placeholder="HG8546M" required />
           </Field>
-          <Field label="Eth">
-            <Input type="number" value={form.puertos_ethernet} onChange={set('puertos_ethernet')} min={0} />
+          <Field campo="puertos_ethernet" label="Eth">
+            <Input placeholder="Ej.: 4" type="number" value={form.puertos_ethernet} onChange={set('puertos_ethernet')} min={0} />
           </Field>
-          <Field label="FXS">
-            <Input type="number" value={form.puertos_fxs} onChange={set('puertos_fxs')} min={0} />
+          <Field campo="puertos_fxs" label="FXS">
+            <Input placeholder="Ej.: 1" type="number" value={form.puertos_fxs} onChange={set('puertos_fxs')} min={0} />
           </Field>
           <div className="flex items-center gap-3 pb-2">
             <label className="flex items-center gap-2 text-xs text-slate-400">
@@ -67,7 +67,7 @@ export default function TiposONTManager() {
               />
               WiFi
             </label>
-            <Button type="submit" variante="primario" icon={Plus} cargando={guardando} />
+            <Button type="submit" variante="primario" icon={Plus} cargando={guardando} title="Agregar" />
           </div>
         </form>
 

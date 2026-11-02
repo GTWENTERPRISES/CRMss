@@ -11,7 +11,7 @@ Hay dos caminos y la diferencia no es de estilo: es de qué puede llegar a dónd
 
 ```
                     ┌──────────────────────────────────────┐
-   Navegador ──────►│ Supabase (PostgREST + RLS)           │  datos
+   Navegador ──────►│ Django (API de tablas + RLS)         │  datos
                     │  clientes, facturas, tickets, consumo │
                     └──────────────────────────────────────┘
 
@@ -22,8 +22,8 @@ Hay dos caminos y la diferencia no es de estilo: es de qué puede llegar a dónd
                     └──────────────────────────────────────┘      └──────────────┘
 ```
 
-**Lo que es dato va directo a Supabase.** El navegador consulta y escribe con la clave anónima y
-RLS protege las filas. Meter esas consultas en el middleware agregaría un salto sin ganar nada.
+**Lo que es dato va directo a Django.** El navegador consulta y escribe con el token de su
+sesión y la seguridad por fila protege las filas. Meter esas consultas en el middleware agregaría un salto sin ganar nada.
 
 **Lo que toca un equipo pasa por el middleware, siempre.** No por prolijidad: el navegador no
 puede abrir un socket TCP a la API de RouterOS ni una sesión SSH, y aunque pudiera, las

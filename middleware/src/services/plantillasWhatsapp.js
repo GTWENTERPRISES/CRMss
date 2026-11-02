@@ -106,7 +106,7 @@ export async function listar() {
   if (error) {
     if (/does not exist/i.test(error.message)) {
       throw new AppError(
-        'Falta la tabla de plantillas de WhatsApp. Corré supabase/migracion-176-las-plantillas-aprobadas-de-whatsapp.sql',
+        'Falta la tabla de plantillas de WhatsApp. Actualiza la base: python manage.py migrate',
         { status: 503 },
       )
     }
@@ -240,12 +240,12 @@ export function revisarCuerpo(cuerpo) {
   // 1. No puede empezar ni terminar con una variable.
   if (/^\s*\{\{\s*\d+\s*\}\}/.test(texto)) {
     throw badRequest('Meta no acepta que el mensaje EMPIECE con una variable.', {
-      hint: 'Poné una palabra antes. El nombre de la empresa no hace falta: WhatsApp ya lo muestra.',
+      hint: 'Pon una palabra antes. El nombre de la empresa no hace falta: WhatsApp ya lo muestra.',
     })
   }
   if (/\{\{\s*\d+\s*\}\}\s*$/.test(texto)) {
     throw badRequest('Meta no acepta que el mensaje TERMINE con una variable.', {
-      hint: 'Cerrá con una frase: un punto y "Gracias" alcanza.',
+      hint: 'Cierra con una frase: un punto y "Gracias" alcanza.',
     })
   }
 

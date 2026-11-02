@@ -231,7 +231,7 @@ export default function PlantillasWhatsappPage() {
       <Card title="Cómo se registra una plantilla" icon={AlertTriangle}>
         <ol className="list-decimal space-y-1.5 pl-5 text-[13px] leading-relaxed text-slate-400">
           <li>
-            Entrá al <b>Administrador de WhatsApp</b> de Meta → Herramientas de la cuenta →
+            Entra al <b>Administrador de WhatsApp</b> de Meta → Herramientas de la cuenta →
             Plantillas de mensajes → <b>Crear plantilla</b>.
           </li>
           <li>
@@ -243,11 +243,11 @@ export default function PlantillasWhatsappPage() {
             Nombre e idioma: los de la columna <b>Nombre en Meta</b>, tal cual.
           </li>
           <li>
-            Pegá el texto de la columna <b>Texto aprobado</b> con el botón Copiar, y cargá los
+            Pega el texto de la columna <b>Texto aprobado</b> con el botón Copiar, y carga los
             ejemplos que Meta pide para cada <code className="font-mono">{'{{n}}'}</code>.
           </li>
           <li>
-            Cuando Meta la apruebe —suele tardar minutos— volvé acá y apretá{' '}
+            Cuando Meta la apruebe —suele tardar minutos— vuelve acá y aprieta{' '}
             <b>Ya la aprobaron</b>. Hasta ese momento el aviso sale por SMS o correo, no por
             WhatsApp.
           </li>
@@ -319,19 +319,19 @@ function EditarPlantilla({ editando, setEditando, onGuardado, onError }) {
       {editando && (
         <form onSubmit={guardar} className="space-y-4">
           <Aviso tipo="alerta">
-            Si cambiás el texto, el nombre o el orden de las variables, la plantilla vuelve a{' '}
+            Si cambias el texto, el nombre o el orden de las variables, la plantilla vuelve a{' '}
             <b>borrador</b>: lo que vale es lo que Meta aprobó, no lo que dice esta base. Hay que
             registrarla de nuevo allá.
           </Aviso>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Nombre en Meta" hint="Minúsculas, números y guion bajo.">
-              <Input value={editando.nombre_meta} onChange={set('nombre_meta')} />
+            <Field campo="nombre_meta" label="Nombre en Meta" hint="Minúsculas, números y guion bajo.">
+              <Input placeholder="Ej.: aviso_de_pago" value={editando.nombre_meta} onChange={set('nombre_meta')} />
             </Field>
-            <Field label="Idioma">
+            <Field campo="idioma" label="Idioma">
               <Input value={editando.idioma} onChange={set('idioma')} placeholder="es" />
             </Field>
-            <Field label="Categoría">
+            <Field campo="categoria" label="Categoría">
               <Select value={editando.categoria} onChange={set('categoria')}>
                 <option value="UTILITY">Utilidad</option>
                 <option value="MARKETING">Marketing</option>
@@ -339,11 +339,11 @@ function EditarPlantilla({ editando, setEditando, onGuardado, onError }) {
             </Field>
           </div>
 
-          <Field
+          <Field campo="cuerpo_meta"
             label="Texto aprobado"
             hint="Con {{1}}, {{2}}… No puede empezar ni terminar con una variable, ni llevar dos seguidas."
           >
-            <Textarea rows={4} value={editando.cuerpo_meta} onChange={set('cuerpo_meta')} />
+            <Textarea placeholder="Igual al aprobado en Meta" rows={4} value={editando.cuerpo_meta} onChange={set('cuerpo_meta')} />
           </Field>
 
           {revision && (
@@ -371,9 +371,9 @@ function EditarPlantilla({ editando, setEditando, onGuardado, onError }) {
             />
           </Field>
 
-          <Field
+          <Field campo="purpose_crm"
             label="Nombre del aviso en el CRM externo"
-            hint="Solo si mandás WhatsApp por un CRM. Es cómo se llama esta plantilla del lado de ellos —su `purpose`—. Vacío = por esa vía este aviso no sale."
+            hint="Solo si mandas WhatsApp por un CRM. Es cómo se llama esta plantilla del lado de ellos —su `purpose`—. Vacío = por esa vía este aviso no sale."
           >
             <Input
               value={editando.purpose_crm ?? ''}
@@ -382,9 +382,9 @@ function EditarPlantilla({ editando, setEditando, onGuardado, onError }) {
             />
           </Field>
 
-          <Field
+          <Field campo="sid_twilio"
             label="ContentSid de Twilio"
-            hint="Solo si mandás WhatsApp por Twilio: allá la misma plantilla tiene otro identificador. Vacío = por Twilio no se manda."
+            hint="Solo si mandas WhatsApp por Twilio: allá la misma plantilla tiene otro identificador. Vacío = por Twilio no se manda."
           >
             <Input value={editando.sid_twilio ?? ''} onChange={set('sid_twilio')} placeholder="HX…" />
           </Field>

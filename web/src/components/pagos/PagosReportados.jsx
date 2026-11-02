@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Check, ExternalLink, Inbox, ShieldAlert, X } from 'lucide-react'
 
 import { api } from '../../lib/apiNetwork'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { dineroCero as dinero } from '../../lib/formato'
 import { usePermisos } from '../../lib/AuthContext'
 import { MOTIVOS_RECHAZO_PAGO } from '../../lib/motivos'
@@ -19,6 +19,7 @@ import {
   Select,
   Table,
 } from '../../components/ui'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Los pagos que reportó un sistema externo y todavía no son un cobro.
@@ -42,7 +43,7 @@ import {
  */
 
 const fechaCorta = (v) =>
-  v ? new Date(`${String(v).slice(0, 10)}T12:00:00`).toLocaleDateString('es-EC') : '—'
+  v ? fmtFecha(`${String(v).slice(0, 10)}T12:00:00`) : '—'
 
 
 export default function PagosReportados({ onError }) {
@@ -69,7 +70,7 @@ export default function PagosReportados({ onError }) {
     try {
       const [r, cu] = await Promise.all([
         api.integraciones.reportados(estado),
-        supabase.from('cuentas_pago').select('id, nombre, tipo').eq('activa', true).order('nombre'),
+        django.from('cuentas_pago').select('id, nombre, tipo').eq('activa', true).order('nombre'),
       ])
       setFilas(r)
       setCuentas(cu.data ?? [])
@@ -292,7 +293,7 @@ export default function PagosReportados({ onError }) {
 
             <Field
               label="¿A qué cuenta entró la plata?"
-              hint="Si la dejás como está, se usa la que informó la integración."
+              hint="Si la dejas como está, se usa la que informó la integración."
             >
               <Select
                 value={dialogo.cuenta_id}

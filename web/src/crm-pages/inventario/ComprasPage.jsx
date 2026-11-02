@@ -19,6 +19,7 @@ import ConPermiso from '../../components/layout/ConPermiso'
 import { usePermisos } from '../../lib/AuthContext'
 import { dineroCero as dinero } from '../../lib/formato'
 import { inventarioApi } from '../../lib/inventario'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Compras y proveedores.
@@ -187,7 +188,7 @@ export default function ComprasPage() {
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-[12px] text-slate-400">
-                    {new Date(`${c.fecha}T12:00:00`).toLocaleDateString('es-EC')}
+                    {fmtFecha(`${c.fecha}T12:00:00`)}
                   </td>
                   <td className="px-3 py-2 text-slate-200">
                     {c.proveedores?.nombre ?? 'sin proveedor'}
@@ -262,7 +263,7 @@ export default function ComprasPage() {
         {nueva && (
           <div className="space-y-4">
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Proveedor">
+              <Field campo="compra" hint="A quién se le compró." label="Proveedor">
                 <Select
                   value={nueva.compra.proveedor_id}
                   onChange={(e) =>
@@ -277,7 +278,7 @@ export default function ComprasPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Entra a">
+              <Field campo="compra" hint="A dónde entra el material." label="Entra a">
                 <Select
                   value={nueva.compra.almacen_id}
                   onChange={(e) =>
@@ -291,15 +292,15 @@ export default function ComprasPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Factura o documento">
-                <Input
+              <Field campo="compra" label="Factura o documento">
+                <Input placeholder="Ej.: 001-001-000012345"
                   value={nueva.compra.documento}
                   onChange={(e) =>
                     setNueva({ ...nueva, compra: { ...nueva.compra, documento: e.target.value } })
                   }
                 />
               </Field>
-              <Field label="Fecha">
+              <Field campo="compra" label="Fecha">
                 <Input
                   type="date"
                   value={nueva.compra.fecha}
@@ -348,7 +349,7 @@ export default function ComprasPage() {
                           </option>
                         ))}
                       </Select>
-                      <Input
+                      <Input campo="cantidad"
                         type="number"
                         step="0.01"
                         placeholder="Cantidad"
@@ -360,7 +361,7 @@ export default function ComprasPage() {
                         }}
                         className="w-28"
                       />
-                      <Input
+                      <Input campo="costo_unitario"
                         type="number"
                         step="0.01"
                         placeholder="Costo unit."
@@ -449,7 +450,7 @@ export default function ComprasPage() {
               <Button variante="fantasma" onClick={() => setRecibiendo(null)}>
                 Cancelar
               </Button>
-              <Button
+              <Button variante="primario"
                 onClick={async () => {
                   try {
                     await inventarioApi.recibirCompra(recibiendo, perfil)
@@ -477,14 +478,14 @@ export default function ComprasPage() {
           <div className="space-y-3">
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Nombre">
-                <Input
+                <Input placeholder="Ej.: Juan Pérez"
                   value={editandoProv.nombre}
                   onChange={(e) => setEditandoProv({ ...editandoProv, nombre: e.target.value })}
                   autoFocus
                 />
               </Field>
               <Field label="RUC o cédula">
-                <Input
+                <Input placeholder="Ej.: 0912345678001"
                   value={editandoProv.identificacion ?? ''}
                   onChange={(e) =>
                     setEditandoProv({ ...editandoProv, identificacion: e.target.value })
@@ -492,19 +493,19 @@ export default function ComprasPage() {
                 />
               </Field>
               <Field label="Teléfono">
-                <Input
+                <Input placeholder="Ej.: 0991234567"
                   value={editandoProv.telefono ?? ''}
                   onChange={(e) => setEditandoProv({ ...editandoProv, telefono: e.target.value })}
                 />
               </Field>
               <Field label="Correo">
-                <Input
+                <Input placeholder="Ej.: cliente@correo.com"
                   value={editandoProv.email ?? ''}
                   onChange={(e) => setEditandoProv({ ...editandoProv, email: e.target.value })}
                 />
               </Field>
               <Field label="Persona de contacto" className="md:col-span-2">
-                <Input
+                <Input placeholder="Ej.: Ana Torres"
                   value={editandoProv.contacto ?? ''}
                   onChange={(e) => setEditandoProv({ ...editandoProv, contacto: e.target.value })}
                 />
@@ -514,7 +515,7 @@ export default function ComprasPage() {
               <Button variante="fantasma" onClick={() => setEditandoProv(null)}>
                 Cancelar
               </Button>
-              <Button
+              <Button variante="primario"
                 disabled={!editandoProv.nombre?.trim()}
                 onClick={async () => {
                   try {

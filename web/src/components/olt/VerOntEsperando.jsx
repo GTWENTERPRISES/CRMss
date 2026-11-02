@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, ClipboardList, KeyRound, RefreshCw } from 'lucide-react'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Badge, Button, Cargando, ErrorBanner } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * La ficha de una ONT que todavía nadie autorizó.
@@ -80,7 +81,7 @@ export default function VerOntEsperando({ oltId, sn, onAutorizar, onCambio, onCe
           {datos.en_la_cola === false && (
             <Aviso tipo="alerta">
               El equipo ya no la ve en la cola. Puede que la haya autorizado alguien más o que la
-              hayan desconectado. Resincronizá para sacarla de la lista.
+              hayan desconectado. Resincroniza para sacarla de la lista.
             </Aviso>
           )}
           {datos.en_la_cola === null && (
@@ -146,7 +147,7 @@ export default function VerOntEsperando({ oltId, sn, onAutorizar, onCambio, onCe
               <Dato k="LOID" v={datos.loid} mono />
               <Dato
                 k="Detectada"
-                v={datos.detectada ? new Date(datos.detectada).toLocaleString('es-EC') : null}
+                v={datos.detectada ? fmtFechaHora(datos.detectada) : null}
                 ayuda={
                   datos.detectada
                     ? `esperando desde hace ${desdeHace(datos.detectada)}`

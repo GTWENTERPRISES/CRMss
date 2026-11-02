@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react'
 import { dineroCero as dinero } from '../../lib/formato'
 import { Link } from '@/lib/nextNavigation'
 import { Ban, CalendarClock, CreditCard, Printer, Receipt } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { imprimirTirilla } from '../../lib/tirilla'
 import { Aviso, Badge, Button, Card, Cargando, Stat, Table } from '../ui'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /** Lo que el abonado pagó y lo que prometió pagar. */
 
-const fecha = (f) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(`${String(f).slice(0, 10)}T12:00:00`) : '—')
 
 const COLOR_PROMESA = { activa: 'azul', cumplida: 'verde', incumplida: 'rojo', anulada: 'gris' }
 
@@ -30,12 +31,12 @@ export default function FichaCobros({ cliente, onError }) {
 
     async function cargar() {
       const [pg, pr] = await Promise.all([
-        supabase
+        django
           .from('v_pagos')
           .select('*')
           .eq('client_id', cliente.id)
           .order('fecha_pago', { ascending: false }),
-        supabase
+        django
           .from('v_promesas_pago')
           .select('*')
           .eq('client_id', cliente.id)
@@ -64,11 +65,11 @@ export default function FichaCobros({ cliente, onError }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Stat label="Pagos registrados" valor={validos.length} icon={CreditCard} />
-        <Stat label="Total pagado" valor={dinero(total)} color="text-emerald-400" />
-        <Stat label="Último pago" valor={fecha(cliente.ultimo_pago)} />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Pagos registrados" valor={validos.length} icon={CreditCard} />
+        <Stat cargando={cargando} label="Total pagado" valor={dinero(total)} color="text-emerald-400" />
+        <Stat cargando={cargando} label="Último pago" valor={fecha(cliente.ultimo_pago)} />
+        <Stat cargando={cargando}
           label="Promesas incumplidas"
           valor={incumplidas}
           color={incumplidas ? 'text-red-400' : 'text-slate-400'}

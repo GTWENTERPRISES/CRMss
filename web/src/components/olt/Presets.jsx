@@ -93,14 +93,14 @@ export default function Presets({ olt, perfiles, planes = [], onListo }) {
       {editando && (
         <div className="space-y-3 rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Nombre" className="sm:col-span-2">
+            <Field campo="nombre" label="Nombre" className="sm:col-span-2">
               <Input
                 value={editando.nombre}
                 onChange={(e) => setEditando({ ...editando, nombre: e.target.value })}
                 placeholder="Residencial zona centro"
               />
             </Field>
-            <Field label="Alcance">
+            <Field campo="olt_id" hint="A quiénes afecta el aviso." label="Alcance">
               <Select
                 value={editando.olt_id ?? ''}
                 onChange={(e) => setEditando({ ...editando, olt_id: e.target.value || null })}
@@ -110,7 +110,7 @@ export default function Presets({ olt, perfiles, planes = [], onListo }) {
               </Select>
             </Field>
 
-            <Field label="Perfil de línea">
+            <Field campo="line_profile_id" hint="Se crea en la OLT; define el tráfico." label="Perfil de línea">
               <Select
                 value={editando.line_profile_id ?? ''}
                 onChange={(e) => {
@@ -122,7 +122,7 @@ export default function Presets({ olt, perfiles, planes = [], onListo }) {
                   })
                 }}
               >
-                <option value="">— elegí —</option>
+                <option value="">— elige —</option>
                 {(perfiles?.line ?? []).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.id} · {p.nombre}
@@ -136,7 +136,7 @@ export default function Presets({ olt, perfiles, planes = [], onListo }) {
                 modelos y hay veintidós: fijar uno en la plantilla le pondría el
                 perfil de un Huawei a un GN256VH, y la ONT queda online con
                 parte de sus puertos sin configurar. */}
-            <Field
+            <Field campo="srv_profile_id"
               label="Perfil de servicio"
               hint="lo normal es dejarlo automático: depende del modelo de cada ONT"
             >
@@ -161,21 +161,21 @@ export default function Presets({ olt, perfiles, planes = [], onListo }) {
               </Select>
             </Field>
 
-            <Field label="VLAN">
-              <Input
+            <Field campo="vlan" label="VLAN">
+              <Input placeholder="Ej.: 100"
                 type="number"
                 value={editando.vlan ?? ''}
                 onChange={(e) => setEditando({ ...editando, vlan: e.target.value })}
               />
             </Field>
-            <Field label="Gemport">
-              <Input
+            <Field campo="gemport" label="Gemport">
+              <Input placeholder="Ej.: 1"
                 type="number"
                 value={editando.gemport ?? 1}
                 onChange={(e) => setEditando({ ...editando, gemport: e.target.value })}
               />
             </Field>
-            <Field label="Plan">
+            <Field campo="plan_id" hint="El plan de internet que contrata." label="Plan">
               <Select
                 value={editando.plan_id ?? ''}
                 onChange={(e) => setEditando({ ...editando, plan_id: e.target.value })}
@@ -188,8 +188,8 @@ export default function Presets({ olt, perfiles, planes = [], onListo }) {
                 ))}
               </Select>
             </Field>
-            <Field label="Zona">
-              <Input
+            <Field campo="zona" label="Zona">
+              <Input placeholder="Ej.: Norte"
                 value={editando.zona ?? ''}
                 onChange={(e) => setEditando({ ...editando, zona: e.target.value })}
               />
@@ -259,12 +259,8 @@ export default function Presets({ olt, perfiles, planes = [], onListo }) {
               <td className="px-3 py-2 text-xs">{p.plan_id ? '✓' : '—'}</td>
               <td className="px-3 py-2 text-right">
                 <div className="flex justify-end gap-1.5">
-                  <Button variante="fantasma" icon={Pencil} onClick={() => setEditando(p)}>
-                    Editar
-                  </Button>
-                  <Button variante="fantasma" icon={Trash2} onClick={() => borrar(p)}>
-                    Borrar
-                  </Button>
+                  <Button variante="fantasma" icon={Pencil} onClick={() => setEditando(p)} title="Editar" />
+                  <Button variante="fantasma" icon={Trash2} onClick={() => borrar(p)} title="Borrar" />
                 </div>
               </td>
             </tr>

@@ -4,6 +4,7 @@ import { Link } from '@/lib/nextNavigation'
 import { api } from '../lib/apiNetwork'
 import { useLicencia } from '../lib/useLicencia'
 import { Aviso, Button, Card, Cargando, ErrorBanner, Field, Textarea } from '../components/ui'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * La licencia de esta instalación.
@@ -150,7 +151,7 @@ export default function LicenciaPage({ suelta = false }) {
               <Dato
                 titulo="Vence"
                 valor={
-                  licencia?.vence ? new Date(licencia.vence).toLocaleDateString('es-EC') : '—'
+                  licencia?.vence ? fmtFecha(licencia.vence) : '—'
                 }
               />
               <Dato
@@ -171,7 +172,7 @@ export default function LicenciaPage({ suelta = false }) {
 
             {licencia?.en_gracia && !vencida && (
               <Aviso tipo="alerta">
-                La licencia venció y está corriendo el margen de gracia. Regularizá el pago para no
+                La licencia venció y está corriendo el margen de gracia. Regulariza el pago para no
                 quedar bloqueado.
               </Aviso>
             )}
@@ -190,7 +191,7 @@ export default function LicenciaPage({ suelta = false }) {
                 </Button>
               </div>
               <p className="mt-1 text-[11px] text-slate-500">
-                Pasale este código a tu proveedor para que emita o renueve la licencia.
+                Pásale este código a tu proveedor para que emita o renueve la licencia.
               </p>
             </div>
 

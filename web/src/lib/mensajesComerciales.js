@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { aWhatsApp, enlaceWhatsApp } from './telefono'
 
 /**
@@ -38,7 +38,7 @@ export function firma(perfil) {
   const nombre = `${perfil.nombre} ${perfil.apellido ?? ''}`.trim()
   const tel = perfil.celular ? String(perfil.celular).trim() : null
   return tel
-    ? `Soy ${nombre}. Cualquier cosa me escribís al ${tel}.`
+    ? `Soy ${nombre}. Cualquier cosa me escribes al ${tel}.`
     : `Soy ${nombre}, quedo atento.`
 }
 
@@ -91,7 +91,7 @@ export async function prepararWhatsApp({
   let registro = null
   let error = null
   try {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('mensajes_comerciales')
       .insert({
         prospecto_id,
@@ -127,7 +127,7 @@ export async function prepararWhatsApp({
  * suyos, quien maneja la cartera ve los de todos. Es la misma consulta.
  */
 export async function ultimosMensajes(limite = 20) {
-  const { data, error } = await supabase
+  const { data, error } = await django
     .from('v_mensajes_comerciales')
     .select('*')
     .order('creado_en', { ascending: false })
@@ -138,7 +138,7 @@ export async function ultimosMensajes(limite = 20) {
 
 /** El historial de un prospecto, para la ficha. */
 export async function mensajesDe(prospectoId) {
-  const { data, error } = await supabase
+  const { data, error } = await django
     .from('v_mensajes_comerciales')
     .select('*')
     .eq('prospecto_id', prospectoId)

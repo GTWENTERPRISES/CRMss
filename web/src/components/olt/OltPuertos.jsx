@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
 import { AlertTriangle, Power, RefreshCw, Search, ShieldAlert, Waves } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { dbm, nivel } from '../../lib/optica'
 import { hace } from '../../lib/olts'
 import { Aviso, Badge, Button, Card, ErrorBanner, Select, SkeletonTabla, Table } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Puertos PON de una OLT.
@@ -83,7 +84,7 @@ export default function OltPuertos({ olt }) {
   const cargar = useCallback(async () => {
     setError(null)
 
-    const { data } = await supabase.from('v_pon_puertos').select('*').eq('olt_id', olt.id)
+    const { data } = await django.from('v_pon_puertos').select('*').eq('olt_id', olt.id)
     setConteos(data ?? [])
 
     // Con esto solo ya se puede dibujar: los puertos que tienen ONTs se
@@ -165,7 +166,7 @@ export default function OltPuertos({ olt }) {
         `⚠ Reiniciar TODAS las ONTs de la placa ${slot}.\n\n` +
         `Son ${total} abonados que van a quedar sin servicio uno o dos minutos, TODOS a la vez.\n\n` +
         'Se hace de forma ordenada (graceful), pero es lo más disruptivo que hace esta pantalla.\n\n' +
-        '¿Seguro que querés continuar?',
+        '¿Seguro que quieres continuar?',
       hecho: (r) => `Reinicio enviado a ${r.hechos.length} puertos.`,
     },
   }
@@ -249,9 +250,7 @@ export default function OltPuertos({ olt }) {
               ))}
             </Select>
           )}
-          <Button icon={RefreshCw} onClick={cargar} cargando={cargando}>
-            Recargar
-          </Button>
+          <Button icon={RefreshCw} onClick={cargar} cargando={cargando} title="Recargar" />
           <Button
             variante="primario"
             icon={Waves}
@@ -423,7 +422,7 @@ export default function OltPuertos({ olt }) {
                   <td className="px-3 py-2 text-xs">
                     {d?.ultima_caida ? (
                       <span
-                        title={new Date(d.ultima_caida).toLocaleString('es-EC')}
+                        title={fmtFechaHora(d.ultima_caida)}
                         className="text-slate-400"
                       >
                         {hace(Math.floor((Date.now() - new Date(d.ultima_caida)) / 1000))}

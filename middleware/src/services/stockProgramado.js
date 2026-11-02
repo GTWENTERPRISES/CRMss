@@ -54,7 +54,7 @@ export async function ejecutarStock() {
     const falta = /does not exist/i.test(error.message)
     throw new Error(
       falta
-        ? 'Falta la función avisar_stock_bajo. Corré supabase/migracion-123-cuando-se-esta-por-acabar-el-material.sql'
+        ? 'Falta la función avisar_stock_bajo. Actualiza la base: python manage.py migrate'
         : `No se pudieron mandar los avisos de stock: ${error.message}`,
     )
   }

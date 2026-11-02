@@ -149,7 +149,7 @@ export default function OltOptica({ olt }) {
                   {p.sinDato > 0 && <Badge color="gris">{p.sinDato} sin lectura</Badge>}
                   {/* Un puerto entero caído es una causa, no quince. */}
                   {p.malas === p.onts.length && p.onts.length > 1 && (
-                    <Badge color="rojo">todo el puerto — revisá la fibra o el módulo</Badge>
+                    <Badge color="rojo">todo el puerto — revisa la fibra o el módulo</Badge>
                   )}
                 </div>
 

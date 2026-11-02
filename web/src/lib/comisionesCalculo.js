@@ -4,7 +4,7 @@
  * ── Por qué este archivo existe separado ──
  *
  * Porque es la única parte del módulo que decide plata en el navegador, y tenía
- * que poder probarse. Mientras vivía junto al cliente de Supabase no se podía:
+ * que poder probarse. Mientras vivía junto al cliente de la base no se podía:
  * importarlo desde una prueba arrastraba la conexión, y una prueba que necesita
  * base de datos para verificar una multiplicación no se corre nunca.
  *

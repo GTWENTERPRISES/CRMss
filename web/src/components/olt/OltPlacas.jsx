@@ -50,9 +50,7 @@ export default function OltPlacas({ olt }) {
       }
       icon={CircuitBoard}
       actions={
-        <Button icon={RefreshCw} onClick={consultar} cargando={cargando}>
-          Actualizar
-        </Button>
+        <Button icon={RefreshCw} onClick={consultar} cargando={cargando} title="Actualizar" />
       }
     >
       <div className="space-y-4">

@@ -12,10 +12,10 @@ class PagoViewSet(viewsets.ModelViewSet):
     """
     queryset = Pago.objects.all()
     serializer_class = PagoSerializer
-    filterset_fields = ['cliente', 'estado', 'forma_pago', 'acreditado']
-    search_fields = ['num_comprobante', 'banco_origen', 'referencia']
-    ordering_fields = ['fecha_transaccion', 'monto', 'created_at']
-    ordering = ['-fecha_transaccion']
+    filterset_fields = ['client', 'factura', 'forma_pago', 'anulado', 'es_excedente']
+    search_fields = ['n_transaccion', 'cliente_nombre', 'notas']
+    ordering_fields = ['fecha_pago', 'monto', 'numero', 'created_at']
+    ordering = ['-fecha_pago']
 
 
 class CorteViewSet(viewsets.ModelViewSet):
@@ -25,6 +25,6 @@ class CorteViewSet(viewsets.ModelViewSet):
     queryset = Corte.objects.all()
     serializer_class = CorteSerializer
     filterset_fields = ['cliente', 'motivo', 'reactivado']
-    search_fields = ['cliente__nombre', 'cliente__cedula']
+    search_fields = ['cliente__nombre', 'cliente__identificacion']
     ordering_fields = ['fecha_corte', 'fecha_reactivacion']
     ordering = ['-fecha_corte']

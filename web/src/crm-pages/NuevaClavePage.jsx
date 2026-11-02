@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from '@/lib/nextNavigation'
 import { ShieldCheck } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { useMarca } from '../lib/useMarca'
 import { Aviso, Button, ErrorBanner, Field, Input } from '../components/ui'
 
@@ -10,8 +10,8 @@ import { Aviso, Button, ErrorBanner, Field, Input } from '../components/ui'
  *
  * ── Cómo se llega ──
  *
- * Desde el enlace que manda Supabase al pedir recuperación. Ese enlace trae un
- * token en la dirección; el cliente de Supabase lo detecta solo, abre una
+ * Desde el enlace que manda la base al pedir recuperación. Ese enlace trae un
+ * token en la dirección; el cliente de datos lo detecta solo, abre una
  * sesión de recuperación y avisa con el evento `PASSWORD_RECOVERY`.
  *
  * Por eso esta pantalla no pide la contraseña actual: quien llegó acá ya probó
@@ -45,11 +45,11 @@ export default function NuevaClavePage() {
   useEffect(() => {
     // Puede que la sesión ya esté abierta cuando esto monta —depende de qué
     // llegue primero— así que se mira además de escuchar.
-    supabase.auth.getSession().then(({ data }) => {
+    django.auth.getSession().then(({ data }) => {
       if (data?.session) setListaLaSesion(true)
     })
 
-    const { data: sub } = supabase.auth.onAuthStateChange((evento, sesion) => {
+    const { data: sub } = django.auth.onAuthStateChange((evento, sesion) => {
       if (evento === 'PASSWORD_RECOVERY' || sesion) setListaLaSesion(true)
     })
 
@@ -67,7 +67,7 @@ export default function NuevaClavePage() {
     setGuardando(true)
     setError(null)
     try {
-      const { error: err } = await supabase.auth.updateUser({ password: nueva })
+      const { error: err } = await django.auth.updateUser({ password: nueva })
       if (err) throw new Error(err.message)
       setHecho(true)
       // Se entra directo: ya tiene sesión, y mandarlo a escribir la contraseña
@@ -93,7 +93,7 @@ export default function NuevaClavePage() {
           ) : (
             <h1 className="t-titulo text-xl font-bold text-slate-100">{marca.nombre_sistema}</h1>
           )}
-          <p className="mt-1 text-sm text-slate-500">Elegí tu contraseña nueva</p>
+          <p className="mt-1 text-sm text-slate-500">Elige tu contraseña nueva</p>
         </div>
 
         {hecho ? (
@@ -103,7 +103,7 @@ export default function NuevaClavePage() {
         ) : !listaLaSesion ? (
           <div className="t-card p-6">
             <Aviso>
-              Verificando el enlace… Si esto no avanza, el enlace puede haber vencido: pedí uno
+              Verificando el enlace… Si esto no avanza, el enlace puede haber vencido: pide uno
               nuevo desde <b>¿Olvidaste tu contraseña?</b> en la pantalla de entrada.
             </Aviso>
           </div>
@@ -112,7 +112,7 @@ export default function NuevaClavePage() {
             <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
             <Field label="Contraseña nueva" hint="Mínimo 8 caracteres.">
-              <Input
+              <Input placeholder="Mínimo 8 caracteres"
                 type="password"
                 value={nueva}
                 onChange={(e) => setNueva(e.target.value)}
@@ -121,8 +121,8 @@ export default function NuevaClavePage() {
               />
             </Field>
 
-            <Field label="Repetila">
-              <Input
+            <Field label="Repítela">
+              <Input placeholder="Escríbela de nuevo"
                 type="password"
                 value={repetida}
                 onChange={(e) => setRepetida(e.target.value)}

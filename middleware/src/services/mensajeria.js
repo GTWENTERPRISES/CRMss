@@ -61,7 +61,7 @@ export function aInternacional(telefono) {
 async function porEmail({ config, destino, asunto, cuerpo, html = null, adjuntos = [] }) {
   const faltan = faltantesSmtp(config)
   if (faltan.length) {
-    throw new Error(`Falta configurar ${faltan.join(', ')} en Facturación → Correo`)
+    throw new Error(`Falta configurar ${faltan.join(', ')} en Ajustes → Servidor de correo`)
   }
   if (!destino) throw new Error('El abonado no tiene correo cargado')
 
@@ -101,7 +101,7 @@ async function porTelegram({ destino, cuerpo }) {
   if (!token) throw new Error('Falta el token del bot de Telegram en Ajustes → Mensajería')
   if (!destino) {
     throw new Error(
-      'El abonado no tiene chat de Telegram. Pedile que le escriba /start al bot y cargá el chat_id en su ficha.',
+      'El abonado no tiene chat de Telegram. Pídele que le escriba /start al bot y carga el chat_id en su ficha.',
     )
   }
 
@@ -162,7 +162,7 @@ async function porWhatsapp({ destino, cuerpo, plantilla = null, automatico = fal
     if (automatico && !plantilla?.crm?.purpose) {
       throw new Error(
         `Este aviso no tiene nombre del lado de ${whatsapp.crm.nombre || 'el CRM'}. ` +
-          'Cargalo en Ajustes → Plantillas de WhatsApp. Mientras tanto sale por otro canal.',
+          'Cárgalo en Ajustes → Plantillas de WhatsApp. Mientras tanto sale por otro canal.',
       )
     }
 
@@ -266,7 +266,7 @@ async function porWhatsapp({ destino, cuerpo, plantilla = null, automatico = fal
 /** Por qué este aviso no puede salir por WhatsApp, dicho para poder actuar. */
 function motivoSinPlantilla(plantilla) {
   if (!plantilla) {
-    return 'Este aviso no tiene plantilla de WhatsApp registrada. Fuera de la ventana de 24 h, Meta solo entrega plantillas aprobadas: cargala en Ajustes → Plantillas de WhatsApp. Mientras tanto sale por otro canal.'
+    return 'Este aviso no tiene plantilla de WhatsApp registrada. Fuera de la ventana de 24 h, Meta solo entrega plantillas aprobadas: cárgala en Ajustes → Plantillas de WhatsApp. Mientras tanto sale por otro canal.'
   }
   if (plantilla.falta) {
     return `La plantilla "${plantilla.nombre}" necesita el valor de {{${plantilla.falta}}} y llegó vacío. Sin eso Meta rechaza el envío entero.`
@@ -290,7 +290,7 @@ function motivoSinPlantilla(plantilla) {
  */
 async function porTwilio({ numero, desde, cuerpo, twilio, queFalta, plantilla = null }) {
   if (!twilio.sid || !twilio.token || !desde) {
-    throw new Error(`No hay proveedor configurado para ${queFalta}. Cargalo en Ajustes → Mensajería.`)
+    throw new Error(`No hay proveedor configurado para ${queFalta}. Cárgalo en Ajustes → Mensajería.`)
   }
 
   /**
@@ -566,11 +566,17 @@ export async function enviar({
 export async function canalesDisponibles() {
   const { telegram, whatsapp, twilio } = await credenciales()
   const twilioListo = Boolean(twilio.sid && twilio.token && twilio.desde)
+  // El correo sale por el servidor de Ajustes: sin él no está listo, y decirlo
+  // acá evita enterarse recién al tocar "Enviar".
+  const { data: smtp } = await db().from('sri_config').select('*').limit(1).maybeSingle()
+  const faltanSmtp = faltantesSmtp(smtp ?? {})
 
   return {
     email: {
-      listo: true,
-      nota: 'Usa el servidor de correo del sistema (Ajustes → Servidor de correo)',
+      listo: faltanSmtp.length === 0,
+      nota: faltanSmtp.length === 0
+        ? 'Usa el servidor de correo del sistema (Ajustes → Servidor de correo)'
+        : `Falta configurar ${faltanSmtp.join(', ')} en Ajustes → Servidor de correo`,
     },
     telegram: {
       listo: Boolean(telegram.token),

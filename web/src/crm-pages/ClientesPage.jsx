@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useConfirmar } from '../lib/confirmar'
-import { Link, useSearchParams } from '@/lib/nextNavigation'
+import { usePermisos } from '../lib/AuthContext'
+import { Link, useNavigate, useSearchParams } from '@/lib/nextNavigation'
 import {
   Check,
   ChevronLeft,
@@ -20,13 +21,13 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { useTabla } from '../lib/useTabla'
-import { supabase } from '../lib/supabaseClient'
+import { useTablaDjango as useTabla } from '../lib/useTablaDjango'
+import { django } from '../lib/djangoClient'
 import {
   CAMPOS_FILTRO,
   COLUMNAS_ABONADOS,
   COLUMNAS_EXPORT,
-  COLUMNAS_POR_DEFECTO,
+  columnasPorDefecto,
   aCSV,
   antiguedad,
   enlace,
@@ -55,6 +56,8 @@ import {
   Stat,
   Table,
   EnlaceIp,
+  FiltrosGuardados,
+  MenuAcciones,
 } from '../components/ui'
 
 /**
@@ -111,6 +114,8 @@ const CUANTOS = [
  */
 export default function ClientesPage() {
   const confirmar = useConfirmar()
+  const { puede } = usePermisos()
+  const navegar = useNavigate()
   const {
     filas: clientes,
     cargando,
@@ -119,8 +124,17 @@ export default function ClientesPage() {
     setError,
   } = useTabla('v_clientes_ficha', { orderBy: 'codigo', ascending: true })
 
+  const [params] = useSearchParams()
   const [busqueda, setBusqueda] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('')
+  /* Estado y router se pueden sembrar desde la URL: las tarjetas de "Clientes
+     por router" del panel enlazan con `?router=<id>&estado=<estado>` para abrir
+     exactamente a la gente que contaron. Los estados desconocidos se ignoran:
+     un enlace viejo no puede dejar la lista vacía sin explicación. */
+  const [filtroEstado, setFiltroEstado] = useState(() => {
+    const e = params.get('estado') ?? ''
+    return ['activo', 'cortado', 'suspendido', 'baja'].includes(e) ? e : ''
+  })
+  const [filtroRouter, setFiltroRouter] = useState(() => params.get('router') ?? '')
 
   /**
    * "Solo deuda vencida", encendible desde la URL.
@@ -138,7 +152,6 @@ export default function ClientesPage() {
    * `si` se sigue aceptando: es como se llamaba antes y puede haber un enlace
    * guardado. Cuesta una comparación y evita que ese enlace abra sin filtro.
    */
-  const [params] = useSearchParams()
   const [soloVencida, setSoloVencida] = useState(() =>
     ['vencida', 'si'].includes(params.get('deuda')),
   )
@@ -166,7 +179,7 @@ export default function ClientesPage() {
     if (!soloVencida) return undefined
     let vigente = true
 
-    supabase
+    django
       .from('v_facturas_por_cobrar')
       .select('client_id, saldo, fecha_vencimiento')
       .then(({ data }) => vigente && setVencidos(clientesConVencido(data ?? [])))
@@ -212,7 +225,8 @@ export default function ClientesPage() {
     } catch {
       // Un localStorage corrupto no puede dejar la pantalla sin tabla.
     }
-    return COLUMNAS_POR_DEFECTO
+    // De entrada, sin las columnas técnicas para quien no opera la red.
+    return columnasPorDefecto(puede('red.onus_ver'))
   })
 
   useEffect(() => {
@@ -233,8 +247,8 @@ export default function ClientesPage() {
     let vigente = true
 
     Promise.all([
-      supabase.from('v_facturas_por_cobrar').select('client_id, fecha_vencimiento'),
-      supabase.from('pagos').select('client_id, monto').is('factura_id', null).eq('anulado', false),
+      django.from('v_facturas_por_cobrar').select('client_id, fecha_vencimiento'),
+      django.from('pagos').select('client_id, monto').is('factura_id', null).eq('anulado', false),
     ]).then(([f, p]) => {
       if (!vigente) return
       setCuentas(resumirCuentas({ facturas: f.data ?? [], cobrosSinImputar: p.data ?? [] }))
@@ -263,6 +277,7 @@ export default function ClientesPage() {
           filtrarAbonados(clientes, {
             busqueda,
             estado: filtroEstado,
+            router: filtroRouter,
             vencidos: soloVencida ? vencidos : null,
           }),
           filtrosVigentes,
@@ -271,7 +286,18 @@ export default function ClientesPage() {
         { campo, valor },
         ctx,
       ),
-    [clientes, busqueda, filtroEstado, soloVencida, vencidos, filtrosVigentes, campo, valor, ctx],
+    [
+      clientes,
+      busqueda,
+      filtroEstado,
+      filtroRouter,
+      soloVencida,
+      vencidos,
+      filtrosVigentes,
+      campo,
+      valor,
+      ctx,
+    ],
   )
 
   /* El orden lo manda el catálogo, no el orden en que se marcaron: si no, la
@@ -290,7 +316,7 @@ export default function ClientesPage() {
    */
   useEffect(
     () => setPagina(1),
-    [busqueda, filtroEstado, soloVencida, filtrosVigentes, campo, valor, porPagina],
+    [busqueda, filtroEstado, filtroRouter, soloVencida, filtrosVigentes, campo, valor, porPagina],
   )
 
   /* Y si la lista se achicó por debajo de la página en la que estábamos —se
@@ -337,7 +363,7 @@ export default function ClientesPage() {
 
   const borrar = async (c) =>
     (await confirmar(`¿Eliminar a "${c.nombre}" del sistema?`)) &&
-    escribir(() => supabase.from('clientes').delete().eq('id', c.id))
+    escribir(() => django.from('clientes').delete().eq('id', c.id))
 
   const alternar = (clave) =>
     setVisibles((v) => (v.includes(clave) ? v.filter((x) => x !== clave) : [...v, clave]))
@@ -349,15 +375,20 @@ export default function ClientesPage() {
           <h1 className="t-titulo text-lg font-bold text-slate-100">Clientes</h1>
           <p className="text-xs text-slate-500">Abonados registrados en el sistema</p>
         </div>
+        {/* Una acción principal a la vista; lo ocasional (exportar, importar)
+            en "Más". */}
         <div className="flex flex-wrap gap-2">
-          <Button icon={Download} onClick={() => setExportando(true)}>
-            Exportar
-          </Button>
-          <ConPermiso permiso="clientes.importar" envezDe={null}>
-            <Link to="/clientes/importar">
-              <Button icon={Upload}>Importar de otro sistema</Button>
-            </Link>
-          </ConPermiso>
+          <MenuAcciones
+            texto="Más"
+            acciones={[
+              { label: 'Exportar abonados', icon: Download, onClick: () => setExportando(true) },
+              puede('clientes.importar') && {
+                label: 'Importar de otro sistema',
+                icon: Upload,
+                onClick: () => navegar('/clientes/importar'),
+              },
+            ]}
+          />
           <ConPermiso permiso="clientes.crear" envezDe={null}>
             <Button variante="primario" icon={Plus} onClick={() => setEnFormulario({})}>
               Nuevo cliente
@@ -374,16 +405,16 @@ export default function ClientesPage() {
         <Cargando />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat label="Total" valor={clientes.length} icon={Users} />
-            <Stat label="Activos" valor={contar('activo')} color="text-emerald-400" />
-            <Stat label="Cortados" valor={contar('cortado')} color="text-red-400" />
-            <Stat label="Suspendidos" valor={contar('suspendido')} color="text-amber-400" />
+          <div className="t-kpis">
+            <Stat cargando={cargando} label="Total" valor={clientes.length} icon={Users} />
+            <Stat cargando={cargando} label="Activos" valor={contar('activo')} color="text-emerald-400" />
+            <Stat cargando={cargando} label="Cortados" valor={contar('cortado')} color="text-red-400" tono="critico" />
+            <Stat cargando={cargando} label="Suspendidos" valor={contar('suspendido')} color="text-amber-400" tono="aviso" />
           </div>
 
           {clientes.length === 0 ? (
             <Aviso>
-              Todavía no hay clientes. Podés traerlos desde un MikroTik en la sección{' '}
+              Todavía no hay clientes. Puedes traerlos desde un MikroTik en la sección{' '}
               <b>Importar</b>, que los busca en los PPPoE, las colas simples, los leases DHCP y las
               listas de cortes.
             </Aviso>
@@ -424,7 +455,7 @@ export default function ClientesPage() {
                 <IconoBoton
                   icono={Filter}
                   etiqueta="Filtrar"
-                  ayuda="filtrar por una columna que no tenés puesta"
+                  ayuda="filtrar por una columna que no tienes puesta"
                   activo={filtroAbierto}
                   marcado={Boolean(campo && valor)}
                   onClick={() => setFiltroAbierto((a) => !a)}
@@ -475,6 +506,36 @@ export default function ClientesPage() {
                   Deuda vencida
                 </button>
 
+                <FiltrosGuardados
+                  clave="clientes"
+                  actual={{ busqueda, filtroEstado, soloVencida, filtrosCol, campo, valor }}
+                  onAplicar={(f) => {
+                    setBusqueda(f.busqueda ?? '')
+                    setFiltroEstado(f.filtroEstado ?? '')
+                    setSoloVencida(Boolean(f.soloVencida))
+                    setFiltrosCol(f.filtrosCol ?? {})
+                    setCampo(f.campo ?? '')
+                    setValor(f.valor ?? '')
+                  }}
+                />
+                {/* El filtro por router solo llega desde la URL (las tarjetas
+                    del panel), así que se muestra mientras está puesto y se
+                    quita con un clic: si no, la lista recortada no tendría
+                    nada en pantalla que la explique. */}
+                {filtroRouter && (
+                  <button
+                    type="button"
+                    onClick={() => setFiltroRouter('')}
+                    title="Quitar el filtro por router"
+                    className="flex shrink-0 items-center gap-1.5 rounded-xl bg-[#F0F9FF] px-3 py-1.5 text-xs font-semibold text-sky-400 transition hover:text-sky-300"
+                  >
+                    Router:{' '}
+                    {clientes.find((c) => String(c.router_id) === filtroRouter)?.router ??
+                      'sin clientes'}
+                    <X size={13} />
+                  </button>
+                )}
+
                 {/* `ml-auto` lo empuja hasta el borde derecho de la fila. */}
                 <div className="ml-auto w-56 shrink-0">
                   <Input
@@ -497,7 +558,7 @@ export default function ClientesPage() {
                       onChange={(e) => setCampo(e.target.value)}
                       className="mt-1 py-1.5 text-xs"
                     >
-                      <option value="">— elegí uno —</option>
+                      <option value="">— elige uno —</option>
                       {CAMPOS_FILTRO.map((c) => (
                         <option key={c.clave} value={c.clave}>
                           {c.titulo}
@@ -515,7 +576,7 @@ export default function ClientesPage() {
                       placeholder={
                         campo
                           ? `${CAMPOS_FILTRO.find((c) => c.clave === campo)?.titulo}…`
-                          : 'Elegí primero el campo'
+                          : 'Elige primero el campo'
                       }
                       className="mt-1 py-1.5 text-xs"
                     />
@@ -620,11 +681,14 @@ export default function ClientesPage() {
           cliente={enFormulario?.id ? enFormulario : null}
           onCancelar={() => setEnFormulario(null)}
           onGuardado={async (datos) => {
-            await escribir(() =>
-              enFormulario?.id
-                ? supabase.from('clientes').update(datos).eq('id', enFormulario.id)
-                : supabase.from('clientes').insert(datos),
-            )
+            // El error se lanza para que el formulario lo muestre adentro y quede
+            // abierto con lo cargado. Antes se cerraba igual y lo escrito se
+            // perdía, con el aviso detrás del modal.
+            const { error: err } = await (enFormulario?.id
+              ? django.from('clientes').update(datos).eq('id', enFormulario.id)
+              : django.from('clientes').insert(datos))
+            if (err) throw err
+            await recargar()
             setEnFormulario(null)
           }}
         />

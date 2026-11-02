@@ -109,7 +109,7 @@ export default function ImportarOnus({ olt, onListo }) {
           ) : (
             <Aviso>
               Se lee por SNMP en {(previa.ms / 1000).toFixed(1)} s. La descripción que tiene la OLT
-              se desarma en nombre, dirección, zona y fecha de alta — mirá abajo cómo queda antes
+              se desarma en nombre, dirección, zona y fecha de alta — mira abajo cómo queda antes
               de aplicar.
             </Aviso>
           )}

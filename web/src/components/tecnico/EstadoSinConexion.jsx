@@ -71,26 +71,26 @@ export default function EstadoSinConexion() {
       icono: ShieldCheck,
       tono: 'text-emerald-500',
       titulo: 'Funciona sin señal',
-      texto: 'La app está guardada en el teléfono. Podés trabajar sin conexión.',
+      texto: 'La app está guardada en el teléfono. Puedes trabajar sin conexión.',
     },
     instalando: {
       icono: HardDriveDownload,
       tono: 'text-sky-500',
       titulo: 'Terminando de guardarse',
-      texto: 'Cerrá la app y volvé a abrirla con señal para que termine.',
+      texto: 'Cierra la app y vuelve a abrirla con señal para que termine.',
     },
     sin_sw: {
       icono: CloudOff,
       tono: 'text-amber-500',
       titulo: 'NO funciona sin señal',
       texto:
-        'La app no quedó guardada en el teléfono. Suele pasar cuando se abre desde el servidor de desarrollo o por http sin certificado. Avisale a la oficina.',
+        'La app no quedó guardada en el teléfono. Suele pasar cuando se abre desde el servidor de desarrollo o por http sin certificado. Avísale a la oficina.',
     },
     no_soportado: {
       icono: TriangleAlert,
       tono: 'text-amber-500',
       titulo: 'Este navegador no lo permite',
-      texto: 'Abrila en Safari y agregala a la pantalla de inicio.',
+      texto: 'Ábrela en Safari y agrégala a la pantalla de inicio.',
     },
   }[estado]
 

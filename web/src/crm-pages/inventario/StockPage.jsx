@@ -37,6 +37,7 @@ import {
   UNIDADES,
   inventarioApi,
 } from '../../lib/inventario'
+import { numero as fmtNumero } from '@/lib/formato'
 
 /**
  * Stock — qué hay y dónde.
@@ -170,15 +171,15 @@ export default function StockPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Artículos" valor={articulos.length} icon={Package} />
-        <Stat label="Almacenes" valor={almacenes.length} icon={Boxes} />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Artículos" valor={articulos.length} icon={Package} />
+        <Stat cargando={cargando} label="Almacenes" valor={almacenes.length} icon={Boxes} />
+        <Stat cargando={cargando}
           label="Equipos en stock"
           valor={equipos.filter((q) => q.estado === 'en_stock').length}
           color="text-emerald-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Bajo mínimo"
           valor={bajoMinimo.length}
           icon={AlertTriangle}
@@ -244,6 +245,7 @@ export default function StockPage() {
             columnas={['Artículo', 'Categoría', 'Stock total', 'Mínimo', 'Último costo', '']}
             filas={articulosVisibles}
             vacio="Todavía no hay artículos cargados."
+            accionVacia={puede('inventario.ver') ? { label: 'Cargar el primer artículo', icon: Plus, onClick: () => setEditando({ ...ARTICULO_VACIO }) } : undefined}
             renderFila={(a) => (
               <tr key={a.id} className="hover:bg-slate-800/40">
                 <td className="px-3 py-2">
@@ -259,7 +261,7 @@ export default function StockPage() {
                   <span
                     className={`tabular-nums ${a.bajo_minimo ? 'font-medium text-amber-400' : 'text-slate-200'}`}
                   >
-                    {Number(a.stock_total).toLocaleString('es-EC')} {a.unidad}
+                    {fmtNumero(a.stock_total)} {a.unidad}
                   </span>
                   {a.por_serie && (
                     <div className="text-[11px] text-slate-500">{a.equipos_libres} libres</div>
@@ -321,7 +323,7 @@ export default function StockPage() {
                   <span
                     className={`tabular-nums ${e.bajo_minimo ? 'font-medium text-amber-400' : 'text-slate-200'}`}
                   >
-                    {Number(e.cantidad).toLocaleString('es-EC')} {e.unidad}
+                    {fmtNumero(e.cantidad)} {e.unidad}
                   </span>
                 </td>
                 <td className="px-3 py-2 tabular-nums text-[12px] text-slate-500">
@@ -367,20 +369,20 @@ export default function StockPage() {
         {editando && (
           <div className="space-y-3">
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Nombre">
-                <Input
+              <Field campo="nombre" label="Nombre">
+                <Input placeholder="Ej.: Juan Pérez"
                   value={editando.nombre}
                   onChange={(e) => setEditando({ ...editando, nombre: e.target.value })}
                   autoFocus
                 />
               </Field>
-              <Field label="Código" hint="Interno o del proveedor. Opcional.">
-                <Input
+              <Field campo="codigo" label="Código" hint="Interno o del proveedor. Opcional.">
+                <Input placeholder="Ej.: ONT-HG8145"
                   value={editando.codigo ?? ''}
                   onChange={(e) => setEditando({ ...editando, codigo: e.target.value })}
                 />
               </Field>
-              <Field label="Categoría">
+              <Field campo="categoria" label="Categoría">
                 <Select
                   value={editando.categoria}
                   onChange={(e) => setEditando({ ...editando, categoria: e.target.value })}
@@ -392,7 +394,7 @@ export default function StockPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Unidad">
+              <Field campo="unidad" hint="Cómo se cuenta: unidades, metros, rollos…" label="Unidad">
                 <Select
                   value={editando.unidad}
                   onChange={(e) => setEditando({ ...editando, unidad: e.target.value })}
@@ -405,11 +407,11 @@ export default function StockPage() {
                   ))}
                 </Select>
               </Field>
-              <Field
+              <Field campo="stock_minimo"
                 label="Stock mínimo"
                 hint="Cuándo avisar que hay que reponer. Vacío = no se controla."
               >
-                <Input
+                <Input placeholder="Ej.: 5"
                   type="number"
                   value={editando.stock_minimo ?? ''}
                   onChange={(e) => setEditando({ ...editando, stock_minimo: e.target.value })}
@@ -442,8 +444,8 @@ export default function StockPage() {
               </span>
             </label>
 
-            <Field label="Notas">
-              <Textarea
+            <Field campo="notas" label="Notas">
+              <Textarea placeholder="Ej.: Llamar antes de ir"
                 rows={2}
                 value={editando.notas ?? ''}
                 onChange={(e) => setEditando({ ...editando, notas: e.target.value })}
@@ -454,7 +456,7 @@ export default function StockPage() {
               <Button variante="fantasma" onClick={() => setEditando(null)}>
                 Cancelar
               </Button>
-              <Button onClick={guardarArticulo} disabled={!editando.nombre?.trim()}>
+              <Button variante="primario" onClick={guardarArticulo} disabled={!editando.nombre?.trim()}>
                 Guardar
               </Button>
             </div>
@@ -482,15 +484,15 @@ export default function StockPage() {
         {dandoAlta && (
           <div className="space-y-3">
             <Aviso>
-              Pegá una serie por línea. Se crean los equipos y su ingreso al almacén en una sola
+              Pega una serie por línea. Se crean los equipos y su ingreso al almacén en una sola
               operación, así el stock queda cuadrado sin sumar nada a mano.
             </Aviso>
-            <Field label="Artículo">
+            <Field hint="Lo que se mueve del inventario." label="Artículo">
               <Select
                 value={dandoAlta.articuloId}
                 onChange={(e) => setDandoAlta({ ...dandoAlta, articuloId: e.target.value })}
               >
-                <option value="">— elegí el artículo —</option>
+                <option value="">— elige el artículo —</option>
                 {articulos
                   .filter((a) => a.por_serie)
                   .map((a) => (
@@ -500,7 +502,7 @@ export default function StockPage() {
                   ))}
               </Select>
             </Field>
-            <Field label="Almacén de destino">
+            <Field hint="A dónde entra el material." label="Almacén de destino">
               <Select
                 value={dandoAlta.almacenId}
                 onChange={(e) => setDandoAlta({ ...dandoAlta, almacenId: e.target.value })}
@@ -608,12 +610,12 @@ function MovimientoModal({ estado, setEstado, almacenes, equipos, perfil, onHech
 
         <div className="grid gap-3 md:grid-cols-2">
           {necesitaOrigen && (
-            <Field label="Sale de">
+            <Field hint="De dónde sale el material." label="Sale de">
               <Select
                 value={estado.origen}
                 onChange={(e) => setEstado({ ...estado, origen: e.target.value, equipoIds: [] })}
               >
-                <option value="">— elegí —</option>
+                <option value="">— elige —</option>
                 {almacenes.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.nombre}
@@ -623,12 +625,12 @@ function MovimientoModal({ estado, setEstado, almacenes, equipos, perfil, onHech
             </Field>
           )}
           {necesitaDestino && (
-            <Field label="Entra a">
+            <Field hint="A dónde entra el material." label="Entra a">
               <Select
                 value={estado.destino}
                 onChange={(e) => setEstado({ ...estado, destino: e.target.value })}
               >
-                <option value="">— elegí —</option>
+                <option value="">— elige —</option>
                 {almacenes.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.nombre}
@@ -644,9 +646,9 @@ function MovimientoModal({ estado, setEstado, almacenes, equipos, perfil, onHech
             label="Equipos"
             hint={
               disponibles.length
-                ? 'Marcá cuáles se mueven. Cada uno deja su propio renglón en la bitácora.'
+                ? 'Marca cuáles se mueven. Cada uno deja su propio renglón en la bitácora.'
                 : necesitaOrigen && !estado.origen
-                  ? 'Elegí primero de qué almacén salen.'
+                  ? 'Elige primero de qué almacén salen.'
                   : 'No hay equipos disponibles de este artículo en ese almacén.'
             }
           >
@@ -688,12 +690,13 @@ function MovimientoModal({ estado, setEstado, almacenes, equipos, perfil, onHech
               step="0.01"
               value={estado.cantidad}
               onChange={(e) => setEstado({ ...estado, cantidad: e.target.value })}
+              placeholder="Ej.: 10"
             />
           </Field>
         )}
 
         <Field label="Motivo" hint={t === 'ajuste' ? 'Obligatorio: un ajuste sin motivo no se puede auditar.' : 'Opcional'}>
-          <Input
+          <Input placeholder="Ej.: Cliente se mudó"
             value={estado.motivo}
             onChange={(e) => setEstado({ ...estado, motivo: e.target.value })}
           />
@@ -703,7 +706,7 @@ function MovimientoModal({ estado, setEstado, almacenes, equipos, perfil, onHech
           <Button variante="fantasma" onClick={() => setEstado(null)}>
             Cancelar
           </Button>
-          <Button
+          <Button variante="primario"
             cargando={guardando}
             disabled={!listo || guardando || (t === 'ajuste' && !estado.motivo.trim())}
             onClick={async () => {

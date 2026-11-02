@@ -198,9 +198,8 @@ export default function ComisionesPage() {
         <Volver />
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
         <Aviso tipo="alerta">
-          No hay ningún esquema de comisiones cargado. Corré{' '}
-          <code className="font-mono">supabase/migracion-97-comisiones-configuracion.sql</code> en
-          el SQL Editor.
+          No hay ningún esquema de comisiones cargado. Actualiza la base con{' '}
+          <code className="font-mono">python manage.py migrate</code> en el backend.
         </Aviso>
       </div>
     )
@@ -227,7 +226,7 @@ export default function ComisionesPage() {
             </Link>
           </ConPermiso>
           <ConPermiso permiso="comisiones.configurar" envezDe={null}>
-            <Button icon={GitBranch} onClick={() => setVersionando(true)}>
+            <Button variante="primario" icon={GitBranch} onClick={() => setVersionando(true)}>
               Crear versión
             </Button>
             <Button variante="primario" icon={Save} cargando={guardando} onClick={guardar}>
@@ -242,7 +241,7 @@ export default function ComisionesPage() {
 
       {soloLectura && (
         <Aviso>
-          Podés ver el esquema pero no editarlo. Hace falta el permiso{' '}
+          Puedes ver el esquema pero no editarlo. Hace falta el permiso{' '}
           <code className="font-mono">comisiones.configurar</code>.
         </Aviso>
       )}
@@ -315,8 +314,9 @@ export default function ComisionesPage() {
                       {dinero(b.precio_comercial)}
                     </td>
                     <td className="px-2 py-2 text-right">
-                      <Input
+                      <Input regla="noNegativo"
                         type="number"
+                        placeholder="0"
                         step="0.01"
                         min="0"
                         disabled={soloLectura}
@@ -372,13 +372,15 @@ export default function ComisionesPage() {
                     <Input
                       disabled={soloLectura}
                       value={n.nombre}
+                      placeholder="Ej.: Bronce"
                       onChange={(e) => editar('niveles', n.id, 'nombre', e.target.value)}
                       className="w-32"
                     />
                   </td>
                   <td className="px-2 py-2 text-right">
-                    <Input
+                    <Input regla="cantidad"
                       type="number"
+                      placeholder="0"
                       min="0"
                       disabled={soloLectura}
                       value={n.desde_ventas ?? ''}
@@ -387,7 +389,7 @@ export default function ComisionesPage() {
                     />
                   </td>
                   <td className="px-2 py-2 text-right">
-                    <Input
+                    <Input regla="cantidad"
                       type="number"
                       min="0"
                       placeholder="sin techo"
@@ -398,8 +400,9 @@ export default function ComisionesPage() {
                     />
                   </td>
                   <td className="px-2 py-2 text-right">
-                    <Input
+                    <Input campo="porcentaje"
                       type="number"
+                      placeholder="0"
                       step="0.01"
                       min="0"
                       max="100"
@@ -472,8 +475,9 @@ export default function ComisionesPage() {
               {form.bonos.map((b) => (
                 <tr key={b.id} className="border-b border-slate-800/60">
                   <td className="px-2 py-2 text-right">
-                    <Input
+                    <Input campo="desde_pct"
                       type="number"
+                      placeholder="0"
                       step="0.01"
                       disabled={soloLectura}
                       value={b.desde_pct ?? ''}
@@ -482,8 +486,9 @@ export default function ComisionesPage() {
                     />
                   </td>
                   <td className="px-2 py-2 text-right">
-                    <Input
+                    <Input campo="hasta_pct"
                       type="number"
+                      placeholder="0"
                       step="0.01"
                       disabled={soloLectura}
                       value={b.hasta_pct ?? ''}
@@ -492,8 +497,9 @@ export default function ComisionesPage() {
                     />
                   </td>
                   <td className="px-2 py-2 text-right">
-                    <Input
+                    <Input campo="monto"
                       type="number"
+                      placeholder="0"
                       step="0.01"
                       min="0"
                       disabled={soloLectura}
@@ -515,6 +521,7 @@ export default function ComisionesPage() {
           >
             <Input
               type="number"
+              placeholder="0"
               min="30"
               max="365"
               disabled={soloLectura}
@@ -528,6 +535,7 @@ export default function ComisionesPage() {
           >
             <Input
               type="number"
+              placeholder="0"
               min="0"
               disabled={soloLectura}
               value={form.reglas.min_clientes_cohorte ?? ''}
@@ -567,6 +575,7 @@ export default function ComisionesPage() {
           <Field label="Cortesía desde el día" hint="Instalado de acá en adelante, el pago se espera el mes siguiente.">
             <Input
               type="number"
+              placeholder="0"
               min="1"
               max="31"
               disabled={soloLectura}
@@ -575,7 +584,7 @@ export default function ComisionesPage() {
             />
           </Field>
           <Field label="Ventana de pago: desde">
-            <Input
+            <Input placeholder="Ej.: 1"
               type="number"
               min="1"
               max="31"
@@ -585,7 +594,7 @@ export default function ComisionesPage() {
             />
           </Field>
           <Field label="hasta">
-            <Input
+            <Input placeholder="Ej.: 5"
               type="number"
               min="1"
               max="31"
@@ -597,6 +606,7 @@ export default function ComisionesPage() {
           <Field label="Día de cierre" hint="Del mes siguiente. No el último día del mes.">
             <Input
               type="number"
+              placeholder="0"
               min="1"
               max="28"
               disabled={soloLectura}
@@ -608,7 +618,7 @@ export default function ComisionesPage() {
 
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <Field label="Períodos sin pago para suspender">
-            <Input
+            <Input placeholder="Ej.: 2"
               type="number"
               min="1"
               disabled={soloLectura}
@@ -617,7 +627,7 @@ export default function ComisionesPage() {
             />
           </Field>
           <Field label="Períodos sin pago para retirar el equipo">
-            <Input
+            <Input placeholder="Ej.: 3"
               type="number"
               min="2"
               disabled={soloLectura}
@@ -1023,7 +1033,7 @@ function FormularioMotivo({ motivo, guardando, onCerrar, onGuardar }) {
       onCerrar={onCerrar}
     >
       <div className="space-y-3">
-        <Field label="Nombre" hint="Es lo que se lee en la ficha del abonado dentro de un año">
+        <Field campo="nombre" label="Nombre" hint="Es lo que se lee en la ficha del abonado dentro de un año">
           <Input
             value={form.nombre ?? ''}
             onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
@@ -1041,8 +1051,8 @@ function FormularioMotivo({ motivo, guardando, onCerrar, onGuardar }) {
           <span className="text-xs text-slate-300">
             Le cuenta al vendedor en la calidad de su cohorte
             <span className="mt-0.5 block text-[11px] text-slate-500">
-              Marcalo cuando la pérdida tenga que ver con la venta —abandono temprano, nunca pagó,
-              documentación irregular—. Dejalo sin marcar cuando no sea culpa de quien vendió: una
+              Márcalo cuando la pérdida tenga que ver con la venta —abandono temprano, nunca pagó,
+              documentación irregular—. Déjalo sin marcar cuando no sea culpa de quien vendió: una
               mudanza fuera de cobertura, un problema de la empresa, un fallecimiento.
             </span>
           </span>

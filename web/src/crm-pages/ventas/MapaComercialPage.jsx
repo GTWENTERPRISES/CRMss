@@ -7,6 +7,7 @@ import { usePermisos } from '../../lib/AuthContext'
 import { dineroCero as dinero } from '../../lib/formato'
 import { comercialApi } from '../../lib/comercial'
 import { ESTADOS_ABIERTOS, etiquetaEstado } from '../../lib/ventas'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Mapa comercial.
@@ -211,7 +212,7 @@ export default function MapaComercialPage() {
           i.latitud,
           i.longitud,
           COLOR.instalacion,
-          `<b>${i.titular}</b><br>Instalación ${i.estado}${i.fecha ? ` · ${i.fecha}` : ''}`,
+          `<b>${i.titular}</b><br>Instalación ${i.estado}${i.fecha ? ` · ${fmtFecha(i.fecha)}` : ''}`,
         ),
       )
     }
@@ -257,11 +258,11 @@ export default function MapaComercialPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Prospectos en el mapa" valor={prospectosFiltrados.length} />
-        <Stat label="Calientes" valor={calientes} color="text-red-400" />
-        <Stat label="En juego" valor={dinero(enJuego)} color="text-sky-400" />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Prospectos en el mapa" valor={prospectosFiltrados.length} />
+        <Stat cargando={cargando} label="Calientes" valor={calientes} color="text-red-400" />
+        <Stat cargando={cargando} label="En juego" valor={dinero(enJuego)} color="text-sky-400" />
+        <Stat cargando={cargando}
           label="Cajas con lugar"
           valor={datos.cajas.filter((c) => c.activo && !c.llena).length}
           color="text-emerald-400"

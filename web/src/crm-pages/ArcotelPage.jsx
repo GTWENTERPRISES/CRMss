@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { AlertTriangle, FileSpreadsheet, FileText } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
+import { usePais } from '../lib/pais'
 import { api } from '../lib/apiNetwork'
 import { abrirPdf, descargar } from '../lib/pdf'
 import { dineroCero as dinero } from '../lib/formato'
@@ -23,7 +24,7 @@ import { Aviso, Button, Card, Cargando, ErrorBanner, Field, Select, Table } from
  * después de mandarlo cuesta una observación. Acá se ve antes de exportar, con el
  * nombre de a quién le falta qué.
  */
-export default function ArcotelPage() {
+function ArcotelContenido() {
   const [meses, setMeses] = useState([])
   const [prestadores, setPrestadores] = useState([])
   const [mes, setMes] = useState('')
@@ -36,15 +37,15 @@ export default function ArcotelPage() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('v_reporte_arcotel').select('mes').order('mes', { ascending: false }),
-      supabase.from('prestadores').select('id, nombre, ruc').order('nombre'),
+      django.from('v_reporte_arcotel').select('mes').order('mes', { ascending: false }),
+      django.from('prestadores').select('id, nombre_comercial, razon_social, ruc').order('nombre_comercial'),
     ]).then(([m, p]) => {
       if (m.error) {
         setError(
           /does not exist/i.test(m.error.message)
             ? {
                 message: 'Falta la vista del reporte',
-                hint: 'Corré supabase/migracion-162-el-reporte-para-arcotel.sql',
+                hint: 'Actualiza la base: python manage.py migrate',
               }
             : m.error,
         )
@@ -64,14 +65,14 @@ export default function ArcotelPage() {
     if (!mes) return
     setCargando(true)
 
-    let q = supabase.from('v_reporte_arcotel').select('*').eq('mes', mes)
-    let f = supabase.from('v_arcotel_incompletos').select('*').eq('mes', mes)
+    let q = django.from('v_reporte_arcotel').select('*').eq('mes', mes)
+    let f = django.from('v_arcotel_incompletos').select('*').eq('mes', mes)
     if (prestador) {
       q = q.eq('prestador_id', prestador)
       f = f.eq('client_id', prestador) // se filtra abajo por los que quedaron
     }
 
-    let g = supabase.from('v_arcotel_resumen').select('*').eq('mes', mes)
+    let g = django.from('v_arcotel_resumen').select('*').eq('mes', mes)
     if (prestador) g = g.eq('prestador_id', prestador)
 
     const [r, inc, res] = await Promise.all([
@@ -156,7 +157,7 @@ export default function ArcotelPage() {
               <option value="">Todos</option>
               {prestadores.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nombre}{p.ruc ? ` · ${p.ruc}` : ''}
+                  {p.nombre_comercial || p.razon_social}{p.ruc ? ` · ${p.ruc}` : ''}
                 </option>
               ))}
             </Select>
@@ -217,7 +218,7 @@ export default function ArcotelPage() {
                 {faltantes.length === 1 ? '' : 'n'} con celdas vacías
               </p>
               <p className="text-xs text-slate-500">
-                Un reporte incompleto al regulador se devuelve. Completá la ficha antes de
+                Un reporte incompleto al regulador se devuelve. Completa la ficha antes de
                 exportar.
               </p>
             </div>
@@ -321,6 +322,7 @@ const FORMAS = {
   transferencia: 'Transferencia',
   deposito: 'Depósito',
   tarjeta: 'Tarjeta',
+  billetera: 'Billetera digital',
   otro: 'Otro',
   mixto: 'Mixto',
   'sin cobrar': 'Todavía sin cobrar',
@@ -328,3 +330,24 @@ const FORMAS = {
 
 /** Una celda que va a salir vacía en el archivo. Se marca, no se disimula. */
 const Vacio = () => <span className="text-amber-500">falta</span>
+
+/**
+ * El reporte de ARCOTEL es de Ecuador. El menú ya no lo ofrece en otro país,
+ * pero alguien puede llegar por la dirección o por un enlace guardado.
+ */
+export default function ArcotelPage() {
+  const pais = usePais()
+  if (!pais.modulos.reporteRegulador) {
+    return (
+      <div className="space-y-4">
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Reporte del regulador</h1>
+        <p className="max-w-2xl text-sm text-slate-400">
+          Este es el reporte que pide ARCOTEL, el regulador de Ecuador. Este ISP está configurado en{' '}
+          {pais.nombre}, donde el regulador es {pais.regulador.sigla} ({pais.regulador.nombre}), y su
+          reporte todavía no está disponible.
+        </p>
+      </div>
+    )
+  }
+  return <ArcotelContenido />
+}

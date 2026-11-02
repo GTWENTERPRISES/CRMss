@@ -551,7 +551,7 @@
     <div class="flow no">
       <div class="flow-title">Sin túnel</div>
       <div class="chain">
-        <div class="node">CRM en la nube<small>Supabase</small></div>
+        <div class="node">CRM externo<small>con su llave sk_</small></div>
         <div class="arrow blocked">──✗──</div>
         <div class="node">localhost:4000<small>su propia máquina</small></div>
         <div class="arrow blocked">╳</div>
@@ -561,7 +561,7 @@
     <div class="flow yes">
       <div class="flow-title">Con túnel</div>
       <div class="chain">
-        <div class="node">CRM en la nube<small>Supabase</small></div>
+        <div class="node">CRM externo<small>con su llave sk_</small></div>
         <div class="arrow flows">───▶</div>
         <div class="node acc">Cloudflare<small>URL pública HTTPS</small></div>
         <div class="arrow flows">───▶</div>
@@ -1159,7 +1159,7 @@ Token          : sk_…</pre>
   </div>
 
   <div class="note danger">
-    <span class="tag">Entregar la clave de Supabase</span>
+    <span class="tag">Entregar las claves del servidor</span>
     <p>
       Ni la <code>service_role</code>, ni la contraseña del sistema, ni acceso
       directo a la base. La llave <code>sk_</code> es lo único que el proveedor

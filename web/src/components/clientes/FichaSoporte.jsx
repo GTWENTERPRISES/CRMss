@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { ChevronRight, LifeBuoy, Plus } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Button, Card, Modal } from '../ui'
 import TicketForm from '../soporte/TicketForm'
 import { ESTADOS, PRIORIDADES, etiquetaIncidencia, haceCuanto } from '../../lib/soporte'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Los tickets de este abonado, dentro de su ficha.
@@ -14,7 +15,7 @@ import { ESTADOS, PRIORIDADES, etiquetaIncidencia, haceCuanto } from '../../lib/
  * igual, necesita que alguien mire el historial.
  */
 
-const fecha = (f) => (f ? new Date(f).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(f) : '—')
 
 export default function FichaSoporte({ cliente, onError }) {
   const [tickets, setTickets] = useState([])
@@ -23,7 +24,7 @@ export default function FichaSoporte({ cliente, onError }) {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_tickets')
       .select('*')
       .eq('client_id', cliente.id)

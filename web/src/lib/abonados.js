@@ -227,8 +227,8 @@ export const COLUMNAS_ABONADOS = [
   // Para qué es el servicio cuando una persona tiene más de uno. Uso interno:
   // el nombre y la dirección son lo que sale impreso, esto no.
   { clave: 'referencia_servicio', titulo: 'Servicio', grupo: 'principal', texto: (c) => c.referencia_servicio ?? '' },
-  { clave: 'ip', titulo: 'IP', grupo: 'principal', mono: true, texto: (c) => c.ip ?? '' },
-  { clave: 'mac', titulo: 'MAC', grupo: 'principal', mono: true, texto: (c) => c.mac_address ?? '' },
+  { clave: 'ip', tecnica: true, titulo: 'IP', grupo: 'principal', mono: true, texto: (c) => c.ip ?? '' },
+  { clave: 'mac', tecnica: true, titulo: 'MAC', grupo: 'principal', mono: true, texto: (c) => c.mac_address ?? '' },
   // `exacto` porque es un número corto: filtrar "5" por partes traería también
   // al que paga el 15 y al que paga el 25, y la lista del día 5 saldría mal.
   { clave: 'dia_pago', titulo: 'Día pago', grupo: 'principal', centro: true, exacto: true, texto: (c) => (c.dia_facturacion == null ? '' : String(c.dia_facturacion)) },
@@ -236,15 +236,15 @@ export const COLUMNAS_ABONADOS = [
   { clave: 'correo', titulo: 'Correo', grupo: 'principal', texto: (c) => c.email ?? '' },
   { clave: 'plan', titulo: 'Plan', grupo: 'principal', texto: (c) => c.plan ?? '' },
   { clave: 'movil', titulo: 'Teléfono móvil', grupo: 'principal', mono: true, texto: (c) => c.telefono_movil ?? '' },
-  { clave: 'router', titulo: 'Router', grupo: 'principal', texto: (c) => c.router ?? '' },
+  { clave: 'router', tecnica: true, titulo: 'Router', grupo: 'principal', texto: (c) => c.router ?? '' },
   { clave: 'cedula', titulo: 'Cédula', grupo: 'principal', mono: true, texto: (c) => c.identificacion ?? '' },
   { clave: 'zona', titulo: 'Zona', grupo: 'principal', texto: (c) => c.zona ?? '' },
   { clave: 'estatus', titulo: 'Estatus', grupo: 'principal', texto: (c) => enlace(c)?.texto ?? '' },
 
   // ── Las que se encienden cuando hacen falta ──────────────────────────────
   { clave: 'telefono', titulo: 'Teléfono fijo', grupo: 'extra', mono: true, texto: (c) => c.telefono ?? '' },
-  { clave: 'ip_receptor', titulo: 'IP receptor', grupo: 'extra', mono: true, texto: (c) => c.ip_administracion ?? '' },
-  { clave: 'pppuser', titulo: 'Usuario PPPoE', grupo: 'extra', mono: true, texto: (c) => c.usuario_ppp ?? '' },
+  { clave: 'ip_receptor', tecnica: true, titulo: 'IP receptor', grupo: 'extra', mono: true, texto: (c) => c.ip_administracion ?? '' },
+  { clave: 'pppuser', tecnica: true, titulo: 'Usuario PPPoE', grupo: 'extra', mono: true, texto: (c) => c.usuario_ppp ?? '' },
   // Los dos de dónde cuelga el abonado. Son excluyentes en la práctica: el de
   // fibra tiene caja NAP y el de radio tiene emisor, y por eso van seguidos —
   // quien mira la red enciende los dos y lee el que corresponda.
@@ -339,6 +339,14 @@ export const filtrosActivos = (filtros = {}, visibles = []) =>
 export const COLUMNAS_POR_DEFECTO = COLUMNAS_ABONADOS.filter((c) => c.grupo === 'principal').map(
   (c) => c.clave,
 )
+
+/**
+ * Las de entrada según quién mira: las técnicas (IP, MAC, router, usuario
+ * PPPoE) no le dicen nada a quien cobra o vende, así que de entrada no se le
+ * muestran. Puede encenderlas igual desde "Columnas".
+ */
+export const columnasPorDefecto = (esTecnico) =>
+  COLUMNAS_ABONADOS.filter((c) => c.grupo === 'principal' && (esTecnico || !c.tecnica)).map((c) => c.clave)
 
 /** ¿Hay que ir a buscar las cuentas? Solo si se encendió alguna que las use. */
 export const necesitaCuentas = (visibles) =>

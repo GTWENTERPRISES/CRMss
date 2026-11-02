@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { personalApi } from './personal'
 
 /**
@@ -71,7 +71,7 @@ export const seEstaEnfriando = (p) =>
 
 export const ventasApi = {
   async listar() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_prospectos')
       .select('*')
       .order('creado_en', { ascending: false })
@@ -85,8 +85,8 @@ export const ventasApi = {
     const fila = { ...datos, actualizado_en: new Date().toISOString() }
 
     const { data, error } = id
-      ? await supabase.from('prospectos').update(fila).eq('id', id).select().single()
-      : await supabase.from('prospectos').insert(fila).select().single()
+      ? await django.from('prospectos').update(fila).eq('id', id).select().single()
+      : await django.from('prospectos').insert(fila).select().single()
     if (error) throw error
 
     personalApi.registrar(
@@ -98,7 +98,7 @@ export const ventasApi = {
   },
 
   async eliminar(p) {
-    const { error } = await supabase.from('prospectos').delete().eq('id', p.id)
+    const { error } = await django.from('prospectos').delete().eq('id', p.id)
     if (error) throw error
     personalApi.registrar('prospecto.eliminar', `Eliminó el prospecto ${p.nombre}`, {
       entidad: 'prospecto',
@@ -121,7 +121,7 @@ export const ventasApi = {
     // diciendo "no le alcanzaba" un prospecto que hoy está en negociación.
     if (estado !== 'perdido') fila.motivo_perdida = null
 
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('prospectos')
       .update(fila)
       .eq('id', p.id)
@@ -139,7 +139,7 @@ export const ventasApi = {
   },
 
   async actividades(prospectoId) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('prospecto_actividades')
       .select('*')
       .eq('prospecto_id', prospectoId)
@@ -149,7 +149,7 @@ export const ventasApi = {
   },
 
   async registrarActividad(prospectoId, actividad, perfil) {
-    const { error } = await supabase.from('prospecto_actividades').insert({
+    const { error } = await django.from('prospecto_actividades').insert({
       prospecto_id: prospectoId,
       ...actividad,
       usuario_id: perfil?.id ?? null,
@@ -167,7 +167,7 @@ export const ventasApi = {
    * que es lo único que alguien quiere leer.
    */
   async agendar(prospectoId, seguimiento, perfil) {
-    const { error } = await supabase.from('prospecto_actividades').insert({
+    const { error } = await django.from('prospecto_actividades').insert({
       prospecto_id: prospectoId,
       estado: 'pendiente',
       ...seguimiento,
@@ -180,7 +180,7 @@ export const ventasApi = {
     // donde se ordena la lista. Se copia acá para que no haya que consultar los
     // seguimientos de los 500 prospectos solo para ordenarlos.
     if (seguimiento.programado_para) {
-      await supabase
+      await django
         .from('prospectos')
         .update({ proxima_accion: seguimiento.programado_para.slice(0, 10) })
         .eq('id', prospectoId)
@@ -189,7 +189,7 @@ export const ventasApi = {
 
   /** Cierra un seguimiento: completado o cancelado. */
   async cerrarSeguimiento(id, estado) {
-    const { error } = await supabase
+    const { error } = await django
       .from('prospecto_actividades')
       .update({
         estado,
@@ -200,7 +200,7 @@ export const ventasApi = {
   },
 
   async cotizaciones(prospectoId) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('cotizaciones')
       .select('*')
       .eq('prospecto_id', prospectoId)
@@ -210,7 +210,7 @@ export const ventasApi = {
   },
 
   async cotizar(prospectoId, cotizacion, perfil) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('cotizaciones')
       .insert({ prospecto_id: prospectoId, ...cotizacion, creado_por: perfil?.id ?? null })
       .select()
@@ -220,11 +220,22 @@ export const ventasApi = {
     // Cotizar mueve el embudo solo. Dejarlo a mano significa que la mitad de los
     // prospectos con cotización siguen figurando como "contactado", y el tablero
     // deja de servir para saber dónde está cada venta.
-    await supabase
+    await django
       .from('prospectos')
       .update({ estado: 'cotizado', actualizado_en: new Date().toISOString() })
       .eq('id', prospectoId)
       .in('estado', ['nuevo', 'contactado'])
+
+    // Y el plan cotizado queda como el del prospecto si todavía no tenía uno:
+    // el expediente de venta lo pide, y sin esto el vendedor tenía que volver a
+    // elegir en la ficha el mismo plan que acababa de cotizar.
+    if (cotizacion.plan_id) {
+      await django
+        .from('prospectos')
+        .update({ plan_id: cotizacion.plan_id })
+        .eq('id', prospectoId)
+        .is('plan_id', null)
+    }
 
     return data
   },
@@ -240,7 +251,7 @@ export const ventasApi = {
    * que no puede pasar es que alguien lea `precio` y no sepa cuál de los dos es.
    */
   async planes() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_planes')
       .select('id, nombre, precio_total, precio_sin_iva, iva_valor, iva_porcentaje, tipo_impuesto, bajada_kbps, subida_kbps, activo')
       .eq('activo', true)
@@ -252,8 +263,8 @@ export const ventasApi = {
   /** Las zonas dibujadas y las cajas con puerto libre: las dos capas del mapa. */
   async cobertura() {
     const [zonas, cajas] = await Promise.all([
-      supabase.from('zonas_cobertura').select('*').eq('activa', true),
-      supabase.from('v_cajas_nap').select('id, nombre, tipo, latitud, longitud, capacidad, libres, llena, activo'),
+      django.from('zonas_cobertura').select('*').eq('activa', true),
+      django.from('v_cajas_nap').select('id, nombre, tipo, latitud, longitud, capacidad, libres, llena, activo'),
     ])
     if (zonas.error) throw zonas.error
     return {
@@ -267,13 +278,13 @@ export const ventasApi = {
   async guardarZona(zona) {
     const { id, ...datos } = zona
     const { error } = id
-      ? await supabase.from('zonas_cobertura').update(datos).eq('id', id)
-      : await supabase.from('zonas_cobertura').insert(datos)
+      ? await django.from('zonas_cobertura').update(datos).eq('id', id)
+      : await django.from('zonas_cobertura').insert(datos)
     if (error) throw error
   },
 
   async eliminarZona(id) {
-    const { error } = await supabase.from('zonas_cobertura').delete().eq('id', id)
+    const { error } = await django.from('zonas_cobertura').delete().eq('id', id)
     if (error) throw error
   },
 }

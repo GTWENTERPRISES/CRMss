@@ -30,13 +30,13 @@ async function exigir(req, permiso) {
   if (!actor) {
     throw new AppError('Tu usuario no tiene un legajo de personal asociado', {
       status: 403,
-      hint: 'Pedile a un Super Administrador que te cree el usuario en Ajustes → Gestión de personal.',
+      hint: 'Pídele a un Super Administrador que te cree el usuario en Ajustes → Gestión de personal.',
     })
   }
   if (!actor.activo) throw new AppError('Tu usuario está desactivado', { status: 403 })
 
   if (permiso && !tienePermiso(actor, permiso)) {
-    throw new AppError('No tenés permiso para esto', {
+    throw new AppError('No tienes permiso para esto', {
       status: 403,
       hint: `Hace falta el permiso "${permiso}". Se otorga en Ajustes → Gestión de personal.`,
     })
@@ -97,7 +97,7 @@ router.post(
       : []
 
     if (!permisos.length) {
-      throw badRequest('Una llave sin permisos no sirve para nada: marcá al menos uno.')
+      throw badRequest('Una llave sin permisos no sirve para nada: marca al menos uno.')
     }
 
     /**
@@ -146,7 +146,7 @@ router.post(
       ...data,
       llave,
       aviso:
-        'Copiala ahora: no se guarda en ningún lado y no se puede volver a ver. Si se pierde, se revoca y se emite otra.',
+        'Cópiala ahora: no se guarda en ningún lado y no se puede volver a ver. Si se pierde, se revoca y se emite otra.',
     })
   }),
 )
@@ -208,7 +208,7 @@ router.post(
     const actor = await exigir(req, 'config.integraciones')
     const b = req.body ?? {}
 
-    if (!b.usuario_id) throw badRequest('Elegí de qué usuario copiar los permisos.')
+    if (!b.usuario_id) throw badRequest('Elige de qué usuario copiar los permisos.')
 
     const { data: destino, error } = await db()
       .from('usuarios_sistema')
@@ -230,7 +230,7 @@ router.post(
       throw badRequest(
         `${destino.nombre} no tiene ningún permiso que se pueda usar desde una API.`,
         {
-          hint: 'Las llaves solo pueden consultar abonados y facturas, registrar pagos, diagnosticar, cambiar WiFi, abrir tickets y vender. Elegí a alguien con alguno de esos, o creá la llave a mano en Ajustes → Integraciones.',
+          hint: 'Las llaves solo pueden consultar abonados y facturas, registrar pagos, diagnosticar, cambiar WiFi, abrir tickets y vender. Elige a alguien con alguno de esos, o crea la llave a mano en Ajustes → Integraciones.',
         },
       )
     }
@@ -281,7 +281,7 @@ router.post(
       // la genera no crea que la entregó más completa de lo que es.
       descartados: HABILITABLES_POR_API.filter((p) => !permisos.includes(p)),
       aviso:
-        'Copiala ahora: no se guarda en ningún lado y no se puede volver a ver. Los permisos son una foto de los que tiene ' +
+        'Cópiala ahora: no se guarda en ningún lado y no se puede volver a ver. Los permisos son una foto de los que tiene ' +
         `${nombreCompleto} hoy: si mañana cambian los suyos, esta llave no cambia.`,
     })
   }),
@@ -467,7 +467,7 @@ router.post(
         {
           status: 400,
           ...(repetido
-            ? { hint: 'Buscalo en Cobros → Pagos registrados. Si es el mismo, rechazá este reporte indicando que ya estaba cobrado.' }
+            ? { hint: 'Búscalo en Cobros → Pagos registrados. Si es el mismo, rechaza este reporte indicando que ya estaba cobrado.' }
             : {}),
         },
       )

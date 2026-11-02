@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { useTabla } from '../lib/useTabla'
 import { api } from '../lib/apiNetwork'
-import { aCsv, descargar, eliminarOlt, guardarOlt, hace } from '../lib/olts'
+import { aCsv, crearOlt, descargar, eliminarOlt, guardarOlt, hace } from '../lib/olts'
 import OLTForm from '../components/olt/OLTForm'
 import Inconsistencias from '../components/olt/Inconsistencias'
 import {
@@ -26,6 +26,7 @@ import {
   Punto,
   SkeletonTabla,
   Table,
+  MenuAcciones,
 } from '../components/ui'
 
 /**
@@ -39,7 +40,7 @@ import {
 export default function OLTPage() {
   const confirmar = useConfirmar()
   const navegar = useNavigate()
-  const { filas: olts, cargando, error, recargar, insertar, setError } = useTabla('v_olts', {
+  const { filas: olts, cargando, error, recargar, setError } = useTabla('v_olts', {
     orderBy: 'numero',
     ascending: true,
   })
@@ -152,15 +153,17 @@ export default function OLTPage() {
           <Button variante="primario" icon={Plus} onClick={() => setEnFormulario({})}>
             Agregar OLT
           </Button>
-          <Button variante="exito" icon={FileDown} onClick={exportar} disabled={!olts.length}>
-            Exportar lista
-          </Button>
-          <Button variante="alerta" icon={ScanSearch} onClick={auditar} cargando={auditando}>
-            Buscar inconsistencias
-          </Button>
           <Button icon={RefreshCw} onClick={sondear} cargando={sondeando}>
             Actualizar estado
           </Button>
+          {/* Lo ocasional, en "Más": una acción principal a la vista. */}
+          <MenuAcciones
+            texto={auditando ? 'Buscando…' : 'Más'}
+            acciones={[
+              olts.length > 0 && { label: 'Exportar lista', icon: FileDown, onClick: exportar },
+              { label: 'Buscar inconsistencias', icon: ScanSearch, onClick: auditar },
+            ]}
+          />
         </div>
       </div>
 
@@ -194,13 +197,14 @@ export default function OLTPage() {
             ]}
             filas={ordenadas}
             vacio="Todavía no hay ninguna OLT cargada."
+            accionVacia={{ label: 'Agregar la primera OLT', icon: Plus, onClick: () => setEnFormulario({}) }}
             renderFila={(olt) => (
               <tr
                 key={olt.id}
                 className={`text-slate-300 ${olt.activo === false ? 'opacity-50' : ''}`}
               >
                 <td className="px-3 py-2">
-                  <Button variante="primario" onClick={() => navegar(`/olts/${olt.id}`)}>
+                  <Button variante="secundario" onClick={() => navegar(`/olts/${olt.id}`)}>
                     Ver
                   </Button>
                 </td>
@@ -293,7 +297,10 @@ export default function OLTPage() {
           olt={null}
           onCancelar={() => setEnFormulario(null)}
           onGuardado={async (datos) => {
-            await insertar(datos)
+            // A la tabla `olts`: el listado se lee de v_olts, que es una vista
+            // (con joins) y rechaza el alta con "Método POST no permitido".
+            await crearOlt(datos)
+            await recargar()
             setEnFormulario(null)
           }}
         />

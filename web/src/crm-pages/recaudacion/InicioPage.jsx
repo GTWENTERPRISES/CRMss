@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { FileText, Search, Wallet } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { abrirPdf } from '../../lib/pdf'
 import { dineroCero as dinero } from '../../lib/formato'
@@ -36,14 +36,14 @@ export default function RecaudacionInicioPage() {
   const [error, setError] = useState(null)
 
   const recargar = useCallback(async () => {
-    const { data, error: e } = await supabase.from('v_mi_recaudacion').select('*').maybeSingle()
+    const { data, error: e } = await django.from('v_mi_recaudacion').select('*').maybeSingle()
 
     if (e) {
       setError(
         /does not exist/i.test(e.message)
           ? {
               message: 'Falta la vista de recaudación',
-              hint: 'Corré supabase/migracion-160-el-punto-de-recaudacion.sql',
+              hint: 'Actualiza la base: python manage.py migrate',
             }
           : e,
       )
@@ -70,7 +70,7 @@ export default function RecaudacionInicioPage() {
         <div>
           <h1 className="text-xl font-semibold text-slate-100">Recaudación</h1>
           <p className="text-sm text-slate-500">
-            Buscá al abonado por nombre, cédula o contrato y cobrale.
+            Busca al abonado por nombre, cédula o contrato y cóbrale.
           </p>
         </div>
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from '@/lib/nextNavigation'
 import { ArrowLeft, ArrowRight, CalendarX, Check, CloudOff, MapPin, X } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { enlaceMapa } from '../lib/soporte'
 import { PASOS, TECNOLOGIAS, pasoAlcanzado } from '../lib/instalaciones'
 import { usePermisos } from '../lib/AuthContext'
@@ -57,7 +57,7 @@ export default function AltaCampoPage() {
   const [fallida, setFallida] = useState(null)
 
   const recargar = useCallback(async () => {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('v_instalaciones')
       .select('*')
       .eq('id', id)
@@ -227,7 +227,7 @@ export default function AltaCampoPage() {
   const comunes = { orden, onError: setError }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#F6F8FB]">
+    <div className="flex min-h-dvh flex-col bg-background">
       {/* Cabecera fija: quién es y dónde queda, que es lo que el técnico
           necesita a la vista todo el tiempo. */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-white/95 px-4 py-3 backdrop-blur">

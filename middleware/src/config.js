@@ -25,20 +25,37 @@ export const config = {
    * día que un abonado cortado vea la página de otra cosa.
    */
   portalCorte: int('PORTAL_CORTE_PORT', 8090),
+  /**
+   * A qué dirección manda el router al cortado: donde ESE router alcanza a este
+   * servidor. Vacío se deduce para los routers del túnel (10.66.x.y → 10.66.x.1),
+   * que es la dirección del servidor en la red que arma `openvpn-server.sh`.
+   */
+  portalCorteDestino: process.env.PORTAL_CORTE_DESTINO || null,
   corsOrigin: (process.env.CORS_ORIGIN || 'http://localhost:5173')
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean),
 
-  supabaseUrl: process.env.SUPABASE_URL || '',
-  supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  /**
+   * Las APIs de Django: el único dueño de la base.
+   *
+   * Este proceso ya no tiene llave de administrador de la base — entra con un
+   * usuario de servicio, como cualquier integración, y todas sus consultas
+   * pasan por las APIs genéricas de Django.
+   */
+  djangoApiUrl: (process.env.DJANGO_API_URL || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, ''),
+  djangoServicioEmail: process.env.DJANGO_SERVICIO_EMAIL || '',
+  djangoServicioClave: process.env.DJANGO_SERVICIO_CLAVE || '',
 
   credentialsKey: process.env.CREDENTIALS_KEY || '',
 
-  // Si está en true, cada request tiene que traer el access token de Supabase.
-  // Importante: el middleware tiene la service_role key, así que dejarlo abierto
-  // equivale a exponer la base entera.
-  requireAuth: process.env.REQUIRE_AUTH !== 'false',
+  /**
+   * El secreto con el que Django llama a esta API (cabecera X-Clave-Interna).
+   * Debe ser IGUAL a CLAVE_INTERNA_MW en backend/new/.env.
+   *
+   * Vacía = no se exige (solo para desarrollo con acceso directo al :4000).
+   */
+  claveInterna: process.env.CLAVE_INTERNA_MW || '',
 
   /**
    * Corte automático de las promesas de pago vencidas.
@@ -305,10 +322,10 @@ export const config = {
 /**
  * Los valores de relleno de .env.example cuentan como "sin configurar": copiar el
  * ejemplo no puede dar por buena la configuración, o el arranque dice "todo listo"
- * y el error aparece recién al primer request contra Supabase.
+ * y el error aparece recién al primer request contra la base.
  */
 const esRelleno = (v) =>
-  !v || v.includes('xxxxxxxxxxxx') || v.includes('...') || v.includes('cambiame-por-una-frase')
+  !v || v.includes('xxxxxxxxxxxx') || v.includes('...') || v.includes('cámbiame-por-una-frase')
 
 /**
  * Avisa al arrancar de lo que falta, en vez de fallar recién al primer request.
@@ -316,8 +333,10 @@ const esRelleno = (v) =>
  */
 export function checkConfig() {
   const faltantes = []
-  if (esRelleno(config.supabaseUrl)) faltantes.push('SUPABASE_URL')
-  if (esRelleno(config.supabaseServiceKey)) faltantes.push('SUPABASE_SERVICE_ROLE_KEY')
+  if (esRelleno(config.djangoApiUrl)) faltantes.push('DJANGO_API_URL')
+  if (esRelleno(config.djangoServicioEmail)) faltantes.push('DJANGO_SERVICIO_EMAIL')
+  if (esRelleno(config.djangoServicioClave)) faltantes.push('DJANGO_SERVICIO_CLAVE')
+  if (esRelleno(config.claveInterna)) faltantes.push('CLAVE_INTERNA_MW')
   if (esRelleno(config.credentialsKey)) faltantes.push('CREDENTIALS_KEY')
   return faltantes
 }

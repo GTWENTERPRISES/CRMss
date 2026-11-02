@@ -3,22 +3,22 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Factura, PlanVelocidad
-from .serializers import FacturaSerializer, PlanVelocidadSerializer
+from .models import DetalleFactura, Factura, PlanVelocidad
+from .serializers import DetalleFacturaSerializer, FacturaSerializer, PlanVelocidadSerializer
 
 
 class PlanVelocidadViewSet(viewsets.ModelViewSet):
     queryset = PlanVelocidad.objects.all()
     serializer_class = PlanVelocidadSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ['categoria', 'precio_incluye_iva']
+    filterset_fields = ['categoria', 'tipo_impuesto', 'activo']
     search_fields = ['nombre']
     ordering_fields = ['bajada_kbps', 'precio']
 
     @action(detail=False, methods=['get'])
     def catalogo(self, request):
         categoria = request.query_params.get('categoria')
-        qs = self.get_queryset()
+        qs = self.get_queryset().filter(activo=True)
         if categoria:
             qs = qs.filter(categoria=categoria)
         planes = [
@@ -28,7 +28,8 @@ class PlanVelocidadViewSet(viewsets.ModelViewSet):
                 'bajada_mbps': p.bajada_mbps,
                 'subida_mbps': p.subida_mbps,
                 'precio': float(p.precio),
-                'precio_incluye_iva': p.precio_incluye_iva,
+                'precio_incluye_iva': p.tipo_impuesto == 'incluido',
+                'tipo_impuesto': p.tipo_impuesto,
                 'categoria': p.categoria,
             }
             for p in qs
@@ -37,12 +38,12 @@ class PlanVelocidadViewSet(viewsets.ModelViewSet):
 
 
 class FacturaViewSet(viewsets.ModelViewSet):
-    queryset = Factura.objects.select_related('cliente').all()
+    queryset = Factura.objects.select_related('client').all()
     serializer_class = FacturaSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ['cliente', 'estado', 'mes', 'enviada']
-    search_fields = ['numero', 'clave_acceso', 'cliente__nombre', 'cliente__cedula']
-    ordering_fields = ['fecha', 'fecha_vencimiento', 'total']
+    filterset_fields = ['client', 'anulada', 'tipo', 'origen']
+    search_fields = ['cliente_nombre', 'concepto', 'client__nombre', 'client__identificacion']
+    ordering_fields = ['fecha_emision', 'fecha_vencimiento', 'total', 'numero']
 
     @action(detail=True, methods=['post'])
     def anular(self, request, pk=None):
@@ -52,8 +53,9 @@ class FacturaViewSet(viewsets.ModelViewSet):
                 {'detail': 'No se puede anular una factura pagada.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        factura.estado = Factura.Estado.ANULADA
-        factura.save(update_fields=['estado', 'updated_at'])
+        factura.anulada = True
+        factura.motivo_anulacion = request.data.get('motivo') or factura.motivo_anulacion
+        factura.save(update_fields=['anulada', 'motivo_anulacion', 'updated_at'])
         return Response({'status': 'success', 'estado': factura.estado})
 
     @action(detail=True, methods=['post'])
@@ -66,3 +68,12 @@ class FacturaViewSet(viewsets.ModelViewSet):
         except Exception as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response({'status': 'success', 'encolada': True})
+
+
+class DetalleFacturaViewSet(viewsets.ModelViewSet):
+    queryset = DetalleFactura.objects.select_related('factura', 'servicio').all()
+    serializer_class = DetalleFacturaSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['factura', 'servicio', 'aplica_iva']
+    search_fields = ['descripcion']
+    ordering_fields = ['factura', 'subtotal']

@@ -3,7 +3,7 @@ import { useConfirmar } from '../../lib/confirmar'
 import { dineroCero as dinero } from '../../lib/formato'
 import { Link } from '@/lib/nextNavigation'
 import { Check, Pencil, Send, X } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { useTabla } from '../../lib/useTabla'
 import {
@@ -19,6 +19,7 @@ import {
   Stat,
   Table,
 } from '../ui'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Cobros que esperan comprobante.
@@ -31,13 +32,14 @@ import {
  * puede borrar: se anula con una nota de crédito, que es un trámite aparte.
  */
 
-const fecha = (f) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(`${String(f).slice(0, 10)}T12:00:00`) : '—')
 
 const FORMAS = [
   { valor: 'efectivo', label: 'Efectivo' },
   { valor: 'transferencia', label: 'Transferencia' },
   { valor: 'deposito', label: 'Depósito' },
   { valor: 'tarjeta', label: 'Tarjeta' },
+  { valor: 'billetera', label: 'Billetera digital' },
   { valor: 'otro', label: 'Otro' },
 ]
 
@@ -56,7 +58,7 @@ export default function PorFacturar({ onError }) {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    let consulta = supabase
+    let consulta = django
       .from('v_pagos_por_facturar')
       .select('*')
       .order('fecha_pago', { ascending: false })
@@ -90,7 +92,7 @@ export default function PorFacturar({ onError }) {
     onError?.(null)
 
     try {
-      const { error } = await supabase
+      const { error } = await django
         .from('pagos')
         .update({
           n_transaccion: editando.n_transaccion?.trim() || null,
@@ -122,7 +124,7 @@ export default function PorFacturar({ onError }) {
     )
       return
 
-    const { error } = await supabase.from('pagos').update({ facturar: false }).eq('id', p.id)
+    const { error } = await django.from('pagos').update({ facturar: false }).eq('id', p.id)
     if (error) onError?.(error)
     else await recargar()
   }
@@ -166,11 +168,11 @@ export default function PorFacturar({ onError }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Stat label="Cobros por facturar" valor={filas.length} icon={Send} />
-        <Stat label="Seleccionados" valor={seleccionados.length} color="text-sky-400" />
-        <Stat label="Total a facturar" valor={dinero(totalSeleccionado)} color="text-emerald-400" />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Cobros por facturar" valor={filas.length} icon={Send} />
+        <Stat cargando={cargando} label="Seleccionados" valor={seleccionados.length} color="text-sky-400" />
+        <Stat cargando={cargando} label="Total a facturar" valor={dinero(totalSeleccionado)} color="text-emerald-400" />
+        <Stat cargando={cargando}
           label="Sin identificación"
           valor={conProblema}
           color={conProblema ? 'text-red-400' : 'text-slate-400'}
@@ -214,7 +216,7 @@ export default function PorFacturar({ onError }) {
 
       <Card
         title="Cobros pendientes de facturar"
-        subtitle="Revisá los números de comprobante antes de enviar"
+        subtitle="Revisa los números de comprobante antes de enviar"
         icon={Send}
         actions={
           <div className="flex items-center gap-2">
@@ -250,7 +252,7 @@ export default function PorFacturar({ onError }) {
               <div className="mb-3">
                 <Aviso tipo="alerta">
                   Hay <b>{conProblema}</b> cobro(s) de clientes sin cédula ni RUC. El SRI los
-                  rechazaría, así que quedan sin seleccionar: completá la identificación en la ficha
+                  rechazaría, así que quedan sin seleccionar: completa la identificación en la ficha
                   del cliente.
                 </Aviso>
               </div>
@@ -356,8 +358,8 @@ export default function PorFacturar({ onError }) {
         {editando && (
           <form onSubmit={guardarCorreccion} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="N° de transacción" hint="El del comprobante del banco">
-                <Input
+              <Field campo="n_transaccion" label="N° de transacción" hint="El del comprobante del banco">
+                <Input placeholder="Ej.: 123456789"
                   value={editando.n_transaccion}
                   onChange={(e) =>
                     setEditando((p) => ({ ...p, n_transaccion: e.target.value }))
@@ -366,7 +368,7 @@ export default function PorFacturar({ onError }) {
                   className="font-mono"
                 />
               </Field>
-              <Field label="Forma de pago">
+              <Field hint="Cómo pagó el cliente." label="Forma de pago">
                 <Select
                   value={editando.forma_pago}
                   onChange={(e) => setEditando((p) => ({ ...p, forma_pago: e.target.value }))}
@@ -379,8 +381,8 @@ export default function PorFacturar({ onError }) {
                 </Select>
               </Field>
 
-              <Field label="Monto" hint="Es el total que se va a facturar, con IVA incluido">
-                <Input
+              <Field campo="monto" label="Monto" hint="Es el total que se va a facturar, con IVA incluido">
+                <Input placeholder="Ej.: 25.00"
                   type="number"
                   step="0.01"
                   min={0.01}
@@ -389,7 +391,7 @@ export default function PorFacturar({ onError }) {
                   required
                 />
               </Field>
-              <Field label="Cuenta">
+              <Field campo="cuenta_id" hint="A qué cuenta o caja entra el dinero." label="Cuenta">
                 <Select
                   value={editando.cuenta_id}
                   onChange={(e) => setEditando((p) => ({ ...p, cuenta_id: e.target.value }))}
@@ -403,7 +405,7 @@ export default function PorFacturar({ onError }) {
                 </Select>
               </Field>
 
-              <Field label="Fecha del cobro" className="sm:col-span-2">
+              <Field campo="fecha_pago" hint="El día en que pagó." label="Fecha del cobro" className="sm:col-span-2">
                 <Input
                   type="date"
                   value={editando.fecha_pago}
@@ -414,7 +416,7 @@ export default function PorFacturar({ onError }) {
 
             <Aviso>
               Corregir acá cambia el cobro registrado. Si ya le entregaste el recibo impreso,
-              volvé a imprimirlo.
+              vuelve a imprimirlo.
             </Aviso>
 
             <div className="flex justify-end gap-2">

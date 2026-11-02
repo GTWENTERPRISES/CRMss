@@ -21,64 +21,42 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
 
-# Configuración de tareas periódicas con Celery Beat
+# Tareas periódicas con Celery Beat.
+#
+# Las tareas que tocan la plata, la red o los mensajes al abonado —facturación
+# mensual, cortes por mora, recordatorios de pago, sondeo de OLTs y routers—
+# las corre el middleware, con su interruptor en Ajustes → Tareas programadas
+# (tabla config_tareas). Antes también estaban acá, con otra lógica: con Celery
+# Beat levantado (docker-compose) el día 1 se facturaba dos veces y los cortes
+# iban directo al MikroTik sin pasar por el middleware.
+#
+# Acá queda lo propio de Django: el respaldo nocturno y la limpieza de sus tablas. Las tareas de
+# apps/*/tasks.py siguen disponibles para correrlas a mano.
+TAREAS_DEL_MIDDLEWARE = (
+    'apps.facturacion.tasks.generar_facturas_mensuales',
+    'apps.facturacion.tasks.enviar_facturas_por_email',
+    'apps.pagos.tasks.ejecutar_cortes_automaticos',
+    'apps.pagos.tasks.enviar_recordatorios_pago',
+    'apps.pagos.tasks.procesar_pagos_pendientes',
+    'apps.nms.tasks.sondear_red',
+    'apps.nms.tasks.generar_reporte_diario_red',
+)
+
 app.conf.beat_schedule = {
-    # Facturación mensual - 1º de cada mes a las 2:00 AM
-    'generar-facturas-mensuales': {
-        'task': 'apps.facturacion.tasks.generar_facturas_mensuales',
-        'schedule': crontab(day_of_month='1', hour=2, minute=0),
-        'options': {'queue': 'facturacion'},
+    # Respaldo de la base y los archivos, con prueba de restauración - Diario.
+    # Hora en RESPALDOS_HORA (por defecto 03:15, cuando no hay nadie cobrando).
+    'respaldar-base': {
+        'task': 'apps.core.tasks.respaldar_base',
+        'schedule': crontab(hour=int(os.getenv('RESPALDOS_HORA', '3:15').split(':')[0]),
+                            minute=int(os.getenv('RESPALDOS_HORA', '3:15').split(':')[1])),
+        'options': {'queue': 'celery'},
     },
-    
-    # Envío de facturas por email - Diario a las 6:00 AM
-    'enviar-facturas-email': {
-        'task': 'apps.facturacion.tasks.enviar_facturas_por_email',
-        'schedule': crontab(hour=6, minute=0),
-        'options': {'queue': 'facturacion'},
-    },
-    
-    # Cortes automáticos por mora - Diario a las 8:00 PM (20:00)
-    'ejecutar-cortes-automaticos': {
-        'task': 'apps.pagos.tasks.ejecutar_cortes_automaticos',
-        'schedule': crontab(hour=20, minute=0),
-        'options': {'queue': 'pagos'},
-    },
-    
-    # Recordatorios de pago - Diario a las 10:00 AM
-    'enviar-recordatorios-pago': {
-        'task': 'apps.pagos.tasks.enviar_recordatorios_pago',
-        'schedule': crontab(hour=10, minute=0),
-        'options': {'queue': 'pagos'},
-    },
-    
-    # Procesar pagos pendientes - Cada 30 minutos
-    'procesar-pagos-pendientes': {
-        'task': 'apps.pagos.tasks.procesar_pagos_pendientes',
-        'schedule': crontab(minute='*/30'),
-        'options': {'queue': 'pagos'},
-    },
-    
-    # Sondeo de red completo - Cada 5 minutos
-    'sondear-red': {
-        'task': 'apps.nms.tasks.sondear_red',
-        'schedule': crontab(minute='*/5'),
-        'options': {'queue': 'nms'},
-    },
-    
-    # Reporte diario de red - Diario a las 7:00 AM
-    'reporte-diario-red': {
-        'task': 'apps.nms.tasks.generar_reporte_diario_red',
-        'schedule': crontab(hour=7, minute=0),
-        'options': {'queue': 'nms'},
-    },
-    
     # Limpieza de alertas antiguas - Semanal, domingos a las 3:00 AM
     'limpiar-alertas-antiguas': {
         'task': 'apps.nms.tasks.limpiar_alertas_antiguas',
         'schedule': crontab(day_of_week='sunday', hour=3, minute=0),
         'options': {'queue': 'nms'},
     },
-    
     # Limpieza de sondeos antiguos - Diario a las 4:00 AM
     'limpiar-sondeos-antiguos': {
         'task': 'apps.nms.tasks.limpiar_sondeos_antiguos',

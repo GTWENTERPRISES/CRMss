@@ -35,7 +35,7 @@ const MOTIVOS = [
   { valor: 'falta_material', label: 'Faltó material', ayuda: 'No tenía lo necesario' },
   { valor: 'direccion_erronea', label: 'Dirección errónea', ayuda: 'No es ahí' },
   { valor: 'cliente_desiste', label: 'El cliente desistió', ayuda: 'Se arrepintió' },
-  { valor: 'otro', label: 'Otro', ayuda: 'Contalo abajo' },
+  { valor: 'otro', label: 'Otro', ayuda: 'Cuéntalo abajo' },
 ]
 
 /** Mañana, en formato de fecha. Es la reprogramación más común. */
@@ -88,7 +88,7 @@ export default function NoSePudo({ orden, onCerrar, onGuardado, onError }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#F6F8FB]">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
       <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-[15px] font-semibold text-slate-100">No se pudo hacer</h2>
@@ -135,7 +135,7 @@ export default function NoSePudo({ orden, onCerrar, onGuardado, onError }) {
         </div>
 
         <Field
-          label="¿Volvés otro día?"
+          label="¿Vuelves otro día?"
           hint="Con fecha, la orden se reagenda para ese día. Sin fecha queda detenida y la oficina decide."
         >
           <div className="flex gap-2">

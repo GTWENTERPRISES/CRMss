@@ -27,7 +27,7 @@ export default function ConPermiso({ permiso, children, envezDe, que }) {
   // legajo no tenía tiempo límite. Un rectángulo que late dice "esperá"; una
   // pantalla vacía dice "se rompió".
   // Y solo la PRIMERA vez: con un perfil ya cargado, una recarga en segundo
-  // plano —el token que Supabase renueva al volver a la pestaña— no puede
+  // plano —el token que se renueva al volver a la pestaña— no puede
   // reemplazar el contenido por un cartel de espera. Hacerlo desmonta lo que
   // haya adentro y le borra el estado: un formulario a medio llenar, la sección
   // en la que estaba parado.

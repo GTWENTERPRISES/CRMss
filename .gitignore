@@ -21,3 +21,10 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Build de la instancia de QA de Next (NEXT_DIST_DIR)
+.next-qa/
+
+# Respaldos de la base (pueden tener datos sin cifrar)
+backend/respaldos/
+backend/new/respaldos/

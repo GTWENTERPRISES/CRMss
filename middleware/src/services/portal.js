@@ -223,7 +223,7 @@ const INCIDENCIAS = ['sin_internet', 'lento', 'intermitente', 'cambio_clave', 'o
  * hace y termina en una llamada.
  */
 export async function abrirTicket(clienteId, { tipo, descripcion } = {}) {
-  if (!INCIDENCIAS.includes(tipo)) throw badRequest('Elegí qué te está pasando.')
+  if (!INCIDENCIAS.includes(tipo)) throw badRequest('Elige qué te está pasando.')
   if (!String(descripcion ?? '').trim()) {
     throw badRequest('Contanos brevemente qué pasa, para que el técnico vaya preparado.')
   }
@@ -251,8 +251,8 @@ export async function abrirTicket(clienteId, { tipo, descripcion } = {}) {
     .limit(1)
 
   if (abiertos?.length) {
-    throw badRequest(`Ya tenés un reclamo abierto por lo mismo: el N° ${abiertos[0].numero}.`, {
-      hint: 'Lo estamos atendiendo. Si querés agregar algo, escribinos.',
+    throw badRequest(`Ya tienes un reclamo abierto por lo mismo: el N° ${abiertos[0].numero}.`, {
+      hint: 'Lo estamos atendiendo. Si quieres agregar algo, escribinos.',
     })
   }
 
@@ -389,7 +389,7 @@ export async function pedirCambioWifi(clienteId, { clave, ssid } = {}) {
     throw badRequest('La clave del WiFi tiene que tener al menos 8 caracteres.')
   }
   if (nueva.length > 63) throw badRequest('La clave del WiFi no puede pasar de 63 caracteres.')
-  if (!nueva && !ssid) throw badRequest('Escribí la clave nueva.')
+  if (!nueva && !ssid) throw badRequest('Escribe la clave nueva.')
 
   const { data: cliente } = await db()
     .from('clientes')
@@ -480,7 +480,7 @@ export async function pedirCambioWifi(clienteId, { clave, ssid } = {}) {
     : {
         estado: 'pendiente',
         mensaje:
-          'Anotamos el cambio. Se aplica cuando tu equipo esté disponible; hasta entonces seguí usando la clave actual.',
+          'Anotamos el cambio. Se aplica cuando tu equipo esté disponible; hasta entonces sigue usando la clave actual.',
       }
 }
 

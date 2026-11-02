@@ -157,7 +157,7 @@ export async function diagnosticar(clienteId, { profundo = false } = {}) {
       return {
         resultado: 'sin_fibra',
         mensaje:
-          'Tu equipo no está recibiendo señal de fibra. Suele ser el cable de la casa: revisá que no esté doblado, pisado ni desconectado del equipo. Si está bien, mandamos un técnico.',
+          'Tu equipo no está recibiendo señal de fibra. Suele ser el cable de la casa: revisa que no esté doblado, pisado ni desconectado del equipo. Si está bien, mandamos un técnico.',
         accion: 'revisar_equipo',
         abrir_ticket: true,
         pasos,
@@ -168,7 +168,7 @@ export async function diagnosticar(clienteId, { profundo = false } = {}) {
       return {
         resultado: 'equipo_apagado',
         mensaje:
-          'Tu equipo no está encendido o no llega a la red. Revisá que tenga corriente y que las luces estén prendidas; si acaba de haber un corte de luz, esperá un minuto a que arranque.',
+          'Tu equipo no está encendido o no llega a la red. Revisa que tenga corriente y que las luces estén prendidas; si acaba de haber un corte de luz, espera un minuto a que arranque.',
         accion: 'revisar_equipo',
         // Un equipo apagado no es un ticket todavía: la mitad de las veces es
         // el cable de corriente. Se sugiere revisar y volver a escribir.
@@ -203,7 +203,7 @@ export async function diagnosticar(clienteId, { profundo = false } = {}) {
           return {
             resultado: 'sin_respuesta',
             mensaje:
-              'Tu equipo está en línea pero no responde. Probá reiniciarlo: desconectalo de la corriente, esperá diez segundos y volvé a conectarlo.',
+              'Tu equipo está en línea pero no responde. Prueba reiniciarlo: desconéctalo de la corriente, espera diez segundos y vuelve a conectarlo.',
             accion: 'reiniciar',
             abrir_ticket: false,
             pasos,
@@ -217,7 +217,7 @@ export async function diagnosticar(clienteId, { profundo = false } = {}) {
     return {
       resultado: 'todo_ok',
       mensaje:
-        'De nuestro lado tu conexión está bien: el equipo está en línea y con buena señal. Si seguís sin navegar, probá reiniciar tu router WiFi; si no se arregla, abrimos un reclamo.',
+        'De nuestro lado tu conexión está bien: el equipo está en línea y con buena señal. Si sigues sin navegar, prueba reiniciar tu router WiFi; si no se arregla, abrimos un reclamo.',
       accion: 'reiniciar',
       abrir_ticket: false,
       senal: calidadOptica(onu.rx_power_dbm),
@@ -238,7 +238,7 @@ export async function diagnosticar(clienteId, { profundo = false } = {}) {
         return {
           resultado: 'sin_respuesta',
           mensaje:
-            'Tu equipo no responde. Probá desconectarlo de la corriente diez segundos y volver a conectarlo.',
+            'Tu equipo no responde. Prueba desconectarlo de la corriente diez segundos y volver a conectarlo.',
           accion: 'reiniciar',
           abrir_ticket: false,
           pasos,
@@ -248,7 +248,7 @@ export async function diagnosticar(clienteId, { profundo = false } = {}) {
       return {
         resultado: 'todo_ok',
         mensaje:
-          'De nuestro lado tu conexión responde bien. Si seguís sin navegar, probá reiniciar tu router WiFi.',
+          'De nuestro lado tu conexión responde bien. Si sigues sin navegar, prueba reiniciar tu router WiFi.',
         accion: 'reiniciar',
         abrir_ticket: false,
         pasos,
@@ -292,7 +292,7 @@ export async function reiniciarEquipo(clienteId) {
 
   if (!cliente?.onu_id) {
     throw badRequest('Tu equipo no admite el reinicio remoto.', {
-      hint: 'Desconectalo de la corriente diez segundos y volvé a conectarlo.',
+      hint: 'Desconéctalo de la corriente diez segundos y vuelve a conectarlo.',
     })
   }
 

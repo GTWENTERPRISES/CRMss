@@ -9,10 +9,11 @@ import {
   Waypoints,
   Wrench,
 } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { ESTADOS, FACTIBILIDAD, TECNOLOGIAS } from '../lib/instalaciones'
 import ProspectoForm from '../components/instalaciones/ProspectoForm'
 import { Aviso, Badge, Card, Cargando, ErrorBanner, Input, Stat, Table } from '../components/ui'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Prospectos y trabajos nuevos.
@@ -24,7 +25,7 @@ import { Aviso, Badge, Card, Cargando, ErrorBanner, Input, Stat, Table } from '.
  * servicio y no los que alguna vez llamaron.
  */
 
-const fecha = (f) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(`${String(f).slice(0, 10)}T12:00:00`) : '—')
 const hoy = () => new Date().toISOString().slice(0, 10)
 
 const FILTROS = [
@@ -46,7 +47,7 @@ export default function InstalacionesPage() {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('v_instalaciones')
       .select('*')
       .order('fecha', { ascending: false })
@@ -91,28 +92,28 @@ export default function InstalacionesPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando}
           label="Prospectos"
           valor={cuenta((i) => i.estado === 'prospecto')}
           sub="Sin agendar todavía"
           icon={UserCheck}
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Agendadas"
           valor={cuenta((i) => i.estado === 'agendada')}
           sub={`${cuenta((i) => i.estado === 'agendada' && i.fecha === hoy())} para hoy`}
           icon={CalendarClock}
           color="text-amber-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="En curso"
           valor={cuenta((i) => i.estado === 'en_curso')}
           sub="El técnico está instalando"
           icon={Wrench}
           color="text-violet-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Altas del mes"
           valor={cuenta((i) => i.estado === 'hecha' && String(i.fecha ?? '').startsWith(mes))}
           sub="Pasaron a Usuarios"

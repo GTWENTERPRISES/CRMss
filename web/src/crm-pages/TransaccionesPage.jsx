@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from '@/lib/nextNavigation'
+import { Link, useSearchParams } from '@/lib/nextNavigation'
 import { Ban, FileText, Pencil, Printer, Receipt } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { usePermisos } from '../lib/AuthContext'
 import { api } from '../lib/apiNetwork'
 import { abrirPdf } from '../lib/pdf'
@@ -18,7 +18,11 @@ import {
   PedirMotivo,
   Select,
   Table,
+  FiltrosGuardados,
+  MenuAcciones,
 } from '../components/ui'
+import { fecha as fmtFecha } from '@/lib/formato'
+import { conDeshacer } from '../lib/notificaciones'
 
 /**
  * Transacciones: el cierre de caja.
@@ -93,8 +97,17 @@ export default function TransaccionesPage() {
   const verTodos = puede('finanzas.ver_todos')
   const yo = perfil?.id ?? null
 
+  /* Desde y hasta se pueden sembrar por la URL: la tarjeta "Cobros de hoy" del
+     panel abre con ?desde=hoy&hasta=hoy, para mostrar los mismos cobros que
+     contó. Una fecha mal escrita se ignora y queda el mes en curso. */
+  const [params] = useSearchParams()
   const [filtros, setFiltros] = useState(() => ({
     ...mesEnCurso(),
+    ...Object.fromEntries(
+      ['desde', 'hasta']
+        .map((k) => [k, params.get(k)])
+        .filter(([, v]) => /^\d{4}-\d{2}-\d{2}$/.test(v ?? '')),
+    ),
     forma_pago: '',
     operador: '',
     router: '',
@@ -120,10 +133,10 @@ export default function TransaccionesPage() {
   useEffect(() => {
     ;(async () => {
       const [ops, rts, ubs, ctas] = await Promise.all([
-        supabase.from('usuarios_sistema').select('id, nombre, apellido').eq('activo', true).order('nombre'),
-        supabase.from('routers_mikrotik').select('id, nombre').order('nombre'),
-        supabase.from('v_ubicaciones_con_cobros').select('ubicacion'),
-        supabase.from('cuentas_pago').select('id, nombre').eq('activa', true).order('nombre'),
+        django.from('usuarios_sistema').select('id, nombre, apellido').eq('activo', true).order('nombre'),
+        django.from('routers_mikrotik').select('id, nombre').order('nombre'),
+        django.from('v_ubicaciones_con_cobros').select('ubicacion'),
+        django.from('cuentas_pago').select('id, nombre').eq('activa', true).order('nombre'),
       ])
 
       setOpciones({
@@ -143,7 +156,7 @@ export default function TransaccionesPage() {
     setCargando(true)
     setError(null)
 
-    let q = supabase.from('v_transacciones').select('*')
+    let q = django.from('v_transacciones').select('*')
 
     /**
      * Sin permiso de consolidar, solo lo propio.
@@ -171,7 +184,7 @@ export default function TransaccionesPage() {
         /does not exist/i.test(e.message)
           ? {
               message: 'Falta la vista de transacciones',
-              hint: 'Corré supabase/migracion-157-la-pantalla-de-transacciones.sql',
+              hint: 'Actualiza la base: python manage.py migrate',
             }
           : e,
       )
@@ -189,7 +202,7 @@ export default function TransaccionesPage() {
      * `data` viene con tope de 5000 filas. Con un padrón grande y un mes entero,
      * sumar lo traído diría menos plata de la que entró y nadie se enteraría.
      */
-    const { data: tot } = await supabase.rpc('totales_transacciones', {
+    const { data: tot } = await django.rpc('totales_transacciones', {
       p_desde: filtros.desde || null,
       p_hasta: filtros.hasta || null,
       /**
@@ -258,23 +271,25 @@ export default function TransaccionesPage() {
 
   async function anular(motivo) {
     const t = aAnular
-    setAnulando(true)
-    const { error: e } = await supabase
-      .from('pagos')
-      .update({
-        anulado: true,
-        motivo_anulacion: motivo.trim() || 'Sin motivo indicado',
-        anulado_at: new Date().toISOString(),
-      })
-      .eq('id', t.id)
-
-    setAnulando(false)
-    if (e) setError(e)
-    else {
-      setAAnular(null)
-      await buscar()
-    }
+    // La ventana se cierra ya y el cobro se anula a los segundos, con
+    // "Deshacer" en el aviso (lib/notificaciones): anular el que no era es fácil.
+    setAAnular(null)
+    await conDeshacer(`Cobro anulado${t.numero ? ` · recibo N° ${String(t.numero).padStart(6, '0')}` : ''}`, async () => {
+      setAnulando(true)
+      const { error: e } = await django
+        .from('pagos')
+        .update({
+          anulado: true,
+          motivo_anulacion: motivo.trim() || 'Sin motivo indicado',
+          anulado_at: new Date().toISOString(),
+        })
+        .eq('id', t.id)
+      setAnulando(false)
+      if (e) setError(e)
+      else await buscar()
+    }).catch(() => {})
   }
+
 
   function resumenPdf() {
     const p = new URLSearchParams()
@@ -297,9 +312,20 @@ export default function TransaccionesPage() {
           </p>
         </div>
 
-        <Button variante="secundario" onClick={resumenPdf} icon={FileText}>
-          Resumen PDF
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sin las fechas: "los cobros en efectivo de la caja del centro" sirve cualquier mes. */}
+          <FiltrosGuardados
+            clave="transacciones"
+            actual={{
+              forma_pago: filtros.forma_pago, operador: filtros.operador, router: filtros.router,
+              ubicacion: filtros.ubicacion, cuenta: filtros.cuenta, anulados: filtros.anulados,
+            }}
+            onAplicar={(f) => setFiltros((prev) => ({ ...prev, ...f }))}
+          />
+          <Button variante="secundario" onClick={resumenPdf} icon={FileText}>
+            Resumen PDF
+          </Button>
+        </div>
       </div>
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
@@ -307,19 +333,20 @@ export default function TransaccionesPage() {
       {/* --- Filtros --------------------------------------------------------- */}
       <Card>
         <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Tipo de pago">
+          <Field campo="forma_pago" hint="Cómo pagó el cliente: efectivo, transferencia..." label="Tipo de pago">
             <Select value={filtros.forma_pago} onChange={set('forma_pago')}>
               <option value="">Cualquiera</option>
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
               <option value="deposito">Depósito</option>
               <option value="tarjeta">Tarjeta</option>
+              <option value="billetera">Billetera digital</option>
               <option value="otro">Otro</option>
             </Select>
           </Field>
 
           {verTodos && (
-          <Field label="Operador" hint="Quién registró el cobro">
+          <Field campo="operador" label="Operador" hint="Quién registró el cobro">
             <Select value={filtros.operador} onChange={set('operador')}>
               <option value="">Cualquiera</option>
               {opciones.operadores.map((o) => (
@@ -329,15 +356,15 @@ export default function TransaccionesPage() {
           </Field>
           )}
 
-          <Field label="Desde">
+          <Field campo="desde" label="Desde">
             <Input type="date" value={filtros.desde} onChange={set('desde')} />
           </Field>
 
-          <Field label="Hasta">
+          <Field campo="hasta" label="Hasta">
             <Input type="date" value={filtros.hasta} onChange={set('hasta')} />
           </Field>
 
-          <Field label="Router">
+          <Field campo="router" hint="El MikroTik que le da servicio." label="Router">
             <Select value={filtros.router} onChange={set('router')}>
               <option value="">Cualquiera</option>
               {opciones.routers.map((r) => (
@@ -346,7 +373,7 @@ export default function TransaccionesPage() {
             </Select>
           </Field>
 
-          <Field label="Ubicación">
+          <Field campo="ubicacion" hint="El sitio o punto de cobro donde se registró." label="Ubicación">
             <Select value={filtros.ubicacion} onChange={set('ubicacion')}>
               <option value="">Cualquiera</option>
               {opciones.ubicaciones.map((u) => (
@@ -355,7 +382,7 @@ export default function TransaccionesPage() {
             </Select>
           </Field>
 
-          <Field label="Cuenta" hint="Dónde entró la plata">
+          <Field campo="cuenta" label="Cuenta" hint="Dónde entró la plata">
             <Select value={filtros.cuenta} onChange={set('cuenta')}>
               <option value="">Cualquiera</option>
               {opciones.cuentas.map((c) => (
@@ -364,7 +391,7 @@ export default function TransaccionesPage() {
             </Select>
           </Field>
 
-          <Field label="Anulados" hint="Se listan tachados, fuera del total">
+          <Field campo="anulados" label="Anulados" hint="Se listan tachados, fuera del total">
             <label className="flex h-9 cursor-pointer items-center gap-2 text-sm text-slate-300">
               <input
                 type="checkbox"
@@ -507,7 +534,7 @@ export default function TransaccionesPage() {
                     <Pencil size={15} />
                   </Link>
                   {!t.anulado && (
-                    <Accion icon={Ban} titulo="Anular" peligro onClick={() => setAAnular(t)} />
+                    <MenuAcciones acciones={[{ label: 'Anular el cobro', icon: Ban, peligro: true, onClick: () => setAAnular(t) }]} />
                   )}
                 </div>
               </td>
@@ -528,7 +555,7 @@ export default function TransaccionesPage() {
             ? [
                 ['Abonado', aAnular.cliente],
                 ['Monto', dinero(aAnular.cobrado)],
-                ['Fecha', aAnular.fecha ? new Date(`${String(aAnular.fecha).slice(0, 10)}T12:00:00`).toLocaleDateString('es-EC') : '—'],
+                ['Fecha', aAnular.fecha ? fmtFecha(`${String(aAnular.fecha).slice(0, 10)}T12:00:00`) : '—'],
                 ['Forma de pago', aAnular.forma_pago ?? '—'],
               ]
             : []

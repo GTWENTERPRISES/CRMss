@@ -89,7 +89,7 @@ export async function contratoParaFirmar({ instalacionId = null, clienteId = nul
 async function pedirEnlace({ config, pdf, datos, posiciones = [] }) {
   if (!config.api_url) {
     throw new Error(
-      'La firma electrónica está encendida pero no tiene URL del proveedor. Cargala en Ajustes → Firma, o apagala para firmar en papel.',
+      'La firma electrónica está encendida pero no tiene URL del proveedor. Cárgala en Ajustes → Firma, o apágala para firmar en papel.',
     )
   }
 
@@ -100,7 +100,7 @@ async function pedirEnlace({ config, pdf, datos, posiciones = [] }) {
     try {
       clave = decrypt(config.api_key_encrypted)
     } catch {
-      throw new Error('La clave del proveedor de firma no se pudo descifrar. Volvé a cargarla en Ajustes.')
+      throw new Error('La clave del proveedor de firma no se pudo descifrar. Vuelve a cargarla en Ajustes.')
     }
   }
 
@@ -342,7 +342,7 @@ export async function comprobarQuePuedeAutorizar(usuarioId) {
 
   if (!puede) {
     throw new Error(
-      `Tu usuario (${usuario.rol}) no puede habilitar la firma en papel. Pedíselo a: ${roles.join(', ')}. `
+      `Tu usuario (${usuario.rol}) no puede habilitar la firma en papel. Pídeselo a: ${roles.join(', ')}. `
       + 'Habilitar el papel saltea la verificación biométrica y tiene que quedar registrado quién lo permitió.',
     )
   }

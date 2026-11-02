@@ -122,9 +122,7 @@ export default function OltUplinks({ olt }) {
       }
       icon={ArrowUpFromLine}
       actions={
-        <Button variante="primario" icon={RefreshCw} onClick={leer} cargando={cargando}>
-          Actualizar
-        </Button>
+        <Button variante="primario" icon={RefreshCw} onClick={leer} cargando={cargando} title="Actualizar" />
       }
     >
       <div className="space-y-4">

@@ -73,7 +73,7 @@ export function detenerResync() {
 export async function arrancarResync(oltId, { todas = false } = {}) {
   if (estado.corriendo) {
     throw badRequest('Ya hay un barrido en curso', {
-      hint: `Va por ${estado.hechas} de ${estado.total}. Esperá a que termine o detenelo.`,
+      hint: `Va por ${estado.hechas} de ${estado.total}. Espera a que termine o detenlo.`,
     })
   }
 
@@ -91,7 +91,7 @@ export async function arrancarResync(oltId, { todas = false } = {}) {
       arrancado: false,
       motivo: todas
         ? 'Esta OLT no tiene ONUs cargadas.'
-        : 'Todas las ONUs ya tienen su ficha leída. Repetí con todas = true para releerlas igual.',
+        : 'Todas las ONUs ya tienen su ficha leída. Repite con todas = true para releerlas igual.',
     }
   }
 

@@ -126,7 +126,7 @@ export async function ejecutarAvisosPago({ soloSimular = false } = {}) {
     const falta = /does not exist/i.test(eConf.message)
     throw new Error(
       falta
-        ? 'Falta la tabla config_avisos_pago. Corré supabase/migracion-127-los-tres-avisos-de-pago.sql'
+        ? 'Falta la tabla config_avisos_pago. Actualiza la base: python manage.py migrate'
         : `No se pudo leer la configuración: ${eConf.message}`,
     )
   }

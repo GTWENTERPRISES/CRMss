@@ -65,7 +65,7 @@ export async function enviar({ config, numero, texto, plantilla = null, referenc
   if (!plantilla?.purpose) {
     return {
       ok: false,
-      error: `Este aviso no tiene nombre del lado de ${quien}. Cargalo en Ajustes → Plantillas de WhatsApp, en el campo del CRM.`,
+      error: `Este aviso no tiene nombre del lado de ${quien}. Cárgalo en Ajustes → Plantillas de WhatsApp, en el campo del CRM.`,
     }
   }
 
@@ -99,7 +99,7 @@ export async function enviar({ config, numero, texto, plantilla = null, referenc
     const json = await res.json().catch(() => null)
 
     if (res.status === 401 || res.status === 403) {
-      return { ok: false, error: `${quien} rechazó la llave. Revisala en Ajustes → Mensajería.` }
+      return { ok: false, error: `${quien} rechazó la llave. Revísala en Ajustes → Mensajería.` }
     }
     if (!res.ok) {
       return { ok: false, error: `${quien} devolvió ${res.status}${json?.error ? `: ${json.error}` : ''}` }

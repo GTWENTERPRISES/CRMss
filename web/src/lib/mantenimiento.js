@@ -1,3 +1,5 @@
+import { numero } from './formato.js'
+
 /**
  * Cuánto le falta a un vehículo para su próximo servicio.
  *
@@ -41,8 +43,8 @@ export function cuantoFalta(m) {
   if (m.km_restantes != null) {
     partes.push(
       m.km_restantes <= 0
-        ? `${Math.abs(m.km_restantes).toLocaleString('es-EC')} km pasado`
-        : `faltan ${m.km_restantes.toLocaleString('es-EC')} km`,
+        ? `${numero(Math.abs(m.km_restantes))} km pasado`
+        : `faltan ${numero(m.km_restantes)} km`,
     )
   }
   if (m.dias_restantes != null) {

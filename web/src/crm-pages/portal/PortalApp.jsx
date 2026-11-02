@@ -92,7 +92,7 @@ export default function PortalApp() {
 
   if (cargando) {
     return (
-      <div className="grid min-h-dvh place-items-center bg-[#F6F8FB]">
+      <div className="grid min-h-dvh place-items-center bg-background">
         <Loader2 size={28} className="animate-spin text-slate-600" />
       </div>
     )
@@ -102,7 +102,7 @@ export default function PortalApp() {
   const Pantalla = actual.Pantalla
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#F6F8FB]">
+    <div className="flex min-h-dvh flex-col bg-background">
       <header className="flex items-center gap-3 border-b border-slate-800 px-4 py-3">
         {marca.logo_b64 ? (
           <img src={marca.logo_b64} alt="" className="max-h-7" />

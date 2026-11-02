@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Ticket, TicketComentario
+from .models import Instalacion, Ticket, TicketComentario
 
 
 class TicketComentarioSerializer(serializers.ModelSerializer):
@@ -16,31 +16,31 @@ class TicketComentarioSerializer(serializers.ModelSerializer):
 
 
 class TicketSerializer(serializers.ModelSerializer):
-    tipo_incidencia_display = serializers.CharField(
-        source='get_tipo_incidencia_display', read_only=True,
-    )
+    codigo = serializers.CharField(read_only=True)
     prioridad_display = serializers.CharField(source='get_prioridad_display', read_only=True)
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
-    cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True)
     comentarios = TicketComentarioSerializer(many=True, read_only=True)
 
     class Meta:
         model = Ticket
-        fields = [
-            'id', 'cliente', 'cliente_nombre', 'numero', 'tipo_incidencia',
-            'tipo_incidencia_display', 'descripcion_bot', 'prioridad',
-            'prioridad_display', 'estado', 'estado_display', 'adjunto_url',
-            'asignado_a', 'fecha_cierre', 'comentarios',
-            'created_at', 'updated_at',
-        ]
-        read_only_fields = ['id', 'numero', 'created_at', 'updated_at', 'fecha_cierre']
+        fields = '__all__'
+        read_only_fields = ['id', 'numero', 'created_at', 'updated_at']
+
+
+class InstalacionSerializer(serializers.ModelSerializer):
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    plan_nombre = serializers.CharField(source='plan.nombre', read_only=True, default=None)
+
+    class Meta:
+        model = Instalacion
+        fields = '__all__'
+        read_only_fields = ['id', 'numero', 'created_at', 'updated_at']
 
 
 class CrearTicketSerializer(serializers.Serializer):
     cliente_id = serializers.UUIDField(required=False)
-    tipo_incidencia = serializers.ChoiceField(choices=Ticket.TipoIncidencia.choices)
+    # Acepta los nombres viejos del bot (SIN_SERVICIO...) y los del dashboard.
+    tipo_incidencia = serializers.CharField(max_length=40)
     descripcion_bot = serializers.CharField(required=False, allow_blank=True)
-    prioridad = serializers.ChoiceField(
-        choices=Ticket.Prioridad.choices, default=Ticket.Prioridad.MEDIA,
-    )
+    prioridad = serializers.CharField(max_length=10, required=False)
     adjunto_url = serializers.URLField(required=False, allow_blank=True)

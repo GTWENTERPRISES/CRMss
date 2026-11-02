@@ -52,7 +52,7 @@ export async function reactivarServicio(clientId, { motivo = 'Pago registrado' }
 
   try {
     const equipo = await cargarRouter(cliente.router_id)
-    const entradas = await mt.listarBloqueos(equipo)
+    const entradas = await mt.listarBloqueos(equipo, equipo.lista_morosos || mt.LISTA_MOROSOS)
 
     /**
      * La comparación contempla la máscara.
@@ -115,6 +115,15 @@ export async function reactivarServicio(clientId, { motivo = 'Pago registrado' }
 
 /** Deja la ficha en `activo`. Devuelve el mensaje de error, o null si salió bien. */
 async function marcarActivo(cliente) {
+  // El registro del corte también se cierra. Sin esto, la reconexión del corte
+  // por mora lo seguía viendo "cortado" y reintentaba quitar del router una
+  // entrada que ya no existía, cada cinco segundos.
+  await db()
+    .from('firewall_bloqueos')
+    .update({ activo: false })
+    .eq('cliente_id', cliente.id)
+    .eq('activo', true)
+
   if (cliente.estado === 'activo') return null
   // `cortado_en` se limpia junto con el estado: son el mismo hecho contado dos
   // veces, y dejarla puesta haría que el cuarto aviso le siga llegando a quien

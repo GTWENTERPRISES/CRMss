@@ -22,7 +22,7 @@ export function imprimirTirilla(texto, ancho = 32) {
   // dejar a quien cobra apretando un botón que no hace nada.
   if (!ventana) {
     throw new Error(
-      'El navegador bloqueó la ventana de impresión. Permitila para este sitio y volvé a intentar.',
+      'El navegador bloqueó la ventana de impresión. Permítela para este sitio y vuelve a intentar.',
     )
   }
 

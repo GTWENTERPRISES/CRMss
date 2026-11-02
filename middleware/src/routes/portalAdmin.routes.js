@@ -15,7 +15,7 @@ import {
  * El portal del abonado, administrado desde la oficina.
  *
  * Separado de `/api/portal`, que es lo que usa el abonado con su propia sesión.
- * Acá entra el personal del ISP, con sesión de Supabase — y por eso lleva
+ * Acá entra el personal del ISP, con la sesión de Django — y por eso lleva
  * requireAuth, que aquel no puede tener.
  *
  * Mezclarlos sería el error grave: una ruta de administración colgada del

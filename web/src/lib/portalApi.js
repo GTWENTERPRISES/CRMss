@@ -1,16 +1,20 @@
-const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '')
-
 /**
  * El cliente del portal del abonado.
  *
- * Aparte del `api` del personal a propósito: aquel manda el token de Supabase,
- * este manda el del abonado. Si compartieran el cliente, un descuido haría que
- * el token del personal viaje al portal o al revés.
+ * Aparte del `api` del personal a propósito: aquel manda el token del
+ * personal, este manda el del abonado. Si compartieran el cliente, un descuido
+ * haría que el token del personal viaje al portal o al revés.
  *
- * El token vive en localStorage y no en memoria: el abonado entra desde el
- * celular, cierra la aplicación y vuelve la semana siguiente. Pedirle el código
- * cada vez lo haría dejar de entrar.
+ * El portal también entra por Django (el proxy /api/v1/red/...): es el único
+ * backend expuesto. El token es el que emite el servicio interno para el
+ * abonado, y lo valida él mismo.
  */
+
+import { errorDeValidacion, validarPorNombre } from './validacion/index.js'
+import { avisarErrores } from './validacion/enVivo.js'
+
+const DJANGO = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api/v1').replace(/\/$/, '')
+const BASE = (process.env.NEXT_PUBLIC_API_URL || `${DJANGO}/red`).replace(/\/$/, '')
 
 const LLAVE = 'portal_token'
 
@@ -28,6 +32,13 @@ export class PortalError extends Error {
 }
 
 async function pedir(metodo, ruta, cuerpo) {
+  // Cédula, correo, teléfono...: con un dato mal escrito no se manda nada.
+  const v = validarPorNombre(cuerpo)
+  if (!v.ok) {
+    const e = errorDeValidacion(v.errores)
+    avisarErrores(e.campos)
+    throw new PortalError(e.message, { status: 0, hint: 'Corrige el dato y vuelve a intentar.' })
+  }
   const token = tokenGuardado()
 
   let res
@@ -41,7 +52,7 @@ async function pedir(metodo, ruta, cuerpo) {
       body: cuerpo ? JSON.stringify(cuerpo) : undefined,
     })
   } catch {
-    throw new PortalError('No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.')
+    throw new PortalError('No pudimos conectarnos. Revisa tu conexión e intenta de nuevo.')
   }
 
   const texto = await res.text()
@@ -58,7 +69,7 @@ async function pedir(metodo, ruta, cuerpo) {
     // navegador — y nadie sabe hacer eso.
     if (res.status === 401) olvidarToken()
 
-    throw new PortalError(json?.error || 'Algo salió mal. Intentá de nuevo en un momento.', {
+    throw new PortalError(json?.error || 'Algo salió mal. Intenta de nuevo en un momento.', {
       status: res.status,
       hint: json?.hint,
       sesion_vencida: json?.sesion_vencida,

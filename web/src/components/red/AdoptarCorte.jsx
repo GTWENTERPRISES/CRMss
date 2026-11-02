@@ -153,7 +153,7 @@ export default function AdoptarCorte({ routerId, onListo }) {
 
           <Aviso tipo="alerta">
             <AlertTriangle size={13} className="mr-1 inline" />
-            Se toca el firewall de un router con abonados conectados. Hacelo con el respaldo del
+            Se toca el firewall de un router con abonados conectados. Hazlo con el respaldo del
             router ya hecho y fuera de hora pico. Las reglas viejas quedan apagadas, no borradas:
             volver atrás es encenderlas y apagar las nuevas.
           </Aviso>

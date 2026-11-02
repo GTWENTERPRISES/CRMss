@@ -45,7 +45,7 @@ export function freno(nombre, porMinuto, sugerencia = null) {
       return res.status(429).json({
         status: 'error',
         code: 'LIMITE_EXCEDIDO',
-        message: `Se superó el límite de ${porMinuto} pedidos por minuto. Reintentá en ${faltan} segundos.`,
+        message: `Se superó el límite de ${porMinuto} pedidos por minuto. Reintenta en ${faltan} segundos.`,
         ...(sugerencia ? { hint: sugerencia } : {}),
       })
     }

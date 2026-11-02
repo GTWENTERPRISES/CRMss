@@ -25,13 +25,14 @@ import {
   Tabs,
   Textarea,
 } from '../../components/ui'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { dineroCero as dinero } from '../../lib/formato'
 import { MOTIVOS_RETIRO, RESULTADOS_INTENTO, carteraApi } from '../../lib/cartera'
 import { gestionesACSV } from '../../lib/carteraReporte'
 import HistorialVisitas from '../../components/cartera/HistorialVisitas'
 import { api } from '../../lib/apiNetwork'
 import { abrirPdf } from '../../lib/pdf'
+import { fecha as fmtFecha, fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Retiros de equipo.
@@ -122,7 +123,7 @@ export default function RetirosPage() {
   }, [recargarFichas])
 
   useEffect(() => {
-    supabase
+    django
       .from('tecnicos')
       .select('id, nombre')
       .eq('activo', true)
@@ -132,7 +133,7 @@ export default function RetirosPage() {
     /* Quién puede hacerse cargo. No solo técnicos: el equipo lo va a buscar
        quien esté disponible, y a veces es el cobrador o el dueño. Por eso la
        lista sale de `usuarios_sistema` y no de `tecnicos`. */
-    supabase
+    django
       .from('usuarios_sistema')
       .select('id, nombre, apellido, rol, tecnico_id')
       .eq('activo', true)
@@ -214,7 +215,7 @@ export default function RetirosPage() {
     setGenerando(true)
     setError(null)
     try {
-      const { error: e } = await supabase.rpc('generar_retiros_equipo')
+      const { error: e } = await django.rpc('generar_retiros_equipo')
       if (e) throw e
       await recargar()
     } catch (err) {
@@ -315,29 +316,29 @@ export default function RetirosPage() {
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
       {resumen && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat
+        <div className="t-kpis">
+          <Stat cargando={cargando}
             label="Por recuperar"
             valor={resumen.pendientes ?? 0}
             sub={`${dinero(resumen.valor_en_riesgo)} en la calle`}
             icon={Box}
             color="text-amber-400"
           />
-          <Stat
+          <Stat cargando={cargando}
             label="Recuperados"
             valor={resumen.recuperados ?? 0}
             sub={`${dinero(resumen.valor_recuperado)} de vuelta en stock`}
             icon={PackageCheck}
             color="text-emerald-400"
           />
-          <Stat
+          <Stat cargando={cargando}
             label="No recuperados"
             valor={resumen.no_recuperados ?? 0}
             sub={`${dinero(resumen.valor_perdido)} dados por perdidos`}
             icon={XCircle}
             color="text-red-400"
           />
-          <Stat
+          <Stat cargando={cargando}
             label="Tasa de recuperación"
             valor={resumen.tasa_recuperacion == null ? '—' : `${resumen.tasa_recuperacion} %`}
             sub="Sobre las órdenes ya cerradas"
@@ -401,7 +402,7 @@ export default function RetirosPage() {
             </>
           ) : (
             <span className="text-[11px] text-slate-500">
-              Marcá varias órdenes para asignarlas juntas a una persona.
+              Marca varias órdenes para asignarlas juntas a una persona.
             </span>
           )}
 
@@ -495,12 +496,7 @@ export default function RetirosPage() {
                     <p className="text-slate-300">{o.responsable ?? o.tecnico ?? '—'}</p>
                     {o.agendado_para && (
                       <p className="text-[11px] text-sky-400">
-                        cita {new Date(o.agendado_para).toLocaleString('es-EC', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        cita {fmtFechaHora(o.agendado_para)}
                       </p>
                     )}
                     {abierta && (
@@ -568,7 +564,7 @@ export default function RetirosPage() {
                 onChange={(e) => setAsignar((a) => ({ ...a, tecnico: e.target.value }))}
                 required
               >
-                <option value="">Elegí un técnico…</option>
+                <option value="">Elige un técnico…</option>
                 {tecnicos.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.nombre}
@@ -612,7 +608,7 @@ export default function RetirosPage() {
               </div>
             )}
 
-            <Field label="Cómo salió">
+            <Field hint="El resultado del retiro del equipo." label="Cómo salió">
               <Select
                 value={intento.resultado}
                 onChange={(e) => setIntento((i) => ({ ...i, resultado: e.target.value }))}
@@ -635,7 +631,7 @@ export default function RetirosPage() {
             </Field>
 
             <Aviso>
-              Anotar la visita no cierra la orden. Si el equipo se recuperó, cerrala después para que
+              Anotar la visita no cierra la orden. Si el equipo se recuperó, ciérrala después para que
               vuelva al stock.
             </Aviso>
 
@@ -676,7 +672,7 @@ export default function RetirosPage() {
               <>
                 <Field
                   label="Serie del equipo"
-                  hint="Confirmala mirando la etiqueta: es la que entra al stock"
+                  hint="Confírmala mirando la etiqueta: es la que entra al stock"
                 >
                   <Input
                     value={cierre.serie}
@@ -696,7 +692,7 @@ export default function RetirosPage() {
                   onChange={(e) => setCierre((c) => ({ ...c, motivo: e.target.value }))}
                   required
                 >
-                  <option value="">Elegí un motivo…</option>
+                  <option value="">Elige un motivo…</option>
                   {MOTIVOS_RETIRO.map((m) => (
                     <option key={m.clave} value={m.clave}>
                       {m.label}
@@ -707,7 +703,7 @@ export default function RetirosPage() {
             )}
 
             <Field label="Observaciones">
-              <Textarea
+              <Textarea placeholder="Ej.: Equipo con golpe en la tapa"
                 rows={3}
                 value={cierre.observacion}
                 onChange={(e) => setCierre((c) => ({ ...c, observacion: e.target.value }))}
@@ -798,7 +794,7 @@ function FichasPorCerrar({ filas, onCerrar }) {
               {f.serie && <div className="text-[11px] text-slate-500">{f.serie}</div>}
             </td>
             <td className="px-3 py-2 text-[11px] text-slate-400">
-              {f.cerrado_en ? new Date(f.cerrado_en).toLocaleDateString('es-EC') : '—'}
+              {f.cerrado_en ? fmtFecha(f.cerrado_en) : '—'}
             </td>
             <td className="px-3 py-2 text-right">
               <Button
@@ -872,7 +868,7 @@ function CerrarFicha({ ficha, onCerrar, onListo, onError }) {
     const texto = visitas
       .filter((v) => v.observacion)
       .map((v) => {
-        const cuando = new Date(v.creado_en).toLocaleDateString('es-EC')
+        const cuando = fmtFecha(v.creado_en)
         const quien = v.tecnicos?.nombre ?? 'el técnico'
         return `${cuando} · ${quien}: ${v.observacion}`
       })
@@ -920,12 +916,7 @@ function CerrarFicha({ ficha, onCerrar, onListo, onError }) {
                 <div key={v.id} className="border-l-2 border-slate-700 pl-2">
                   <div className="flex flex-wrap items-center gap-2 text-[11px]">
                     <span className="text-slate-400">
-                      {new Date(v.creado_en).toLocaleString('es-EC', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {fmtFechaHora(v.creado_en)}
                     </span>
                     <Badge color={v.resultado === 'recuperado' ? 'verde' : 'ambar'}>
                       {RESULTADOS_INTENTO.find((r) => r.clave === v.resultado)?.label ?? v.resultado}
@@ -981,7 +972,7 @@ function CerrarFicha({ ficha, onCerrar, onListo, onError }) {
           label="Nota de la baja"
           hint="Queda en la ficha del abonado, para siempre"
         >
-          <Textarea rows={3} value={nota} onChange={(e) => setNota(e.target.value)} />
+          <Textarea placeholder="Ej.: Se cambió a otro proveedor" rows={3} value={nota} onChange={(e) => setNota(e.target.value)} />
         </Field>
 
         {conComentarios && (

@@ -9,22 +9,22 @@ class ClienteFactory(DjangoModelFactory):
     class Meta:
         model = 'clientes.Cliente'
 
-    cedula = factory.Sequence(lambda n: f'09{n:08d}')
+    identificacion = factory.Sequence(lambda n: f'09{n:08d}')
     nombre = factory.Faker('name', locale='es_ES')
     telefono = factory.Sequence(lambda n: f'09{n:08d}')
     email = factory.Faker('email', locale='es_ES')
     direccion = factory.Faker('address', locale='es_ES')
-    estado_servicio = 'ACTIVO'
+    estado = 'activo'
 
 
 class ContratoFactory(DjangoModelFactory):
     class Meta:
         model = 'clientes.Contrato'
 
-    cliente = factory.SubFactory(ClienteFactory)
+    client = factory.SubFactory(ClienteFactory)
     numero = factory.Sequence(lambda n: f'CNT-{n:06d}')
     fecha_inicio = factory.Faker('date_this_year')
-    fecha_vencimiento = factory.Faker('future_date')
+    fecha_fin = factory.Faker('future_date')
     estado = 'vigente'
 
 
@@ -37,7 +37,7 @@ class PlanVelocidadFactory(DjangoModelFactory):
     bajada_kbps = factory.Sequence(lambda n: 10000 * (n + 1))
     subida_kbps = factory.Sequence(lambda n: 5000 * (n + 1))
     precio = factory.Sequence(lambda n: Decimal(str(20 + n * 5)))
-    precio_incluye_iva = False
+    tipo_impuesto = 'mas'
 
 
 class OLTFactory(DjangoModelFactory):
@@ -46,7 +46,6 @@ class OLTFactory(DjangoModelFactory):
 
     nombre = factory.Sequence(lambda n: f'OLT-{n}')
     marca = 'Huawei'
-    modelo = 'MA5608T'
     ip_host = factory.Sequence(lambda n: f'10.0.0.{n + 10}')
     puerto_ssh = factory.Sequence(lambda n: 2200 + n)
     usuario = 'admin'
@@ -120,14 +119,13 @@ class FacturaFactory(DjangoModelFactory):
     class Meta:
         model = 'facturacion.Factura'
 
-    cliente = factory.SubFactory(ClienteFactory)
-    numero = factory.Sequence(lambda n: f'001-001-{n + 1:09d}')
-    mes = 'Septiembre 2026'
+    client = factory.SubFactory(ClienteFactory)
+    cliente_nombre = factory.LazyAttribute(lambda f: f.client.nombre if f.client else None)
+    concepto = 'Servicio de internet - 09/2026'
     subtotal = Decimal('50.00')
-    iva = Decimal('6.00')
+    impuesto = Decimal('6.00')
     total = Decimal('56.00')
     fecha_vencimiento = factory.Faker('future_date')
-    estado = 'pendiente'
 
 
 class DetalleFacturaFactory(DjangoModelFactory):
@@ -146,13 +144,12 @@ class PagoFactory(DjangoModelFactory):
     class Meta:
         model = 'pagos.Pago'
 
-    cliente = factory.SubFactory(ClienteFactory)
+    client = factory.SubFactory(ClienteFactory)
+    cliente_nombre = factory.LazyAttribute(lambda p: p.client.nombre if p.client else None)
     monto = Decimal('56.00')
-    forma_pago = 'transferencia'
-    referencia = factory.Sequence(lambda n: f'REF{n:08d}')
-    estado = 'confirmado'
-    acreditado = True
-    fecha_transaccion = factory.Faker('date_time_this_month')
+    forma_pago = 'efectivo'
+    n_transaccion = factory.Sequence(lambda n: f'REF{n:08d}')
+    fecha_pago = factory.Faker('date_this_month')
 
 
 class CorteFactory(DjangoModelFactory):
@@ -169,26 +166,25 @@ class TicketFactory(DjangoModelFactory):
     class Meta:
         model = 'soporte.Ticket'
 
-    cliente = factory.SubFactory(ClienteFactory)
-    numero = factory.Sequence(lambda n: f'TKT-{n:06d}')
-    tipo_incidencia = 'SIN_SERVICIO'
-    descripcion_bot = factory.Faker('text', locale='es_ES')
-    prioridad = 'MEDIA'
-    estado = 'ABIERTO'
+    client = factory.SubFactory(ClienteFactory)
+    nombre = factory.LazyAttribute(lambda t: t.client.nombre if t.client else 'Sin identificar')
+    tipo_incidencia = 'sin_internet'
+    descripcion = factory.Faker('text', locale='es_ES')
+    prioridad = 'media'
+    estado = 'abierto'
 
 
 class InstalacionFactory(DjangoModelFactory):
     class Meta:
         model = 'soporte.Instalacion'
 
-    orden_id = factory.Sequence(lambda n: f'INST-{n:06d}')
-    prospecto_nombre = factory.Faker('name', locale='es_ES')
-    prospecto_cedula = factory.Sequence(lambda n: f'17{n:08d}')
-    prospecto_telefono = factory.Sequence(lambda n: f'09{n:08d}')
-    direccion = factory.Faker('address', locale='es_ES')
+    nombre = factory.Faker('name', locale='es_ES')
+    identificacion = factory.Sequence(lambda n: f'17{n:08d}')
+    telefono = factory.Sequence(lambda n: f'09{n:08d}')
+    direccion = factory.Faker('street_address', locale='es_ES')
     plan = factory.SubFactory(PlanVelocidadFactory)
-    fecha_programada = factory.Faker('future_date')
-    franja_horaria = '08:00-10:00'
+    fecha = factory.Faker('future_date')
+    franja = 'manana'
     estado = 'agendada'
 
 

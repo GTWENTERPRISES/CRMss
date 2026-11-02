@@ -1,3 +1,5 @@
+// Primero que todo: desde acá, cada `Date` del proceso habla en la hora del ISP.
+import { cargarZona } from './lib/zonaHoraria.js'
 import express from 'express'
 import cors from 'cors'
 import { config, checkConfig } from './config.js'
@@ -11,6 +13,7 @@ import tr069Routes from './routes/tr069.routes.js'
 import tiposOnuRoutes from './routes/tiposOnu.routes.js'
 import migracionRoutes from './routes/migracion.routes.js'
 import sriRoutes from './routes/sri.routes.js'
+import facturacionElectronicaRoutes from './routes/facturacionElectronica.routes.js'
 import pagosRoutes from './routes/pagos.routes.js'
 import herramientasRoutes from './routes/herramientas.routes.js'
 import instalacionesRoutes from './routes/instalaciones.routes.js'
@@ -35,11 +38,13 @@ import corteRoutes from './routes/corte.routes.js'
 import personalRoutes from './routes/personal.routes.js'
 import reemplazosRoutes from './routes/reemplazos.routes.js'
 import documentosRoutes from './routes/documentos.routes.js'
+import reportesRoutes from './routes/reportes.routes.js'
 import firmasRoutes, { webhookFirma } from './routes/firmas.routes.js'
 import webhookWhatsappRoutes from './routes/webhookWhatsapp.routes.js'
 import { guardLicencia } from './lib/guardLicencia.js'
+import { requireAuth } from './lib/auth.js'
 import { programarRenovacion } from './services/licencia.js'
-import { rearrancar as rearrancarTareas } from './services/tareas.js'
+import { rearrancar as rearrancarTareas, tareasApagadas, pidieronApagarTareas } from './services/tareas.js'
 import { arrancar as arrancarPortalCorte } from './servidorCorte.js'
 
 const app = express()
@@ -102,7 +107,7 @@ app.get('/api/health', (_req, res) => {
     ok: faltantes.length === 0,
     servicio: 'taller-smartolt-middleware',
     configuracionFaltante: faltantes,
-    authRequerida: config.requireAuth,
+    authRequerida: Boolean(config.claveInterna),
   })
 })
 
@@ -124,7 +129,7 @@ app.use('/api/general', generalRoutes)
  * El aviso del proveedor de firma, también afuera.
  *
  * Quien golpea es el servidor del proveedor cuando el abonado terminó de firmar:
- * no tiene sesión de Supabase ni sabe nada de nuestra licencia. Ponerlo detrás
+ * no tiene la sesión de Django ni sabe nada de nuestra licencia. Ponerlo detrás
  * del guardia haría que la confirmación no llegue el día que la licencia esté
  * por renovarse, y los contratos quedarían firmados del lado del proveedor y sin
  * firmar del nuestro.
@@ -144,6 +149,17 @@ app.use('/api/webhooks', webhookFirma)
  */
 app.use('/api/webhooks', webhookWhatsappRoutes)
 
+/**
+ * Solo Django llama a esta API.
+ *
+ * La clave interna (X-Clave-Interna) lo garantiza, y de paso llega quién es
+ * el usuario del personal — es lo que la auditoría necesita para seguir
+ * diciendo quién hizo qué. Las rutas que no tienen sesión (licencia, marca,
+ * webhooks, portal del abonado, integraciones con su X-API-Key) se montaron
+ * recién arriba, así que no pasan por acá.
+ */
+app.use('/api', requireAuth)
+
 // De acá para abajo, todo exige licencia vigente.
 app.use('/api', guardLicencia)
 
@@ -156,6 +172,7 @@ app.use('/api/tr069', tr069Routes)
 app.use('/api/tipos-onu', tiposOnuRoutes)
 app.use('/api/migracion', migracionRoutes)
 app.use('/api/sri', sriRoutes)
+app.use('/api/facturacion-electronica', facturacionElectronicaRoutes)
 app.use('/api/pagos', pagosRoutes)
 app.use('/api/herramientas', herramientasRoutes)
 app.use('/api/instalaciones', instalacionesRoutes)
@@ -178,7 +195,7 @@ app.use('/api/plantillas-whatsapp', plantillasWhatsappRoutes)
 app.use('/api/incidencias', incidenciasRoutes)
 
 // Personal, roles y permisos. Escribir usuarios pasa siempre por acá: crear la
-// credencial exige la service_role key, y la regla de quién puede crear a quién
+// credencial exige la cuenta de servicio de Django, y la regla de quién puede crear a quién
 // solo vale si la verifica el servidor.
 app.use('/api/personal', personalRoutes)
 
@@ -206,7 +223,7 @@ app.use('/api/portal-admin', portalAdminRoutes)
  * clientes del ISP en su chat, no su personal.
  *
  * No pasa por `requireAuth`: quien llama es un programa de otra empresa y no
- * tiene sesión de Supabase. Lo autoriza su llave, que cada ruta verifica con
+ * tiene la sesión de Django. Lo autoriza su llave, que cada ruta verifica con
  * `requireApiKey` junto con el permiso que esa ruta necesita.
  */
 app.use('/api/integracion', integracionRoutes)
@@ -231,6 +248,7 @@ app.use('/api/alertas', alertasRoutes)
 app.use('/api/actas', actasRoutes)
 app.use('/api/corte', corteRoutes)
 app.use('/api/documentos', documentosRoutes)
+app.use('/api/reportes', reportesRoutes)
 app.use('/api/firmas', firmasRoutes)
 
 app.use((req, res) => {
@@ -238,9 +256,24 @@ app.use((req, res) => {
 })
 
 // eslint-disable-next-line no-unused-vars -- Express identifica el error handler por tener 4 argumentos
-app.use((err, _req, res, _next) => {
-  const status = err instanceof AppError ? err.status : 500
-  if (status >= 500) console.error(err)
+app.use((err, req, res, _next) => {
+  const original = err instanceof AppError ? err.status : 500
+  if (original >= 500) console.error(err)
+
+  /**
+   * Un 502 o un 504 nuestro sale como 500.
+   *
+   * Cloudflare reemplaza cualquier 502 o 504 del origen por su propia página de
+   * "Bad gateway", y el mensaje que explicaba el problema no llega a la
+   * pantalla. Se vio al guardar las tareas: la base rechazó un valor y la
+   * persona leyó "el middleware está caído", que era falso.
+   *
+   * La API para integraciones queda como está documentada
+   * (docs/api-integracion.md promete el 502 a quien la consume).
+   */
+  const deIntegracion = /^\/api\/(v1|integracion)(\/|$)/.test(req.originalUrl ?? '')
+  const status = (original === 502 || original === 504) && !deIntegracion ? 500 : original
+  if (status !== original) res.set('X-Status-Original', String(original))
 
   // Para el rastro de las integraciones: `requireApiKey` anota la llamada cuando
   // la respuesta ya salió, y ahí solo tiene el status. Sin esto, el registro de
@@ -288,7 +321,7 @@ for (const senal of ['SIGINT', 'SIGTERM']) {
 }
 
 process.on('uncaughtException', (err) => {
-  console.error('\n[ERROR NO CAPTURADO] El middleware sigue en pie, pero revisá esto:')
+  console.error('\n[ERROR NO CAPTURADO] El middleware sigue en pie, pero revisa esto:')
   console.error(err)
 })
 
@@ -330,12 +363,24 @@ app.listen(config.port, () => {
      * apagar el corte automático desde Ajustes no apagaría el que ya está
      * corriendo — quedarían dos verdades distintas sobre lo mismo.
      */
-    rearrancarTareas()
+    // La zona va antes que las tareas: armarlas con la hora de UTC y corregir
+    // después dejaría una corrida a destiempo justo al arrancar.
+    cargarZona()
+      .catch((err) => console.warn('  No se pudo leer la zona horaria:', err.message))
+      .then(() => console.log(`  Zona horaria: ${process.env.TZ}.`))
+      .then(() => {
+        if (pidieronApagarTareas() && !tareasApagadas()) {
+          console.warn('  TAREAS_APAGADAS se ignora en producción: los automatismos corren igual.')
+        }
+        return rearrancarTareas()
+      })
       .then(({ encendidas }) => {
         console.log(
-          encendidas.length
-            ? `  Automatismos encendidos: ${encendidas.join(' · ')}.`
-            : '  Automatismos: todos apagados (se encienden en Ajustes → Tareas programadas).',
+          tareasApagadas()
+            ? '  Automatismos: APAGADOS en esta copia (TAREAS_APAGADAS en el .env). Solo atiende la API.'
+            : encendidas.length
+              ? `  Automatismos encendidos: ${encendidas.join(' · ')}.`
+              : '  Automatismos: todos apagados (se encienden en Ajustes → Tareas programadas).',
         )
       })
       .catch((err) => console.error('  No se pudieron arrancar los automatismos:', err.message))

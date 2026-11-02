@@ -74,10 +74,10 @@ export default function FacturasDelMes({ onError }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Les toca factura hoy" valor={pendientes.length} icon={CalendarClock} />
-        <Stat label="Total a facturar" valor={dinero(total)} color="text-emerald-400" />
-        <Stat label="Omitidos" valor={datos?.omitidos?.length ?? 0} color="text-amber-400" />
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Les toca factura hoy" valor={pendientes.length} icon={CalendarClock} />
+        <Stat cargando={cargando} label="Total a facturar" valor={dinero(total)} color="text-emerald-400" />
+        <Stat cargando={cargando} label="Omitidos" valor={datos?.omitidos?.length ?? 0} color="text-amber-400" />
       </div>
 
       {resultado && (
@@ -114,9 +114,9 @@ export default function FacturasDelMes({ onError }) {
         {!datos?.automatica && (
           <div className="mb-3">
             <Aviso>
-              Para que corran solas, poné <code className="text-slate-300">FACTURACIÓN_AUTOMATICA=true</code>{' '}
+              Para que corran solas, pon <code className="text-slate-300">FACTURACIÓN_AUTOMATICA=true</code>{' '}
               —sin tilde: <code className="text-slate-300">FACTURACION_AUTOMATICA</code>— en el{' '}
-              <code className="text-slate-300">.env</code> del middleware y reinicialo. Mientras
+              <code className="text-slate-300">.env</code> del middleware y reinícialo. Mientras
               tanto, el botón las crea a mano.
             </Aviso>
           </div>

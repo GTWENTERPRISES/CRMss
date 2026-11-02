@@ -113,14 +113,14 @@ export default function Preautorizadas({ olt, presets = [], planes = [], onListo
       {nueva && (
         <div className="space-y-3 rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Serie de la ONT" hint="La de la etiqueta, como HWTC1234ABCD">
-              <Input
+            <Field campo="sn" label="Serie de la ONT" hint="La de la etiqueta, como HWTC1234ABCD">
+              <Input placeholder="Ej.: HWTC1A2B3C4D"
                 value={nueva.sn}
                 onChange={(e) => setNueva({ ...nueva, sn: e.target.value.toUpperCase().trim() })}
                 className="font-mono"
               />
             </Field>
-            <Field label="Plantilla">
+            <Field campo="preset_id" hint="Un texto ya armado para no escribirlo cada vez." label="Plantilla">
               <Select
                 value={nueva.preset_id ?? ''}
                 onChange={(e) => setNueva({ ...nueva, preset_id: e.target.value })}
@@ -134,7 +134,7 @@ export default function Preautorizadas({ olt, presets = [], planes = [], onListo
                 ))}
               </Select>
             </Field>
-            <Field label="VLAN" hint={preset?.vlan ? `la plantilla trae ${preset.vlan}` : null}>
+            <Field campo="vlan" label="VLAN" hint={preset?.vlan ? `la plantilla trae ${preset.vlan}` : null}>
               <Input
                 type="number"
                 value={nueva.vlan}
@@ -143,13 +143,13 @@ export default function Preautorizadas({ olt, presets = [], planes = [], onListo
               />
             </Field>
 
-            <Field label="Abonado" className="sm:col-span-2">
-              <Input
+            <Field campo="nombre" label="Abonado" className="sm:col-span-2">
+              <Input placeholder="Ej.: Juan Pérez o 0912345678"
                 value={nueva.nombre}
                 onChange={(e) => setNueva({ ...nueva, nombre: e.target.value })}
               />
             </Field>
-            <Field label="Plan">
+            <Field campo="plan_id" hint="El plan de internet que contrata." label="Plan">
               <Select
                 value={nueva.plan_id ?? ''}
                 onChange={(e) => setNueva({ ...nueva, plan_id: e.target.value })}
@@ -163,13 +163,13 @@ export default function Preautorizadas({ olt, presets = [], planes = [], onListo
               </Select>
             </Field>
 
-            <Field label="Dirección / referencia" className="sm:col-span-2">
-              <Input
+            <Field campo="comentario" label="Dirección / referencia" className="sm:col-span-2">
+              <Input placeholder="Ej.: Frente a la escuela"
                 value={nueva.comentario}
                 onChange={(e) => setNueva({ ...nueva, comentario: e.target.value })}
               />
             </Field>
-            <Field label="Vence" hint="opcional: hasta cuándo esperarla">
+            <Field campo="vence_at" label="Vence" hint="opcional: hasta cuándo esperarla">
               <Input
                 type="date"
                 value={nueva.vence_at}
@@ -177,15 +177,15 @@ export default function Preautorizadas({ olt, presets = [], planes = [], onListo
               />
             </Field>
 
-            <Field label="Placa esperada" hint="opcional">
-              <Input
+            <Field campo="slot" label="Placa esperada" hint="opcional">
+              <Input placeholder="Ej.: 1"
                 type="number"
                 value={nueva.slot}
                 onChange={(e) => setNueva({ ...nueva, slot: e.target.value })}
               />
             </Field>
-            <Field label="Puerto esperado" hint="opcional">
-              <Input
+            <Field campo="puerto" label="Puerto esperado" hint="opcional">
+              <Input placeholder="Ej.: 1"
                 type="number"
                 value={nueva.puerto}
                 onChange={(e) => setNueva({ ...nueva, puerto: e.target.value })}
@@ -282,9 +282,7 @@ export default function Preautorizadas({ olt, presets = [], planes = [], onListo
                       Reintentar
                     </Button>
                   )}
-                  <Button variante="fantasma" icon={Trash2} onClick={() => borrar(p)}>
-                    Quitar
-                  </Button>
+                  <Button variante="fantasma" icon={Trash2} onClick={() => borrar(p)} title="Quitar" />
                 </div>
               </td>
             </tr>

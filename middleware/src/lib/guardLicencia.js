@@ -15,7 +15,7 @@ import { estado } from '../services/licencia.js'
  *                              corrieron la migración, un bug nuestro.
  *
  * La segunda es la que importa. Bloquear ante un problema propio significa que
- * un hipo de Supabase, o una migración que el cliente no corrió, deja a un ISP
+ * un hipo de la base, o una migración que el cliente no corrió, deja a un ISP
  * sin poder facturar ni reconectar a nadie — y el teléfono que suena es el del
  * vendedor. El pirata decidido edita este archivo de todos modos; el cliente
  * que paga, no. Entre proteger la licencia de alguien que ya tiene el servidor
@@ -56,7 +56,7 @@ export async function guardLicencia(req, res, next) {
   res.status(402).json({
     error: lic.motivo ?? 'La licencia de este sistema no está vigente.',
     licencia_vencida: true,
-    hint: 'Contactá a tu proveedor para renovarla. El sistema vuelve solo apenas se acredite.',
+    hint: 'Contacta a tu proveedor para renovarla. El sistema vuelve solo apenas se acredite.',
     instalacion: lic.instalacion,
   })
 }

@@ -146,8 +146,8 @@ async function entrarModoConfig(sesion, olt) {
       throw new AppError('La OLT V-SOL rechazó la contraseña de enable', {
         status: 401,
         hint: olt.enable_password_encrypted
-          ? 'La contraseña de enable cargada no es la correcta. Corregila en la ficha de la OLT.'
-          : 'Esta OLT no tiene contraseña de enable cargada, así que se probó con la de login y la rechazó. Cargá la de enable en la ficha de la OLT.',
+          ? 'La contraseña de enable cargada no es la correcta. Corrígela en la ficha de la OLT.'
+          : 'Esta OLT no tiene contraseña de enable cargada, así que se probó con la de login y la rechazó. Carga la de enable en la ficha de la OLT.',
         detalle: salidaPass.trim().slice(0, 200),
       })
     }
@@ -228,7 +228,7 @@ export async function probarConexion(olt) {
       throw new AppError('La OLT respondió pero no se pudo leer su versión', {
         status: 502,
         hint: VOLVIO_AL_LOGIN.test(salida)
-          ? 'La sesión terminó en el prompt de login: revisá la contraseña de enable en la ficha de la OLT.'
+          ? 'La sesión terminó en el prompt de login: revisa la contraseña de enable en la ficha de la OLT.'
           : 'La sesión se abrió pero "show version" no devolvió nada reconocible. Puede ser un firmware con otra salida.',
         detalle: salida.trim().slice(0, 300),
       })

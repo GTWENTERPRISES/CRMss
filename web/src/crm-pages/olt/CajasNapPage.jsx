@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
 import { Link } from '@/lib/nextNavigation'
 import { Box, Check, MapPin, Package, Pencil, RefreshCw, Trash2, TriangleAlert } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { dbm } from '../../lib/optica'
 import {
@@ -51,7 +51,7 @@ export default function CajasNapPage() {
   const [editando, setEditando] = useState(null)
 
   useEffect(() => {
-    supabase
+    django
       .from('olts')
       .select('id, nombre, numero')
       .order('numero')
@@ -102,14 +102,14 @@ export default function CajasNapPage() {
    * y el mapa comercial no la dibuja. O sea que la falta de un formulario de
    * edición dejaba fuera de servicio una función entera del módulo de ventas.
    *
-   * Va directo a Supabase y no por el middleware porque no toca la OLT: son
-   * datos de gestión sobre una fila, y `puntos_red` ya acepta escritura del
-   * personal con sesión.
+   * Va directo a la base —por Django— y no por el servicio de red, porque no toca
+   * la OLT: son datos de gestión sobre una fila, y `puntos_red` ya acepta
+   * escritura del personal con sesión.
    */
   async function guardarCaja() {
     setError(null)
     try {
-      const { error: err } = await supabase
+      const { error: err } = await django
         .from('puntos_red')
         .update({
           nombre: editando.nombre.trim(),
@@ -164,7 +164,7 @@ export default function CajasNapPage() {
           </p>
         </div>
         <div className="flex items-end gap-2">
-          <Field label="OLT">
+          <Field hint="La OLT a la que está conectada la ONU." label="OLT">
             <Select value={oltId} onChange={(e) => setOltId(e.target.value)}>
               {olts.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -188,7 +188,7 @@ export default function CajasNapPage() {
           <SkeletonTabla filas={3} columnas={6} />
         ) : cajas.length === 0 ? (
           <p className="py-6 text-center text-sm text-slate-500">
-            Todavía no hay ninguna. Apretá <b>Proponer cajas</b> y confirmá las que reconozcas.
+            Todavía no hay ninguna. Aprieta <b>Proponer cajas</b> y confirma las que reconozcas.
           </p>
         ) : (
           <Table
@@ -249,10 +249,7 @@ export default function CajasNapPage() {
                         notas: c.notas ?? '',
                         activo: c.activo !== false,
                       })
-                    }
-                  >
-                    Editar
-                  </Button>
+                    } title="Editar" />
                   <Button
                     variante="fantasma"
                     icon={Trash2}
@@ -264,10 +261,7 @@ export default function CajasNapPage() {
                       } catch (err) {
                         setError(err)
                       }
-                    }}
-                  >
-                    Borrar
-                  </Button>
+                    }} title="Borrar" />
                 </td>
               </tr>
             )}
@@ -283,33 +277,33 @@ export default function CajasNapPage() {
       >
         {editando && (
           <div className="space-y-3">
-            <Field label="Nombre">
-              <Input
+            <Field campo="nombre" label="Nombre">
+              <Input placeholder="Ej.: Juan Pérez"
                 value={editando.nombre}
                 onChange={(e) => setEditando({ ...editando, nombre: e.target.value })}
                 autoFocus
               />
             </Field>
-            <Field label="Dirección">
-              <Input
+            <Field campo="direccion" label="Dirección">
+              <Input placeholder="Ej.: Av. 9 de Octubre 123 y Boyacá"
                 value={editando.direccion}
                 onChange={(e) => setEditando({ ...editando, direccion: e.target.value })}
               />
             </Field>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field
+              <Field campo="capacidad"
                 label="Capacidad (bocas)"
                 hint="Vacío = no se sabe. No es lo mismo que cero."
               >
-                <Input
+                <Input placeholder="Ej.: 16"
                   type="number"
                   min={1}
                   value={editando.capacidad}
                   onChange={(e) => setEditando({ ...editando, capacidad: e.target.value })}
                 />
               </Field>
-              <Field label="Estado">
+              <Field campo="activo" label="Estado">
                 <Select
                   value={editando.activo ? 'si' : 'no'}
                   onChange={(e) => setEditando({ ...editando, activo: e.target.value === 'si' })}
@@ -331,7 +325,7 @@ export default function CajasNapPage() {
             </Aviso>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Latitud">
+              <Field campo="latitud" label="Latitud">
                 <Input
                   value={editando.latitud}
                   onChange={(e) => setEditando({ ...editando, latitud: e.target.value })}
@@ -339,7 +333,7 @@ export default function CajasNapPage() {
                   inputMode="decimal"
                 />
               </Field>
-              <Field label="Longitud">
+              <Field campo="longitud" label="Longitud">
                 <Input
                   value={editando.longitud}
                   onChange={(e) => setEditando({ ...editando, longitud: e.target.value })}
@@ -349,8 +343,8 @@ export default function CajasNapPage() {
               </Field>
             </div>
 
-            <Field label="Notas">
-              <Input
+            <Field campo="notas" label="Notas">
+              <Input placeholder="Ej.: Llamar antes de ir"
                 value={editando.notas}
                 onChange={(e) => setEditando({ ...editando, notas: e.target.value })}
               />
@@ -392,7 +386,7 @@ export default function CajasNapPage() {
               Cada grupo comparte puerto PON, dirección y distancia. La confianza sale de cuánto se
               separan entre sí: los abonados de una misma caja se separan lo que miden sus
               acometidas, decenas de metros. Un grupo que abarca cientos casi seguro son varias
-              cajas sobre la misma vía — partilo o andá a verlo.
+              cajas sobre la misma vía — pártelo o ve a verlo.
             </p>
 
             <div className="space-y-2">
@@ -442,13 +436,13 @@ export default function CajasNapPage() {
                     {abierto && (
                       <div className="space-y-3 border-t border-slate-800 bg-[#F6F8FB] px-3 py-3">
                         <div className="grid gap-2 sm:grid-cols-3">
-                          <Field label="Nombre de la caja" className="sm:col-span-2">
-                            <Input
+                          <Field campo="nombre" label="Nombre de la caja" className="sm:col-span-2">
+                            <Input placeholder="Ej.: NAP-URDESA-01"
                               value={creando.nombre}
                               onChange={(e) => setCreando({ ...creando, nombre: e.target.value })}
                             />
                           </Field>
-                          <Field label="Bocas del splitter" hint="lo que decide si entra uno más">
+                          <Field campo="capacidad" label="Bocas del splitter" hint="lo que decide si entra uno más">
                             <Select
                               value={creando.capacidad}
                               onChange={(e) => setCreando({ ...creando, capacidad: e.target.value })}

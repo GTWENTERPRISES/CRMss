@@ -13,8 +13,10 @@ import {
   Settings,
   Trash2,
 } from 'lucide-react'
-import { useTabla } from '../lib/useTabla'
+import { useTablaDjango as useTabla } from '../lib/useTablaDjango'
 import { api } from '../lib/apiNetwork'
+import { CODIGO_SRI, TARIFA_DE_CODIGO, fijarIvaGeneral, useIvaGeneral } from '../lib/iva'
+import { usePais } from '../lib/pais'
 import CertificadoFirma from '../components/sri/CertificadoFirma'
 import CuentasPago from '../components/pagos/CuentasPago'
 import PorFacturar from '../components/sri/PorFacturar'
@@ -36,26 +38,23 @@ import {
   Table,
   Textarea,
 } from '../components/ui'
+import { fecha as fmtFecha, fechaHora as fmtFechaHora } from '@/lib/formato'
+import { dineroCero } from '@/lib/formato'
+import { COLOR_ESTADO as COLORES } from '../lib/estados'
 
-const COLOR_ESTADO = {
-  BORRADOR: 'gris',
-  FIRMADO: 'azul',
-  ENVIADO: 'ambar',
-  AUTORIZADO: 'verde',
-  NO_AUTORIZADO: 'rojo',
-  ANULADO: 'rojo',
-}
+// Colores de estado: los mismos en todo el sistema (lib/estados).
+const COLOR_ESTADO = COLORES.comprobante
 
 // El permiso de cada pestaña. El cajero emite y reimprime pero no toca el
 // certificado de firma ni el ambiente del SRI: son la misma pantalla para el
 // dueño del ISP y dos trabajos distintos para quien atiende el mostrador.
 const PESTANAS = [
-  { id: 'comprobantes', label: 'Comprobantes', icon: Receipt, permiso: 'facturacion.ver' },
+  { id: 'comprobantes', label: 'Comprobantes', icon: Receipt, permiso: 'facturacion.ver', modulo: 'facturacionElectronica' },
   // La bandeja del cierre: cobros del día que todavía no tienen comprobante.
-  { id: 'porfacturar', label: 'Por facturar', icon: Send, permiso: 'facturacion.emitir' },
+  { id: 'porfacturar', label: 'Por facturar', icon: Send, permiso: 'facturacion.emitir', modulo: 'facturacionElectronica' },
   // Las facturas del sistema que se crean solas cada mes.
   { id: 'mes', label: 'Facturas del mes', icon: Plus, permiso: 'facturacion.ver' },
-  { id: 'emitir', label: 'Nueva factura', icon: Plus, permiso: 'facturacion.emitir' },
+  { id: 'emitir', label: 'Nueva factura', icon: Plus, permiso: 'facturacion.emitir', modulo: 'facturacionElectronica' },
   { id: 'config', label: 'Configuración', icon: Settings, permiso: 'config.facturacion' },
 ]
 
@@ -69,7 +68,9 @@ export default function FacturacionPage() {
   // Solo las pestañas que este usuario puede abrir. La primera visible es la de
   // arranque: mandarlo siempre a "Comprobantes" dejaría al cajero que solo
   // emite mirando una pantalla vacía cada vez que entra.
-  const visibles = PESTANAS.filter((p) => puede(p.permiso))
+  const pais = usePais()
+  const sri = pais.modulos.facturacionElectronica
+  const visibles = PESTANAS.filter((p) => puede(p.permiso) && (!p.modulo || pais.modulos[p.modulo]))
   const inicial = visibles[0]?.id ?? 'comprobantes'
   const pestana = visibles.some((p) => p.id === pedida) ? pedida : inicial
   const setPestana = (id) => setParams(id === inicial ? {} : { t: id }, { replace: true })
@@ -78,8 +79,14 @@ export default function FacturacionPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="t-titulo text-lg font-bold text-slate-100">Facturación electrónica</h1>
-        <p className="text-xs text-slate-500">Comprobantes del SRI — Ecuador</p>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">
+          {sri ? 'Facturación electrónica' : 'Facturación'}
+        </h1>
+        <p className="text-xs text-slate-500">
+          {sri
+            ? 'Comprobantes del SRI — Ecuador'
+            : `Las facturas del sistema. La facturación electrónica de ${pais.nombre} (${pais.ente.sigla}) todavía no está disponible.`}
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-1 border-b border-slate-800 pb-3">
@@ -304,11 +311,11 @@ function Comprobantes({ onError }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Stat label="Emitidos" valor={filas.length} icon={Receipt} />
-        <Stat label="Autorizados" valor={contar('AUTORIZADO')} color="text-emerald-400" />
-        <Stat label="Borradores" valor={contar('BORRADOR')} />
-        <Stat label="Total facturado" valor={`$${total.toFixed(2)}`} />
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Emitidos" valor={filas.length} icon={Receipt} />
+        <Stat cargando={cargando} label="Autorizados" valor={contar('AUTORIZADO')} color="text-emerald-400" />
+        <Stat cargando={cargando} label="Borradores" valor={contar('BORRADOR')} />
+        <Stat cargando={cargando} label="Total facturado" valor={`${dineroCero(total)}`} />
       </div>
 
       {resultado && (
@@ -327,7 +334,7 @@ function Comprobantes({ onError }) {
               ) : (
                 <>
                   <b>Estado: {resultado.estadoFinal}.</b>{' '}
-                  {resultado.aviso ?? 'Revisá los mensajes del SRI abajo.'}
+                  {resultado.aviso ?? 'Revisa los mensajes del SRI abajo.'}
                 </>
               )}
             </Aviso>
@@ -370,7 +377,7 @@ function Comprobantes({ onError }) {
 
       {filas.length === 0 ? (
         <Aviso>
-          Todavía no emitiste ningún comprobante. Empezá por <b>Configuración</b> para cargar el RUC
+          Todavía no emitiste ningún comprobante. Empieza por <b>Configuración</b> para cargar el RUC
           del emisor, y después <b>Nueva factura</b>.
         </Aviso>
       ) : (
@@ -383,7 +390,7 @@ function Comprobantes({ onError }) {
                 <td className="px-3 py-2 font-mono text-xs text-slate-100">
                   {d.numero_comprobante}
                 </td>
-                <td className="px-3 py-2 text-xs">{d.fecha_emision}</td>
+                <td className="px-3 py-2 text-xs">{fmtFecha(d.fecha_emision)}</td>
                 <td className="px-3 py-2">{d.razon_social_comprador}</td>
                 <td className="px-3 py-2 font-mono text-xs">{d.identificacion_comprador}</td>
                 <td className="px-3 py-2 font-medium">${Number(d.importe_total).toFixed(2)}</td>
@@ -396,7 +403,7 @@ function Comprobantes({ onError }) {
                         className="text-emerald-400"
                         title={`Enviado al comprador${
                           d.fecha_envio_email
-                            ? ` el ${new Date(d.fecha_envio_email).toLocaleString()}`
+                            ? ` el ${fmtFechaHora(d.fecha_envio_email)}`
                             : ''
                         }`}
                       />
@@ -563,7 +570,7 @@ function EnviarPorCorreo({ doc, enviando, onCancelar, onEnviar }) {
 
           {avisar && (
             <Aviso tipo="alerta">
-              Eso no parece una dirección de correo. Revisá el arroba y lo que va
+              Eso no parece una dirección de correo. Revisa el arroba y lo que va
               después del punto.
             </Aviso>
           )}
@@ -604,8 +611,28 @@ function Emitir({ onError, onEmitida }) {
   const { filas: clientes } = useTabla('clientes', { orderBy: 'nombre', ascending: true })
   const { filas: planes } = useTabla('planes_velocidad', { orderBy: 'nombre', ascending: true })
 
+  const ivaGeneral = useIvaGeneral()
+  // Un detalle nuevo lleva la tarifa general, con su código del SRI.
+  const detalleVacio = () => ({
+    ...DETALLE_VACIO,
+    tarifaIva: ivaGeneral,
+    codigoPorcentaje: CODIGO_SRI[ivaGeneral] ?? DETALLE_VACIO.codigoPorcentaje,
+  })
+
   const [clienteId, setClienteId] = useState('')
   const [detalles, setDetalles] = useState([{ ...DETALLE_VACIO }])
+
+  // La general llega del servidor un instante después: se aplica a los
+  // detalles que todavía están en blanco, no a los que alguien ya cargó.
+  useEffect(() => {
+    setDetalles((ds) =>
+      ds.map((d) =>
+        d.descripcion || d.precioUnitario !== ''
+          ? d
+          : { ...d, tarifaIva: ivaGeneral, codigoPorcentaje: CODIGO_SRI[ivaGeneral] ?? d.codigoPorcentaje },
+      ),
+    )
+  }, [ivaGeneral])
   const [totales, setTotales] = useState(null)
   const [emitiendo, setEmitiendo] = useState(false)
   const [resultado, setResultado] = useState(null)
@@ -641,7 +668,7 @@ function Emitir({ onError, onEmitida }) {
         detalles: detalles.filter((d) => d.descripcion && d.precioUnitario),
       })
       setResultado(r)
-      setDetalles([{ ...DETALLE_VACIO }])
+      setDetalles([detalleVacio()])
       onEmitida?.()
     } catch (err) {
       onError(err)
@@ -665,7 +692,11 @@ function Emitir({ onError, onEmitida }) {
 
     setDetalles([
       {
-        ...DETALLE_VACIO,
+        ...detalleVacio(),
+        // La del plan si tiene una propia; si no, la general.
+        ...(plan?.iva_porcentaje != null && CODIGO_SRI[Number(plan.iva_porcentaje)]
+          ? { tarifaIva: Number(plan.iva_porcentaje), codigoPorcentaje: CODIGO_SRI[Number(plan.iva_porcentaje)] }
+          : {}),
         // Sin código propio queda 'INTERNET': es preferible un código genérico
         // a uno vacío, que deja el detalle sin nada que lo identifique.
         codigoPrincipal: plan?.codigo_facturacion || 'INTERNET',
@@ -679,9 +710,9 @@ function Emitir({ onError, onEmitida }) {
     <form onSubmit={emitir} className="space-y-4">
       <Card title="Comprador">
         <div className="grid items-end gap-4 sm:grid-cols-3">
-          <Field label="Cliente" className="sm:col-span-2">
+          <Field hint="Nombre o razón social, como va en la factura." label="Cliente" className="sm:col-span-2">
             <Select value={clienteId} onChange={(e) => setClienteId(e.target.value)} required>
-              <option value="">— elegí un cliente —</option>
+              <option value="">— elige un cliente —</option>
               {clientes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nombre} {c.identificacion ? `(${c.identificacion})` : '— sin identificación'}
@@ -699,7 +730,7 @@ function Emitir({ onError, onEmitida }) {
         {cliente && !cliente.identificacion && (
           <div className="mt-3">
             <Aviso tipo="alerta">
-              Este cliente no tiene identificación cargada. El SRI la exige — editalo en{' '}
+              Este cliente no tiene identificación cargada. El SRI la exige — edítalo en{' '}
               <b>Clientes</b> antes de facturar.
             </Aviso>
           </div>
@@ -719,7 +750,7 @@ function Emitir({ onError, onEmitida }) {
           <Button
             type="button"
             icon={Plus}
-            onClick={() => setDetalles((d) => [...d, { ...DETALLE_VACIO }])}
+            onClick={() => setDetalles((d) => [...d, detalleVacio()])}
           >
             Agregar línea
           </Button>
@@ -729,16 +760,16 @@ function Emitir({ onError, onEmitida }) {
           {detalles.map((d, i) => (
             <div key={i} className="grid gap-3 sm:grid-cols-12">
               <Field label="Código" className="sm:col-span-2">
-                <Input value={d.codigoPrincipal} onChange={setDetalle(i, 'codigoPrincipal')} />
+                <Input placeholder="Ej.: ONT-HG8145" value={d.codigoPrincipal} onChange={setDetalle(i, 'codigoPrincipal')} />
               </Field>
               <Field label="Descripción" className="sm:col-span-4">
-                <Input value={d.descripcion} onChange={setDetalle(i, 'descripcion')} required />
+                <Input placeholder="Ej.: Plan para hogares de hasta 5 dispositivos" value={d.descripcion} onChange={setDetalle(i, 'descripcion')} required />
               </Field>
               <Field label="Cant." className="sm:col-span-1">
-                <Input type="number" step="0.01" value={d.cantidad} onChange={setDetalle(i, 'cantidad')} />
+                <Input placeholder="Ej.: 1" type="number" step="0.01" value={d.cantidad} onChange={setDetalle(i, 'cantidad')} />
               </Field>
               <Field label="P. unitario" className="sm:col-span-2">
-                <Input
+                <Input placeholder="Ej.: 21.74"
                   type="number"
                   step="0.01"
                   value={d.precioUnitario}
@@ -746,12 +777,12 @@ function Emitir({ onError, onEmitida }) {
                   required
                 />
               </Field>
-              <Field label="IVA" className="sm:col-span-2">
+              <Field hint="Si el precio ya incluye el IVA o se suma aparte." label="IVA" className="sm:col-span-2">
                 <Select
                   value={d.codigoPorcentaje}
                   onChange={(e) => {
                     const codigo = e.target.value
-                    const tarifa = codigo === '4' ? 15 : codigo === '2' ? 12 : 0
+                    const tarifa = TARIFA_DE_CODIGO[codigo] ?? 0
                     setDetalles((ds) =>
                       ds.map((x, j) =>
                         j === i ? { ...x, codigoPorcentaje: codigo, tarifaIva: tarifa } : x,
@@ -759,9 +790,11 @@ function Emitir({ onError, onEmitida }) {
                     )
                   }}
                 >
-                  <option value="4">15%</option>
-                  <option value="2">12%</option>
-                  <option value="0">0%</option>
+                  {[15, 14, 13, 12, 8, 5, 0].map((t) => (
+                    <option key={t} value={CODIGO_SRI[t]}>
+                      {t}%
+                    </option>
+                  ))}
                   <option value="7">Exento</option>
                   <option value="6">No objeto</option>
                 </Select>
@@ -783,13 +816,13 @@ function Emitir({ onError, onEmitida }) {
 
       {totales && (
         <Card title="Totales">
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Stat label="Subtotal" valor={`$${totales.totalSinImpuestos.toFixed(2)}`} />
-            <Stat label="Descuento" valor={`$${totales.totalDescuento.toFixed(2)}`} />
-            <Stat label="IVA" valor={`$${totales.totalIva.toFixed(2)}`} />
+          <div className="t-kpis">
+            <Stat label="Subtotal" valor={`${dineroCero(totales.totalSinImpuestos)}`} />
+            <Stat label="Descuento" valor={`${dineroCero(totales.totalDescuento)}`} />
+            <Stat label="IVA" valor={`${dineroCero(totales.totalIva)}`} />
             <Stat
               label="Total"
-              valor={`$${totales.importeTotal.toFixed(2)}`}
+              valor={`${dineroCero(totales.importeTotal)}`}
               color="text-emerald-400"
             />
           </div>
@@ -826,7 +859,131 @@ function Emitir({ onError, onEmitida }) {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * El IVA general: un número, y cambia todo.
+ *
+ * Lo usan los planes nuevos, la facturación mensual, la edición de facturas y
+ * la emisión al SRI. Al guardarlo se actualizan los planes que tenían el
+ * anterior; los que tienen otro porcentaje a propósito no se tocan, y las
+ * facturas ya hechas tampoco.
+ */
+function IvaGeneral({ onError }) {
+  const actual = useIvaGeneral()
+  const pais = usePais()
+  const sri = pais.modulos.facturacionElectronica
+  const imp = pais.impuesto.nombre
+  const confirmar = useConfirmar()
+  const [elegido, setElegido] = useState(null)
+  const [guardando, setGuardando] = useState(false)
+  const [resultado, setResultado] = useState(null)
+
+  const valor = elegido ?? actual
+  const numero = Number(valor)
+  const valido = valor !== '' && Number.isFinite(numero) && numero >= 0 && numero <= 100
+  // Sin código del SRI se factura igual, pero no se puede emitir en Ecuador.
+  // Fuera de Ecuador no hay nada que avisar: no se emite al SRI.
+  const delSri = !sri || (CODIGO_SRI[numero] != null && numero !== 0)
+
+  async function guardar() {
+    const ok = await confirmar(
+      `El ${imp} general pasa de ${actual} % a ${numero} %.\n\n` +
+        `Se actualizan los planes que tienen ${actual} %, y desde ahora las facturas nuevas salen con ${numero} %. ` +
+        'Las facturas ya hechas no cambian.' +
+        (delSri ? '' : `\n\nOjo: ${numero} % no es una tarifa del SRI de Ecuador. Se factura igual, pero no se van a poder emitir comprobantes electrónicos ecuatorianos.`) +
+        '\n\n¿Continuar?',
+    )
+    if (!ok) return
+    setGuardando(true)
+    setResultado(null)
+    onError(null)
+    try {
+      const r = await api.general.guardarIva(numero)
+      fijarIvaGeneral(r.iva_porcentaje)
+      setElegido(null)
+      setResultado(r)
+    } catch (err) {
+      onError(err)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <Card title={`Impuesto (${imp})`}>
+      <div className="flex flex-wrap items-end gap-4">
+        <Field label={`${imp} general (%)`} hint="Escribe el número, o elige uno de la lista">
+          {/* Libre, con las del SRI como sugerencia: el sistema se vende también
+              fuera de Ecuador, donde el IVA es otro. */}
+          <Input
+            type="number"
+            step="0.01"
+            min={0}
+            max={100}
+            list="tarifas-sri"
+            value={valor}
+            onChange={(e) => {
+              setElegido(e.target.value)
+              setResultado(null)
+            }}
+            className="w-32"
+          />
+          <datalist id="tarifas-sri">
+            {(sri ? [15, 14, 13, 12, 8, 5] : [pais.impuesto.tarifa]).map((t) => (
+              <option key={t} value={t}>
+                {sri ? `${t} % (SRI Ecuador)` : `${t} % (${pais.nombre})`}
+              </option>
+            ))}
+          </datalist>
+        </Field>
+        <Button
+          variante="primario"
+          onClick={guardar}
+          cargando={guardando}
+          disabled={!valido || numero === Number(actual)}
+        >
+          Guardar
+        </Button>
+      </div>
+      {valido && !delSri && (
+        <div className="mt-3">
+          <Aviso tipo="alerta">
+            {numero} % no es una tarifa del SRI de Ecuador. La facturación del sistema funciona igual,
+            pero no se van a poder emitir comprobantes electrónicos ecuatorianos con esa tarifa.
+          </Aviso>
+        </div>
+      )}
+      <p className="mt-3 text-xs leading-snug text-slate-500">
+        Es el que usan los planes, la facturación de cada mes y la edición de facturas
+        {sri ? ', y la emisión al SRI' : ''}. Al cambiarlo se actualizan los planes que tenían el
+        anterior; uno con otro porcentaje puesto a propósito no se toca. Si un abonado no paga {imp},
+        eso se marca en su ficha como exento.
+      </p>
+      {resultado && (
+        <div className="mt-3">
+          <Aviso tipo="exito">
+            {imp} general en {resultado.iva_porcentaje} %.{' '}
+            {resultado.planes_actualizados
+              ? `Se actualizaron ${resultado.planes_actualizados} plan(es) que tenían ${resultado.anterior} %.`
+              : 'No había planes con el porcentaje anterior.'}
+          </Aviso>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+/**
+ * Fuera de Ecuador la configuración es solo el impuesto: el emisor, el
+ * certificado y la numeración son del SRI. Va en un componente aparte para no
+ * pedirle nada a la API del SRI donde no hay SRI.
+ */
 function Configuracion({ onError }) {
+  const pais = usePais()
+  if (!pais.modulos.facturacionElectronica) return <IvaGeneral onError={onError} />
+  return <ConfiguracionSri onError={onError} />
+}
+
+function ConfiguracionSri({ onError }) {
   const [config, setConfig] = useState(null)
   const [plantilla, setPlantilla] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -869,6 +1026,10 @@ function Configuracion({ onError }) {
   const enPruebas = (config?.ambiente ?? '1') === '1'
 
   return (
+    <div className="space-y-4">
+    {/* Fuera del formulario del emisor a propósito: el IVA vale aunque no se
+        emita al SRI, y ese formulario no se puede guardar sin RUC. */}
+    <IvaGeneral onError={onError} />
     <form onSubmit={guardar} className="space-y-4">
       <Aviso tipo={enPruebas ? 'info' : 'alerta'}>
         {enPruebas ? (
@@ -909,13 +1070,13 @@ function Configuracion({ onError }) {
 
       <Card title="Emisión ante el SRI" subtitle="Cómo se numeran y a dónde se mandan">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Ambiente">
+          <Field campo="ambiente" hint="Pruebas para ensayar; Producción emite facturas válidas ante el SRI." label="Ambiente">
             <Select value={config?.ambiente ?? '1'} onChange={set('ambiente')}>
               <option value="1">Pruebas</option>
               <option value="2">Producción</option>
             </Select>
           </Field>
-          <Field label="Establecimiento" hint="3 dígitos, como los tiene el SRI">
+          <Field campo="establecimiento" label="Establecimiento" hint="3 dígitos, como los tiene el SRI">
             <Input
               value={config?.establecimiento ?? '001'}
               onChange={set('establecimiento')}
@@ -923,7 +1084,7 @@ function Configuracion({ onError }) {
               placeholder="001"
             />
           </Field>
-          <Field label="Punto de emisión" hint="Cada punto lleva su propia numeración">
+          <Field campo="punto_emision" label="Punto de emisión" hint="Cada punto lleva su propia numeración">
             <Input
               value={config?.punto_emision ?? '001'}
               onChange={set('punto_emision')}
@@ -931,11 +1092,11 @@ function Configuracion({ onError }) {
               placeholder="002"
             />
           </Field>
-          <Field
+          <Field campo="proximo_secuencial"
             label="Próximo número de factura"
-            hint="Si este punto ya venía facturando con otro sistema, poné el número que sigue. Repetir uno que el SRI ya autorizó hace que rechace el comprobante."
+            hint="Si este punto ya venía facturando con otro sistema, pon el número que sigue. Repetir uno que el SRI ya autorizó hace que rechace el comprobante."
           >
-            <Input
+            <Input placeholder="Ej.: 1"
               type="number"
               min={1}
               max={999999999}
@@ -953,8 +1114,8 @@ function Configuracion({ onError }) {
       >
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Día máximo de pago" hint="Del 1 al 28">
-              <Input
+            <Field campo="dia_maximo_pago" label="Día máximo de pago" hint="Del 1 al 28">
+              <Input placeholder="Ej.: 5"
                 type="number"
                 min={1}
                 max={28}
@@ -962,7 +1123,7 @@ function Configuracion({ onError }) {
                 onChange={set('dia_maximo_pago')}
               />
             </Field>
-            <Field label="Mes que se factura">
+            <Field campo="meses_desplazado" hint="El mes de servicio que se cobra." label="Mes que se factura">
               <Select value={String(config?.meses_desplazado ?? 0)} onChange={set('meses_desplazado')}>
                 <option value="0">El mes en curso</option>
                 <option value="-1">El mes anterior (vencida)</option>
@@ -971,7 +1132,7 @@ function Configuracion({ onError }) {
           </div>
 
 
-          <Field
+          <Field campo="plantilla_info_adicional"
             label="Información adicional del comprobante"
             hint="Se resuelve al emitir y queda dentro del XML firmado: cambiarla después no altera lo ya emitido."
           >
@@ -998,7 +1159,7 @@ function Configuracion({ onError }) {
           )}
 
           <Aviso>
-            Si dejás el texto vacío se usa el de por defecto, que ya incluye el aviso de reclamos
+            Si dejas el texto vacío se usa el de por defecto, que ya incluye el aviso de reclamos
             que exige ARCOTEL.
           </Aviso>
         </div>
@@ -1027,5 +1188,6 @@ function Configuracion({ onError }) {
         </Button>
       </div>
     </form>
+    </div>
   )
 }

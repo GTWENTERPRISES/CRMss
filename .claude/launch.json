@@ -1,0 +1,68 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "django",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "backend/new/manage.py",
+        "runserver",
+        "8000",
+        "--noreload"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "middleware",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "middleware",
+        "start"
+      ],
+      "port": 4000
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "web",
+        "run",
+        "dev",
+        "--",
+        "-p",
+        "3100",
+        "--turbopack"
+      ],
+      "port": 3100
+    },
+    {
+      "name": "qa-django",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/BTC-SE~1/AppData/Local/Temp/claude/C--Users-BTC-SERVER-Desktop-CRMss/1a5ff281-9fe3-4b3c-a50d-d6c2c3967066/scratchpad/qa/lanzar.mjs",
+        "django"
+      ],
+      "port": 8001
+    },
+    {
+      "name": "qa-middleware",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/BTC-SE~1/AppData/Local/Temp/claude/C--Users-BTC-SERVER-Desktop-CRMss/1a5ff281-9fe3-4b3c-a50d-d6c2c3967066/scratchpad/qa/lanzar.mjs",
+        "middleware"
+      ],
+      "port": 4001
+    },
+    {
+      "name": "qa-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/BTC-SE~1/AppData/Local/Temp/claude/C--Users-BTC-SERVER-Desktop-CRMss/1a5ff281-9fe3-4b3c-a50d-d6c2c3967066/scratchpad/qa/lanzar.mjs",
+        "web"
+      ],
+      "port": 3200
+    }
+  ]
+}

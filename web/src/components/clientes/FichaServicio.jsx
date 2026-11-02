@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
 import { Link } from '@/lib/nextNavigation'
 import { Antenna, Eye, EyeOff, MapPin, Radio, Router as RouterIcon, Save, Wand2, Wifi } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { useTabla } from '../../lib/useTabla'
 import { libresDe, perteneceA } from '../../lib/ip'
 import { claveSugerida, usuarioSugerido } from '../../lib/instalaciones'
 import { api } from '../../lib/apiNetwork'
 import ResumenServicio from './ResumenServicio'
 import { Aviso, Badge, Button, Card, Field, Input, Select, Textarea } from '../ui'
+import { dineroCero } from '@/lib/formato'
 
 /**
  * Servicio del abonado.
@@ -160,8 +161,8 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
     }
     let vivo = true
     Promise.all([
-      supabase.from('v_direcciones_ip').select('ip_address').eq('subred_id', redElegida.id),
-      supabase.from('clientes').select('ip').not('ip', 'is', null).neq('id', cliente.id),
+      django.from('v_direcciones_ip').select('ip_address').eq('subred_id', redElegida.id),
+      django.from('clientes').select('ip').not('ip', 'is', null).neq('id', cliente.id),
     ]).then(([a, b]) => {
       if (!vivo) return
       setOcupadas([
@@ -190,7 +191,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
   const [midiendo, setMidiendo] = useState(false)
 
   useEffect(() => {
-    supabase
+    django
       .from('v_puntos_red')
       .select('*')
       .eq('activo', true)
@@ -202,7 +203,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
   // medir en vivo hacen falta la OLT, el puerto y el índice.
   useEffect(() => {
     if (!cliente.onu_id) return setOnu(null)
-    supabase
+    django
       .from('onus')
       .select('*')
       .eq('id', cliente.onu_id)
@@ -277,7 +278,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
       vacio.tipo_conexion = 'ip'
       vacio.tipo_ip = 'fija'
 
-      const { error } = await supabase.from('clientes').update(vacio).eq('id', cliente.id)
+      const { error } = await django.from('clientes').update(vacio).eq('id', cliente.id)
       if (error) throw error
       await onGuardado?.()
     } catch (err) {
@@ -363,11 +364,11 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
         cambios.rutas = null
       }
 
-      const { error } = await supabase.from('clientes').update(cambios).eq('id', cliente.id)
+      const { error } = await django.from('clientes').update(cambios).eq('id', cliente.id)
       if (error) {
         if (error.code === '23505') {
           throw new Error(
-            'Ese puerto de la caja NAP ya está ocupado por otro abonado. Elegí otro puerto.',
+            'Ese puerto de la caja NAP ya está ocupado por otro abonado. Elige otro puerto.',
           )
         }
         throw error
@@ -410,7 +411,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
         {/* --- Conexión ---------------------------------------------------- */}
         <Card title="Servicio de internet" icon={Wifi}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Router">
+            <Field campo="router_id" hint="El MikroTik que le da servicio." label="Router">
               <Select value={form.router_id ?? ''} onChange={set('router_id')}>
                 <option value="">— sin router —</option>
                 {routers.map((r) => (
@@ -420,7 +421,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                 ))}
               </Select>
             </Field>
-            <Field
+            <Field campo="tipo_conexion"
               label="Tipo de conexión"
               hint="Define si se piden usuario y clave de acceso"
             >
@@ -431,7 +432,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
               </Select>
             </Field>
 
-            <Field label="Perfil de internet (plan)">
+            <Field campo="plan_id" hint="Define la velocidad y el precio." label="Perfil de internet (plan)">
               <Select value={form.plan_id ?? ''} onChange={elegirPlan}>
                 <option value="">— sin plan —</option>
                 {planes.map((p) => (
@@ -441,15 +442,15 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                 ))}
               </Select>
             </Field>
-            <Field
+            <Field campo="precio_mensual"
               label="Costo mensual"
               hint={
                 plan && Number(form.precio_mensual) !== Number(plan.precio)
-                  ? `El plan cuesta $${Number(plan.precio).toFixed(2)}: este abonado tiene un precio pactado.`
+                  ? `El plan cuesta ${dineroCero(plan.precio)}: este abonado tiene un precio pactado.`
                   : 'Se completa con el precio del plan; se puede cambiar.'
               }
             >
-              <Input
+              <Input placeholder="Ej.: 25.00"
                 type="number"
                 step="0.01"
                 min={0}
@@ -458,7 +459,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
               />
             </Field>
 
-            <Field
+            <Field campo="descripcion_servicio"
               label="Descripción para facturación"
               className="sm:col-span-2"
               hint="Lo que sale en el detalle de la factura. Vacío = el nombre del plan."
@@ -491,7 +492,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
         {/* --- Direccionamiento -------------------------------------------- */}
         <Card title="Direccionamiento" icon={RouterIcon}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field
+            <Field campo="tipo_ip"
               label="Tipo de IPv4"
               hint={
                 // Igual que en el asistente, "fija" no significa lo mismo en las
@@ -508,7 +509,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                 <option value="dinamica">Dinámica (DHCP)</option>
               </Select>
             </Field>
-            <Field label="Red IPv4" hint="De las cargadas en Red → Redes IPv4">
+            <Field campo="red_ipv4" label="Red IPv4" hint="De las cargadas en Red → Redes IPv4">
               <Select
                 value={form.red_ipv4 ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, red_ipv4: e.target.value }))}
@@ -522,7 +523,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
               </Select>
             </Field>
 
-            <Field
+            <Field campo="ip"
               label="IPv4"
               hint={
                 redElegida
@@ -564,7 +565,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                   <b>{redElegida.nombre}</b> es una red de tipo <b>{redElegida.tipo}</b>, y este
                   abonado está como <b>{form.tipo_conexion ?? 'ip'}</b>. No se corresponden: en un
                   pool de PPPoE la dirección la reparte el servidor al autenticarse, y en una red
-                  estática se la asignás vos. Tal como está, el abonado no navega.
+                  estática se la asignas tú. Tal como está, el abonado no navega.
                 </Aviso>
               </div>
             )}
@@ -577,7 +578,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                 </Aviso>
               </div>
             )}
-            <Field label="MAC">
+            <Field campo="mac_address" label="MAC">
               <Input
                 value={form.mac_address ?? ''}
                 onChange={set('mac_address')}
@@ -586,7 +587,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
               />
             </Field>
 
-            <Field
+            <Field campo="ipv6_prefijo"
               label="Prefijo IPv6 delegado"
               hint="Lo que se le entrega al abonado, ej. 2803:1234:5678:1200::/56"
             >
@@ -613,23 +614,23 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
               </div>
             )}
 
-            <Field label="IPv6 (una dirección suelta)" hint="Opcional, informativa">
-              <Input value={form.ipv6 ?? ''} onChange={set('ipv6')} className="font-mono" />
+            <Field campo="ipv6" label="IPv6 (una dirección suelta)" hint="Opcional, informativa">
+              <Input placeholder="Ej.: 2800:bf0::10" value={form.ipv6 ?? ''} onChange={set('ipv6')} className="font-mono" />
             </Field>
-            <Field label="IPv6 DUID" hint="Solo si se fija la dirección en bindings">
-              <Input value={form.ipv6_duid ?? ''} onChange={set('ipv6_duid')} className="font-mono" />
+            <Field campo="ipv6_duid" label="IPv6 DUID" hint="Solo si se fija la dirección en bindings">
+              <Input placeholder="Ej.: 00:03:00:01:aa:bb:cc:dd:ee:ff" value={form.ipv6_duid ?? ''} onChange={set('ipv6_duid')} className="font-mono" />
             </Field>
 
             {/* Los campos de PPPoE dependen del router elegido. */}
             {esPppoe && (
               <>
-                <Field
+                <Field campo="usuario_ppp"
                   label="Usuario PPP / HS"
                   className="sm:col-span-2"
                   hint="Generar propone jefferson.ona a partir del nombre, y una clave que se pueda dictar"
                 >
                   <div className="flex gap-2">
-                    <Input
+                    <Input placeholder="Ej.: jperez01"
                       value={form.usuario_ppp ?? ''}
                       onChange={set('usuario_ppp')}
                       className="font-mono"
@@ -663,9 +664,9 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                     </Button>
                   </div>
                 </Field>
-                <Field label="Contraseña PPP / HS">
+                <Field campo="clave_ppp" label="Contraseña PPP / HS">
                   <div className="flex gap-2">
-                    <Input
+                    <Input placeholder="Ej.: clave123"
                       type={verClave ? 'text' : 'password'}
                       value={form.clave_ppp ?? ''}
                       onChange={set('clave_ppp')}
@@ -681,8 +682,8 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                     />
                   </div>
                 </Field>
-                <Field label="Rutas" hint="Opcional, ej. 192.168.10.0/24">
-                  <Input value={form.rutas ?? ''} onChange={set('rutas')} className="font-mono" />
+                <Field campo="rutas" label="Rutas" hint="Opcional, ej. 192.168.10.0/24">
+                  <Input placeholder="Ej.: 10.10.0.0/24" value={form.rutas ?? ''} onChange={set('rutas')} className="font-mono" />
                 </Field>
               </>
             )}
@@ -693,7 +694,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
         {/* --- Planta externa ---------------------------------------------- */}
         <Card title="Planta externa" icon={Antenna}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Caja NAP">
+            <Field campo="nap_id" hint="La caja de la que sale su fibra." label="Caja NAP">
               <Select value={form.nap_id ?? ''} onChange={set('nap_id')}>
                 <option value="">— ninguna —</option>
                 {cajas.map((c) => (
@@ -704,7 +705,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                 ))}
               </Select>
             </Field>
-            <Field
+            <Field campo="puerto_nap"
               label="Puerto NAP"
               hint={
                 napElegida?.capacidad
@@ -712,10 +713,10 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                   : 'El puerto del splitter'
               }
             >
-              <Input value={form.puerto_nap ?? ''} onChange={set('puerto_nap')} />
+              <Input placeholder="Ej.: 3" value={form.puerto_nap ?? ''} onChange={set('puerto_nap')} />
             </Field>
 
-            <Field
+            <Field campo="fecha_instalacion"
               label="Fecha de instalación"
               hint="Se completa sola al marcar la visita como hecha en Instalaciones"
             >
@@ -725,8 +726,8 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                 onChange={set('fecha_instalacion')}
               />
             </Field>
-            <Field label="Dirección del servicio">
-              <Input value={form.direccion ?? ''} onChange={set('direccion')} />
+            <Field campo="direccion" label="Dirección del servicio">
+              <Input placeholder="Ej.: Cdla. Kennedy Mz 5 V 12" value={form.direccion ?? ''} onChange={set('direccion')} />
             </Field>
 
             <Field label="Coordenadas" className="sm:col-span-2" hint="Latitud, longitud">
@@ -770,7 +771,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
         {/* --- Otros datos -------------------------------------------------- */}
         <Card title="Otros datos — equipo receptor" icon={Radio}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Conectado a" hint="Antena o torre desde la que se lo alimenta">
+            <Field campo="conectado_a_id" label="Conectado a" hint="Antena o torre desde la que se lo alimenta">
               <Select value={form.conectado_a_id ?? ''} onChange={set('conectado_a_id')}>
                 <option value="">— ninguno —</option>
                 {antenas.map((a) => (
@@ -780,7 +781,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                 ))}
               </Select>
             </Field>
-            <Field label="Tipo de antena" hint="El equipo en la casa del abonado">
+            <Field campo="tipo_antena" label="Tipo de antena" hint="El equipo en la casa del abonado">
               <Input
                 list="tipos-antena"
                 placeholder="LiteBeam 5AC"
@@ -794,7 +795,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
                 ))}
               </datalist>
             </Field>
-            <Field
+            <Field campo="ip_administracion"
               label="IP de administración"
               className="sm:col-span-2"
               hint="La de la antena o el equipo del cliente, para poder entrar a configurarlo"

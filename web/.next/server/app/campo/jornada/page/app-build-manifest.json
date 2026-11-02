@@ -1,0 +1,27 @@
+{
+  "pages": {
+    "/campo/jornada/page": [
+      "static/chunks/src_index_8b6fca74.css",
+      "static/chunks/src_c43fd74b._.js",
+      "static/chunks/node_modules_c49fe974._.js",
+      "static/chunks/app_layout_jsx_0a548d63._.js",
+      "static/chunks/app_error_jsx_60242091._.js",
+      "static/chunks/app_error_jsx_04cdbc06._.js",
+      "static/chunks/node_modules_next_dist_client_components_builtin_global-error_04cdbc06.js",
+      "static/chunks/_eabd3360._.js",
+      "static/chunks/node_modules_39664af3._.js",
+      "static/chunks/app_campo_layout_jsx_04cdbc06._.js",
+      "static/chunks/_30f02dd3._.js",
+      "static/chunks/app_campo_jornada_page_jsx_cdb9fccd._.js",
+      "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_57d40746._.js",
+      "static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js",
+      "static/chunks/node_modules_next_dist_compiled_next-devtools_index_a9cb0712.js",
+      "static/chunks/node_modules_next_dist_compiled_5150ccfd._.js",
+      "static/chunks/node_modules_next_dist_client_cf1d9188._.js",
+      "static/chunks/node_modules_next_dist_b0daae9a._.js",
+      "static/chunks/node_modules_@swc_helpers_cjs_b3dc30d6._.js",
+      "static/chunks/_a0ff3932._.js",
+      "static/chunks/turbopack-_cdba956c._.js"
+    ]
+  }
+}

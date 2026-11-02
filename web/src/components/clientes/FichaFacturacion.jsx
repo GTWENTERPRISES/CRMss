@@ -1,13 +1,16 @@
+import { usePais } from '../../lib/pais'
 import { useEffect, useState } from 'react'
 import { dineroCero as dinero } from '../../lib/formato'
 import { Link } from '@/lib/nextNavigation'
 import { FileText, Printer, Receipt, Settings, Wallet } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Badge, Button, Card, Cargando, Stat, Table } from '../ui'
 import FacturasCliente from './FacturasCliente'
 import ConfigFacturacion from './ConfigFacturacion'
 import ConfigAvisos from './ConfigAvisos'
+import { fecha as fmtFecha } from '@/lib/formato'
+import { COLOR_ESTADO as COLORES } from '../../lib/estados'
 
 /**
  * Facturación del abonado, en tres secciones.
@@ -20,17 +23,19 @@ import ConfigAvisos from './ConfigAvisos'
 
 const SECCIONES = [
   { id: 'facturas', label: 'Facturas', icon: Wallet },
-  { id: 'sri', label: 'Facturas SRI', icon: Receipt },
+  { id: 'sri', label: 'Facturas SRI', icon: Receipt, modulo: 'facturacionElectronica' },
   { id: 'config', label: 'Configuración', icon: Settings },
 ]
 
 export default function FichaFacturacion({ cliente, onError, onGuardado }) {
   const [seccion, setSeccion] = useState('facturas')
+  const pais = usePais()
+  const secciones = SECCIONES.filter((s) => !s.modulo || pais.modulos[s.modulo])
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-1">
-        {SECCIONES.map(({ id, label, icon: Icon }) => (
+        {secciones.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setSeccion(id)}
@@ -49,7 +54,7 @@ export default function FichaFacturacion({ cliente, onError, onGuardado }) {
       {seccion === 'facturas' && (
         <FacturasCliente cliente={cliente} onError={onError} onGuardado={onGuardado} />
       )}
-      {seccion === 'sri' && <FacturasSri cliente={cliente} onError={onError} />}
+      {seccion === 'sri' && pais.modulos.facturacionElectronica && <FacturasSri cliente={cliente} onError={onError} />}
       {seccion === 'config' && (
         <div className="space-y-4">
           <ConfigFacturacion cliente={cliente} onError={onError} onGuardado={onGuardado} />
@@ -65,14 +70,8 @@ export default function FichaFacturacion({ cliente, onError, onGuardado }) {
 
 /** Comprobantes emitidos al abonado, con lo que quedó pendiente de cada uno. */
 
-const COLOR_ESTADO = {
-  BORRADOR: 'gris',
-  FIRMADO: 'azul',
-  ENVIADO: 'ambar',
-  AUTORIZADO: 'verde',
-  NO_AUTORIZADO: 'rojo',
-  ANULADO: 'rojo',
-}
+// Colores de estado: los mismos en todo el sistema (lib/estados).
+const COLOR_ESTADO = COLORES.comprobante
 
 
 /** Abre un PDF que llega como blob: el pedido lleva el token en la cabecera. */
@@ -94,12 +93,12 @@ function FacturasSri({ cliente, onError }) {
 
     async function cargar() {
       const [d, f] = await Promise.all([
-        supabase
+        django
           .from('v_electronic_documents')
           .select('*')
           .eq('client_id', cliente.id)
           .order('fecha_emision', { ascending: false }),
-        supabase.from('v_facturas_por_cobrar').select('id, saldo').eq('client_id', cliente.id),
+        django.from('v_facturas_por_cobrar').select('id, saldo').eq('client_id', cliente.id),
       ])
 
       if (!vigente) return
@@ -123,11 +122,11 @@ function FacturasSri({ cliente, onError }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Stat label="Comprobantes" valor={docs.length} icon={Receipt} />
-        <Stat label="Autorizados" valor={autorizadas} color="text-emerald-400" />
-        <Stat label="Facturado" valor={dinero(total)} />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Comprobantes" valor={docs.length} icon={Receipt} />
+        <Stat cargando={cargando} label="Autorizados" valor={autorizadas} color="text-emerald-400" />
+        <Stat cargando={cargando} label="Facturado" valor={dinero(total)} />
+        <Stat cargando={cargando}
           label="Pendiente de cobro"
           valor={dinero(cliente.saldo)}
           color={Number(cliente.saldo) > 0 ? 'text-red-400' : 'text-emerald-400'}
@@ -157,7 +156,7 @@ function FacturasSri({ cliente, onError }) {
                 <td className="px-3 py-2 font-mono text-xs text-slate-100">
                   {d.numero_comprobante}
                 </td>
-                <td className="px-3 py-2 text-xs">{d.fecha_emision}</td>
+                <td className="px-3 py-2 text-xs">{fmtFecha(d.fecha_emision)}</td>
                 <td className="px-3 py-2">{dinero(d.importe_total)}</td>
                 <td className="px-3 py-2">
                   {saldos[d.id] ? (

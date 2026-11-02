@@ -732,7 +732,7 @@ export async function segmentoDePuerto(oltId, { slot, puerto }) {
       encontrado: false,
       vlan,
       motivo: `El puerto ${slot}/${puerto} tiene asignada la VLAN ${vlan}, que está declarada como ${data[0].uso}`,
-      hint: 'Esa VLAN no lleva abonados. Asignale al puerto una VLAN de internet en la OLT → VLANs.',
+      hint: 'Esa VLAN no lleva abonados. Asígnale al puerto una VLAN de internet en la OLT → VLANs.',
     }
   }
 
@@ -895,7 +895,7 @@ export async function segmentoSugerido({ oltId, slot, puerto, sn }) {
         por_puerto: { subred: p.subred, cidr: p.cidr, vlan: p.vlan },
         hint:
           'Se propone el de la VLAN que la ONT tiene puesta, que es por donde le sale el tráfico. ' +
-          'Revisá por qué no coincide con la de su puerto.',
+          'Revisa por qué no coincide con la de su puerto.',
       },
     })
   }
@@ -942,7 +942,7 @@ export async function segmentoDeVlan(oltId, vlan) {
       encontrado: false,
       vlan,
       motivo: `La VLAN ${vlan} está declarada como ${declarada.uso}: no lleva abonados`,
-      hint: 'Buscá en qué VLAN de internet está la ONT, o revisá la asignación del puerto.',
+      hint: 'Busca en qué VLAN de internet está la ONT, o revisa la asignación del puerto.',
     }
   }
 

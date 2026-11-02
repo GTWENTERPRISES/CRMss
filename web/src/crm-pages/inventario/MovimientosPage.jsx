@@ -11,6 +11,7 @@ import {
   Table,
 } from '../../components/ui'
 import { TIPOS_MOVIMIENTO, inventarioApi } from '../../lib/inventario'
+import { fechaHora as fmtFechaHora, numero as fmtNumero } from '@/lib/formato'
 
 /**
  * La bitácora del inventario.
@@ -83,11 +84,11 @@ export default function MovimientosPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Ingresos" valor={contar('ingreso')} color="text-emerald-400" />
-        <Stat label="Transferencias" valor={contar('transferencia')} color="text-sky-400" />
-        <Stat label="Consumos" valor={contar('consumo')} color="text-sky-400" />
-        <Stat label="Ajustes" valor={contar('ajuste')} color="text-red-400" />
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Ingresos" valor={contar('ingreso')} color="text-emerald-400" />
+        <Stat cargando={cargando} label="Transferencias" valor={contar('transferencia')} color="text-sky-400" />
+        <Stat cargando={cargando} label="Consumos" valor={contar('consumo')} color="text-sky-400" />
+        <Stat cargando={cargando} label="Ajustes" valor={contar('ajuste')} color="text-red-400" />
       </div>
 
       <Card>
@@ -133,12 +134,7 @@ export default function MovimientosPage() {
             renderFila={(m) => (
               <tr key={m.id} className="hover:bg-slate-800/40">
                 <td className="whitespace-nowrap px-3 py-2 text-[12px] text-slate-400">
-                  {new Date(m.creado_en).toLocaleString('es-EC', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {fmtFechaHora(m.creado_en)}
                 </td>
                 <td className="px-3 py-2">
                   <Badge color={TIPOS_MOVIMIENTO[m.tipo]?.color ?? 'gris'}>
@@ -156,7 +152,7 @@ export default function MovimientosPage() {
                       Number(m.cantidad) < 0 ? 'text-red-400' : 'text-slate-200'
                     }`}
                   >
-                    {Number(m.cantidad).toLocaleString('es-EC')} {m.unidad}
+                    {fmtNumero(m.cantidad)} {m.unidad}
                   </span>
                 </td>
                 <td className="px-3 py-2 text-[12px] text-slate-400">

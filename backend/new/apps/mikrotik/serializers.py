@@ -9,11 +9,7 @@ class RouterMikrotikSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RouterMikrotik
-        fields = [
-            'id', 'nombre', 'ip_host', 'modo_api', 'modo_api_display',
-            'puerto_api', 'usa_https', 'usuario', 'password', 'activo',
-            'created_at', 'updated_at',
-        ]
+        exclude = ['password_encrypted']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def create(self, validated_data):
@@ -31,26 +27,17 @@ class RouterMikrotikSerializer(serializers.ModelSerializer):
 
 class IPAddressSerializer(serializers.ModelSerializer):
     router_nombre = serializers.CharField(source='router.nombre', read_only=True)
-    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
 
     class Meta:
         model = IPAddress
-        fields = [
-            'id', 'router', 'router_nombre', 'onu', 'ip_address', 'netmask',
-            'interfaz', 'estado', 'estado_display', 'created_at', 'updated_at',
-        ]
+        fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class FirewallBloqueoSerializer(serializers.ModelSerializer):
     router_nombre = serializers.CharField(source='router.nombre', read_only=True)
-    tipo_accion_display = serializers.CharField(source='get_tipo_accion_display', read_only=True)
 
     class Meta:
         model = FirewallBloqueo
-        fields = [
-            'id', 'router', 'router_nombre', 'onu', 'cliente_ip', 'mac_address',
-            'tipo_accion', 'tipo_accion_display', 'comentario', 'routeros_id',
-            'activo', 'created_at', 'updated_at',
-        ]
+        fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at', 'routeros_id']

@@ -228,7 +228,7 @@ export default function SimuladorComisionesPage() {
         <div>
           <h1 className="t-titulo text-lg font-bold text-slate-100">Simulador de comisiones</h1>
           <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
-            Mové lo que quieras: nada de esto toca la configuración hasta que la apliques. Los
+            Mueve lo que quieras: nada de esto toca la configuración hasta que la apliques. Los
             números se recalculan solos.
           </p>
         </div>
@@ -259,13 +259,13 @@ export default function SimuladorComisionesPage() {
       {!esReal && (
         <Aviso tipo="alerta">
           Este escenario es un ejemplo, no el mes real: todavía no hay ventas comisionables
-          suficientes para armarlo con datos propios. Ajustá el equipo y la mezcla a lo que esperás.
+          suficientes para armarlo con datos propios. Ajusta el equipo y la mezcla a lo que esperas.
         </Aviso>
       )}
 
       {/* ------------------------------------------------- El resultado */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando}
           label="Costo total de incentivos"
           valor={dinero(editado.totales.total)}
           sub={
@@ -276,14 +276,14 @@ export default function SimuladorComisionesPage() {
           icon={Wallet}
           color="text-amber-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Comisión comercial"
           valor={dinero(editado.totales.comision)}
           sub={`${editado.totales.ventas} ventas · base ${dinero(editado.promedio)} promedio`}
           icon={Calculator}
           color="text-sky-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Bonos de calidad"
           valor={dinero(editado.totales.bono)}
           sub={`${editado.filas.filter((f) => f.bono > 0).length} de ${
@@ -292,7 +292,7 @@ export default function SimuladorComisionesPage() {
           icon={Trophy}
           color="text-violet-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Costo por cliente adquirido"
           valor={dinero(editado.totales.porCliente)}
           sub={
@@ -309,12 +309,13 @@ export default function SimuladorComisionesPage() {
         <Table
           columnas={['Vendedor', 'Ventas', 'Calidad', 'Nivel', 'Comisión', 'Bono', 'Total', '']}
           filas={editado.filas}
-          vacio="Agregá al menos un vendedor."
+          vacio="Agrega al menos un vendedor."
           renderFila={(f, i) => (
             <tr key={f.id}>
               <td className="px-3 py-1.5">
                 <Input
                   value={vendedores[i]?.nombre ?? ''}
+                  placeholder="Ej.: Ana"
                   onChange={(e) => setVendedor(i, 'nombre', e.target.value)}
                   className="w-36"
                 />
@@ -322,6 +323,7 @@ export default function SimuladorComisionesPage() {
               <td className="px-3 py-1.5">
                 <Input
                   type="number"
+                  placeholder="0"
                   min="0"
                   value={vendedores[i]?.ventas ?? 0}
                   onChange={(e) => setVendedor(i, 'ventas', e.target.value)}
@@ -331,6 +333,7 @@ export default function SimuladorComisionesPage() {
               <td className="px-3 py-1.5">
                 <Input
                   type="number"
+                  placeholder="0"
                   min="0"
                   max="100"
                   value={vendedores[i]?.calidad ?? 0}
@@ -371,7 +374,7 @@ export default function SimuladorComisionesPage() {
 
           <div className="flex items-end gap-2">
             <Field label="Equipo parejo" className="w-24">
-              <Input
+              <Input placeholder="Ej.: 5"
                 type="number"
                 min="1"
                 value={lote.cantidad}
@@ -379,7 +382,7 @@ export default function SimuladorComisionesPage() {
               />
             </Field>
             <Field label="Ventas cada uno" className="w-28">
-              <Input
+              <Input placeholder="Ej.: 10"
                 type="number"
                 min="0"
                 value={lote.ventas}
@@ -407,6 +410,7 @@ export default function SimuladorComisionesPage() {
               <td className="px-3 py-1.5">
                 <Input
                   type="number"
+                  placeholder="0"
                   step="0.01"
                   min="0"
                   value={m.base}
@@ -418,6 +422,7 @@ export default function SimuladorComisionesPage() {
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
+                    placeholder="0"
                     min="0"
                     max="100"
                     value={m.pct}
@@ -473,6 +478,7 @@ export default function SimuladorComisionesPage() {
               <td className="px-3 py-1.5">
                 <Input
                   type="number"
+                  placeholder="0"
                   min="0"
                   value={n.desde_ventas ?? ''}
                   onChange={(e) => setNivel(i, 'desde_ventas', e.target.value)}
@@ -493,6 +499,7 @@ export default function SimuladorComisionesPage() {
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
+                    placeholder="0"
                     step="0.01"
                     min="0"
                     max="100"
@@ -514,7 +521,7 @@ export default function SimuladorComisionesPage() {
         icon={Trophy}
         actions={
           <Field label="Mínimo de clientes" className="w-32">
-            <Input
+            <Input placeholder="Ej.: 5"
               type="number"
               min="0"
               value={minClientes}
@@ -532,6 +539,7 @@ export default function SimuladorComisionesPage() {
               <td className="px-3 py-1.5">
                 <Input
                   type="number"
+                  placeholder="0"
                   step="0.01"
                   min="0"
                   max="100"
@@ -543,6 +551,7 @@ export default function SimuladorComisionesPage() {
               <td className="px-3 py-1.5">
                 <Input
                   type="number"
+                  placeholder="0"
                   step="0.01"
                   min="0"
                   max="100"
@@ -554,6 +563,7 @@ export default function SimuladorComisionesPage() {
               <td className="px-3 py-1.5">
                 <Input
                   type="number"
+                  placeholder="0"
                   step="0.01"
                   min="0"
                   value={b.monto ?? ''}
@@ -613,7 +623,7 @@ export default function SimuladorComisionesPage() {
         {aplicando && (
           <form onSubmit={aplicar} className="space-y-4">
             <Field label="Nombre de la versión">
-              <Input
+              <Input placeholder="Ej.: Esquema 2027"
                 value={aplicando.nombre}
                 onChange={(e) => setAplicando((a) => ({ ...a, nombre: e.target.value }))}
                 required

@@ -40,7 +40,7 @@ function abrir(equipo, comunidad) {
   if (!comunidad) {
     throw new AppError('El equipo no tiene cargada la comunidad SNMP de lectura', {
       status: 400,
-      hint: 'Usá "Detectar comunidad" en la ficha: se lee del propio equipo y se guarda cifrada.',
+      hint: 'Usa "Detectar comunidad" en la ficha: se lee del propio equipo y se guarda cifrada.',
     })
   }
 
@@ -110,7 +110,7 @@ export function recorrer(equipo, comunidad, base, { tope = 20000 } = {}) {
             reject,
             new AppError(`SNMP no respondió en ${equipo.ip_host}: ${err.message}`, {
               status: 502,
-              hint: `Se reintentó ${config.snmp.reintentosPaso} veces desde el mismo punto. Verificá que SNMP esté habilitado, que la comunidad sea la correcta y que no haya una ACL bloqueando.`,
+              hint: `Se reintentó ${config.snmp.reintentosPaso} veces desde el mismo punto. Verifica que SNMP esté habilitado, que la comunidad sea la correcta y que no haya una ACL bloqueando.`,
               detalle: `Se cortó tras leer ${filas.length} valores, en ${actual}`,
             }),
           )

@@ -1,29 +1,31 @@
+"""
+Planes de velocidad y facturas.
+
+Las columnas son las de las tablas del dashboard (apps/dashboard/columnas.py,
+columnas.py). Lo pagado de una factura es la suma de los pagos no
+anulados que la apuntan (`pagos.factura_id`): un cobro que reparte entre varias
+facturas deja un pago por factura, como en el dashboard.
+"""
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db import models
+from django.db.models import Sum
 
-from apps.core.fields import EncryptedCharField, EncryptedTextField
 from apps.core.models import BaseModel
+from apps.dashboard import columnas
 
 
-class PlanVelocidad(BaseModel):
+class PlanVelocidad(columnas.ColumnasPlanVelocidad):
     class Categoria(models.TextChoices):
         RESIDENCIAL = 'residencial', 'Residencial'
+        CORPORATIVO = 'corporativo', 'Corporativo'
         EMPRESARIAL = 'empresarial', 'Empresarial'
+        OTRO = 'otro', 'Otro'
 
-    nombre = models.CharField(max_length=100, unique=True, db_index=True)
-    categoria = models.CharField(
-        max_length=20, choices=Categoria.choices,
-        default=Categoria.RESIDENCIAL, db_index=True,
-    )
-    bajada_kbps = models.IntegerField()
-    subida_kbps = models.IntegerField()
-    burst_limit = models.CharField(max_length=50, blank=True)
-    precio = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    precio_incluye_iva = models.BooleanField(default=False)
-    traffic_table_index = models.IntegerField(null=True, blank=True)
+    categoria = models.CharField(max_length=15, choices=Categoria.choices, default=Categoria.RESIDENCIAL, blank=True)
 
-    class Meta:
+    class Meta(columnas.ColumnasPlanVelocidad.Meta):
         db_table = 'planes_velocidad'
         ordering = ['bajada_kbps']
         verbose_name = 'Plan de Velocidad'
@@ -41,53 +43,54 @@ class PlanVelocidad(BaseModel):
         return round(self.subida_kbps / 1000, 2)
 
 
-class Factura(BaseModel):
+class Factura(columnas.ColumnasFactura):
     class Estado(models.TextChoices):
+        """El estado no se guarda: lo calcula v_facturas (anulada, saldo, mora)."""
         PENDIENTE = 'pendiente', 'Pendiente'
         VENCIDA = 'vencida', 'Vencida'
         PAGADA = 'pagada', 'Pagada'
         ANULADA = 'anulada', 'Anulada'
 
-    cliente = models.ForeignKey(
-        'clientes.Cliente', on_delete=models.CASCADE, related_name='facturas',
-    )
-    numero = models.CharField(max_length=20, unique=True)
-    fecha = models.DateField(auto_now_add=True)
-    mes = models.CharField(max_length=20)
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    iva = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total = models.DecimalField(max_digits=10, decimal_places=2)
-    fecha_vencimiento = models.DateField()
-    estado = models.CharField(
-        max_length=20, choices=Estado.choices,
-        default=Estado.PENDIENTE, db_index=True,
-    )
-    xml_sri = EncryptedTextField(blank=True)
-    clave_acceso = EncryptedCharField(max_length=255, blank=True, db_index=True)
-    enviada = models.BooleanField(default=False, db_index=True)
-
-    class Meta:
+    class Meta(columnas.ColumnasFactura.Meta):
         db_table = 'facturas'
-        ordering = ['-fecha', '-numero']
+        ordering = ['-fecha_emision', '-numero']
         verbose_name = 'Factura'
         verbose_name_plural = 'Facturas'
-        indexes = [
-            models.Index(fields=['cliente', 'estado']),
-            models.Index(fields=['fecha_vencimiento']),
-        ]
 
     def __str__(self):
-        return f'Factura {self.numero} - {self.cliente.nombre}'
+        return f'Factura {self.numero} - {self.cliente_nombre or self.client_id}'
+
+    @property
+    def pagado(self):
+        from apps.pagos.models import Pago
+
+        return Pago.objects.filter(factura=self, anulado=False).aggregate(
+            t=Sum('monto'))['t'] or Decimal('0')
 
     @property
     def saldo_pendiente(self):
-        from django.db.models import Sum
+        if self.anulada:
+            return Decimal('0')
+        return max(self.total - self.pagado, Decimal('0'))
 
-        aplicado = self.pagos_factura.aggregate(total=Sum('monto_aplicado'))['total'] or Decimal('0')
-        return max(self.total - aplicado, Decimal('0'))
+    @property
+    def estado(self):
+        """El mismo CASE que v_facturas."""
+        from apps.dashboard.base import hoy
+
+        if self.anulada:
+            return self.Estado.ANULADA
+        if self.saldo_pendiente <= Decimal('0.005'):
+            return self.Estado.PAGADA
+        gracia = (self.client.dias_gracia or 0) if self.client_id else 0
+        if hoy() > self.fecha_vencimiento + timedelta(days=gracia):
+            return self.Estado.VENCIDA
+        return self.Estado.PENDIENTE
 
 
 class DetalleFactura(BaseModel):
+    """Renglones de una factura armada desde Django (no es tabla del dashboard)."""
+
     factura = models.ForeignKey(Factura, on_delete=models.CASCADE, related_name='detalles')
     servicio = models.ForeignKey(
         'clientes.Servicio', on_delete=models.SET_NULL, null=True, blank=True,
@@ -109,6 +112,5 @@ class DetalleFactura(BaseModel):
         return f'{self.descripcion} - {self.subtotal}'
 
     def save(self, *args, **kwargs):
-        # Calcular subtotal automáticamente
         self.subtotal = self.cantidad * self.precio_unitario
         super().save(*args, **kwargs)

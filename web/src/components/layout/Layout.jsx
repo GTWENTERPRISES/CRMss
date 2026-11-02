@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from '@/lib/nextNavigation'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
+import Avisos from './Avisos'
+import Buscador from './Buscador'
+import Migas from './Migas'
 import SinPermiso from './SinPermiso'
 import { usePermisos } from '../../lib/AuthContext'
 import { puedeEntrar } from '../../lib/rutasPermisos'
@@ -55,12 +58,17 @@ export default function Layout({ children }) {
           ) : errorPerfil ? (
             <NoSePudoVerificar error={errorPerfil} />
           ) : permitido ? (
-            children ?? <Outlet />
+            <>
+              <Migas />
+              {children ?? <Outlet />}
+            </>
           ) : (
             <SinPermiso />
           )}
         </main>
       </div>
+      <Avisos />
+      <Buscador />
     </div>
   )
 }
@@ -74,7 +82,7 @@ export default function Layout({ children }) {
 /**
  * No se pudo averiguar quién entró.
  *
- * Es un estado raro —red caída, Supabase sin responder— pero tiene que existir
+ * Es un estado raro —red caída, la base sin responder— pero tiene que existir
  * como pantalla. Antes no existía y el sistema resolvía solo: trataba el fallo
  * como "este usuario no tiene legajo", que es el caso de una instalación sin
  * migrar, y a ese caso se le abre todo para no dejar a nadie afuera. Un corte de
@@ -87,7 +95,7 @@ const NoSePudoVerificar = ({ error }) => (
   <div className="mx-auto max-w-md py-16 text-center">
     <h2 className="t-titulo text-lg font-bold text-slate-100">No se pudo verificar tu perfil</h2>
     <p className="mt-2 text-sm text-slate-400">
-      El sistema no pudo leer quién sos, así que no muestra nada hasta saberlo. Suele ser la
+      El sistema no pudo leer quién eres, así que no muestra nada hasta saberlo. Suele ser la
       conexión.
     </p>
     <button

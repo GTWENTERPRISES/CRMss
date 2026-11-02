@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Check, Copy, FileText, Info, Save, X } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Aviso, Badge, Button, Card, Cargando, Field, Input, Modal, Textarea } from '../ui'
 
 /**
@@ -46,7 +46,7 @@ export default function ClausulasContrato({ prestador, onError }) {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_clausulas_prestador')
       .select('*')
       .eq('prestador_id', prestador.id)
@@ -72,7 +72,7 @@ export default function ClausulasContrato({ prestador, onError }) {
     setGuardando(true)
     onError?.(null)
     try {
-      const { error } = await supabase.rpc('copiar_modelo_a_prestador', {
+      const { error } = await django.rpc('copiar_modelo_a_prestador', {
         p_prestador: prestador.id,
       })
       if (error) throw error
@@ -88,7 +88,7 @@ export default function ClausulasContrato({ prestador, onError }) {
     setGuardando(true)
     onError?.(null)
     try {
-      const { error } = await supabase
+      const { error } = await django
         .from('clausulas_contrato')
         .update({
           numeral: cambios.numeral.trim(),
@@ -146,7 +146,7 @@ export default function ClausulasContrato({ prestador, onError }) {
           <Info size={14} className="mt-0.5 shrink-0" />
           <span>
             Está usando el <b>modelo base</b> que trae el sistema. Si el modelo que inscribió ante
-            la ARCOTEL dice otra cosa, tocá <b>Usar mi propio modelo</b>: se copia una para editar
+            la ARCOTEL dice otra cosa, toca <b>Usar mi propio modelo</b>: se copia una para editar
             sin cambiarle el contrato a nadie más.
           </span>
         </div>
@@ -185,7 +185,7 @@ export default function ClausulasContrato({ prestador, onError }) {
                   })
                 }
                 disabled={!propias}
-                title={propias ? 'Editar el texto' : 'Primero tocá "Usar mi propio modelo"'}
+                title={propias ? 'Editar el texto' : 'Primero toca "Usar mi propio modelo"'}
                 className="ml-auto text-[11px] text-sky-400 hover:text-sky-300 disabled:cursor-not-allowed disabled:text-slate-600"
               >
                 Editar
@@ -245,35 +245,35 @@ function EditorClausula({ clausula, guardando, onCerrar, onGuardar }) {
         </Aviso>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Numeral" hint="Como se imprime">
-            <Input value={form.numeral} onChange={set('numeral')} />
+          <Field campo="numeral" label="Numeral" hint="Como se imprime">
+            <Input placeholder="Ej.: 1.1" value={form.numeral} onChange={set('numeral')} />
           </Field>
-          <Field label="Título" className="sm:col-span-2">
-            <Input value={form.titulo} onChange={set('titulo')} />
+          <Field campo="titulo" label="Título" className="sm:col-span-2">
+            <Input placeholder="Ej.: Corte de fibra en Urdesa" value={form.titulo} onChange={set('titulo')} />
           </Field>
         </div>
 
-        <Field
+        <Field campo="texto"
           label="Texto"
           hint="Acepta {{vigencia}}, {{permanencia_ofrecida}} y {{empresa}}: se reemplazan al imprimir"
         >
-          <Textarea rows={6} value={form.texto} onChange={set('texto')} />
+          <Textarea placeholder="Ej.: Hola {{primer_nombre}}…" rows={6} value={form.texto} onChange={set('texto')} />
         </Field>
 
-        <Field
+        <Field campo="numerales"
           label="Apartados numerados"
           hint="Uno por bloque, separados por una línea en blanco (7.1, 7.2…)"
         >
-          <Textarea rows={4} value={form.numerales} onChange={set('numerales')} />
+          <Textarea placeholder="Ej.: 1. El servicio…" rows={4} value={form.numerales} onChange={set('numerales')} />
         </Field>
 
-        <Field label="Cierre" hint="El párrafo que va después del bloque">
-          <Textarea rows={4} value={form.cierre} onChange={set('cierre')} />
+        <Field campo="cierre" label="Cierre" hint="El párrafo que va después del bloque">
+          <Textarea placeholder="Ej.: Atentamente, QA Net" rows={4} value={form.cierre} onChange={set('cierre')} />
         </Field>
 
         {(form.cierre2 || clausula.cierre2) && (
-          <Field label="Cierre 2" hint="Un segundo párrafo de cierre">
-            <Textarea rows={4} value={form.cierre2} onChange={set('cierre2')} />
+          <Field campo="cierre2" label="Cierre 2" hint="Un segundo párrafo de cierre">
+            <Textarea placeholder="Ej.: Gracias por preferirnos" rows={4} value={form.cierre2} onChange={set('cierre2')} />
           </Field>
         )}
 

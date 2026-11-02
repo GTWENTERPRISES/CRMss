@@ -5,7 +5,7 @@
  *
  * Separa dos cosas que se confunden fácil:
  *
- *   a) ¿La aplicación tiene bien los datos? — lee la fila de Supabase, descifra
+ *   a) ¿La aplicación tiene bien los datos? — lee la fila de la base, descifra
  *      la contraseña y muestra exactamente con qué host, puerto y usuario se va
  *      a conectar el driver.
  *
@@ -167,7 +167,7 @@ for (const fila of filas) {
 
   if (fila.modo_api == null) {
     console.log('\n      Nota: la columna modo_api no existe o está vacía en esta fila.')
-    console.log('      Se dedujo el modo por el puerto. Corré supabase/migracion-01-modo-api.sql')
+    console.log('      Se dedujo el modo por el puerto. Revisa el campo modo del router en la pantalla de Routers')
   }
 
   // --- (b) ¿La red deja pasar? ---

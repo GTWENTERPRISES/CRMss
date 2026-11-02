@@ -273,7 +273,7 @@ export function generarXmlFactura({ emisor, factura, detalles }) {
     if (largo > 300) {
       throw new SriError(
         `El campo adicional "${c.nombre}" tiene ${largo} caracteres y el SRI admite 300. ` +
-          'Partilo en varios campos (ver partirEnCampos en sri/periodo.js).',
+          'Pártelo en varios campos (ver partirEnCampos en sri/periodo.js).',
       )
     }
   }

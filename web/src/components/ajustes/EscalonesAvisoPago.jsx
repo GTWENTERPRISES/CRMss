@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CalendarClock, RotateCw, Save } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Aviso, Button, ErrorBanner, Field, Input } from '../ui'
 
 /**
@@ -72,7 +72,7 @@ export default function EscalonesAvisoPago() {
   const [aviso, setAviso] = useState(null)
 
   const cargar = useCallback(async () => {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('config_avisos_pago')
       .select('dias_aviso_1, dias_aviso_2, dias_aviso_3, dias_aviso_4, repetir_cada_4')
       .eq('id', 1)
@@ -85,7 +85,7 @@ export default function EscalonesAvisoPago() {
         err.code === '42703'
           ? {
               message: 'Falta la migración 187',
-              hint: 'Corré supabase/migracion-187-el-cuarto-aviso-al-que-ya-esta-cortado.sql en el SQL Editor.',
+              hint: 'Actualiza la base: python manage.py migrate.',
             }
           : err,
       )
@@ -122,7 +122,7 @@ export default function EscalonesAvisoPago() {
       repetir_cada_4: n(form.repetir_cada_4, 15),
     }
 
-    const { error: err } = await supabase.from('config_avisos_pago').upsert(fila)
+    const { error: err } = await django.from('config_avisos_pago').upsert(fila)
     setGuardando(false)
 
     if (err) {
@@ -132,7 +132,7 @@ export default function EscalonesAvisoPago() {
         err.message?.includes('repetir_cada_4_check')
           ? {
               message: 'La repetición tiene que ser de 7 días o más',
-              hint: 'Poné 0 si querés que el cuarto aviso salga una sola vez y no se repita.',
+              hint: 'Pon 0 si quieres que el cuarto aviso salga una sola vez y no se repita.',
             }
           : err,
       )
@@ -179,13 +179,13 @@ export default function EscalonesAvisoPago() {
 
       {/* La repetición cuelga del cuarto escalón, no es un escalón más. */}
       <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-[rgba(15,23,42,0.06)] pt-4">
-        <Field
+        <Field campo="repetir_cada_4"
           label="Repetir el 4 cada"
           hint="Mientras siga cortado y debiendo. 0 = una sola vez."
           className="w-44"
         >
           <div className="flex items-center gap-2">
-            <Input
+            <Input placeholder="Ej.: 7"
               type="number"
               min={0}
               max={365}

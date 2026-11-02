@@ -11,7 +11,7 @@ import {
   Search,
   UserCheck,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import {
   Aviso,
   Badge,
@@ -32,6 +32,7 @@ import { usePermisos } from '../../lib/AuthContext'
 import { ESTADOS, ESTADOS_BACKOFFICE } from '../../lib/instalaciones'
 import { TIPOS_DOCUMENTO, expedientesApi } from '../../lib/expedientes'
 import { personalApi } from '../../lib/personal'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Nuevas instalaciones — la bandeja del backoffice.
@@ -74,11 +75,11 @@ export default function BackofficePage() {
     setCargando(true)
     try {
       const [ins, tec, exp] = await Promise.all([
-        supabase.from('v_instalaciones').select('*').order('created_at').limit(500),
-        supabase.from('tecnicos').select('id, nombre, especialidad').eq('activo', true).order('nombre'),
+        django.from('v_instalaciones').select('*').order('created_at').limit(500),
+        django.from('tecnicos').select('id, nombre, especialidad').eq('activo', true).order('nombre'),
         // El expediente trae de qué vendedor vino cada orden. Es el enlace que
         // permite el filtro que pediste.
-        supabase.from('v_expedientes').select('*').not('instalacion_id', 'is', null),
+        django.from('v_expedientes').select('*').not('instalacion_id', 'is', null),
       ])
       if (ins.error) throw ins.error
 
@@ -137,7 +138,7 @@ export default function BackofficePage() {
 
   const cambiarEstado = async (orden, estado, extra = {}) => {
     try {
-      const { error: err } = await supabase
+      const { error: err } = await django
         .from('instalaciones')
         .update({ estado, ...extra })
         .eq('id', orden.id)
@@ -168,21 +169,21 @@ export default function BackofficePage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando}
           label="Nuevas sin revisar"
           valor={cuenta('nueva')}
           icon={Inbox}
           color={cuenta('nueva') ? 'text-violet-400' : 'text-slate-400'}
         />
-        <Stat label="En revisión" valor={cuenta('revisando')} color="text-amber-400" />
-        <Stat
+        <Stat cargando={cargando} label="En revisión" valor={cuenta('revisando')} color="text-amber-400" />
+        <Stat cargando={cargando}
           label="Listas para asignar"
           valor={cuenta('lista_asignar')}
           icon={UserCheck}
           color="text-sky-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Esperando hace 3+ días"
           valor={
             ordenes.filter((o) => ESTADOS_BACKOFFICE.includes(o.estado) && diasEsperando(o) >= 3)
@@ -289,7 +290,7 @@ export default function BackofficePage() {
                     {o.tecnico_nombre ?? <span className="text-amber-400">sin asignar</span>}
                     {o.fecha && (
                       <div className="text-[11px] text-slate-500">
-                        {new Date(`${o.fecha}T12:00:00`).toLocaleDateString('es-EC')}
+                        {fmtFecha(`${o.fecha}T12:00:00`)}
                       </div>
                     )}
                   </td>
@@ -363,12 +364,12 @@ export default function BackofficePage() {
       >
         {asignando && (
           <div className="space-y-3">
-            <Field label="Técnico">
+            <Field hint="Quién va a hacer el trabajo." label="Técnico">
               <Select
                 value={asignando.tecnico_id}
                 onChange={(e) => setAsignando({ ...asignando, tecnico_id: e.target.value })}
               >
-                <option value="">— elegí el técnico —</option>
+                <option value="">— elige el técnico —</option>
                 {tecnicos.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.nombre}
@@ -386,7 +387,7 @@ export default function BackofficePage() {
                   onChange={(e) => setAsignando({ ...asignando, fecha: e.target.value })}
                 />
               </Field>
-              <Field label="Hora (opcional)">
+              <Field hint="Solo si acordaron una hora exacta." label="Hora (opcional)">
                 <Input
                   type="time"
                   value={asignando.hora}
@@ -548,7 +549,7 @@ function RevisionExpediente({ orden, perfil, onError, onEstado }) {
       {exp && !exp.ok_firma && (
         <Aviso tipo="alerta">
           <FileSignature size={14} className="mr-1 inline" />
-          El contrato de esta orden no figura firmado. No debería haber llegado acá — revisalo antes
+          El contrato de esta orden no figura firmado. No debería haber llegado acá — revísalo antes
           de aprobar.
         </Aviso>
       )}

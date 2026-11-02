@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { LifeBuoy, Loader2, Plus } from 'lucide-react'
 import { portalApi } from '../../lib/portalApi'
 import { Cargando, Tarjeta, Vacio } from './PortalApp'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Reportar una falla y seguirla.
@@ -63,7 +64,7 @@ export default function PortalReclamos() {
 
       {!tickets.length ? (
         <Vacio icono={LifeBuoy}>
-          No tenés reclamos. Si algo no anda, contanos y mandamos a alguien.
+          No tienes reclamos. Si algo no anda, contanos y mandamos a alguien.
         </Vacio>
       ) : (
         tickets.map((t) => {
@@ -86,7 +87,7 @@ export default function PortalReclamos() {
                   gente vuelve a llamar. */}
               {t.fecha_visita && t.estado !== 'resuelto' && (
                 <p className="mt-1 text-xs text-slate-400">
-                  Visita: {new Date(`${t.fecha_visita}T12:00:00`).toLocaleDateString('es-EC')}
+                  Visita: {fmtFecha(`${t.fecha_visita}T12:00:00`)}
                   {t.franja === 'manana' && ' por la mañana'}
                   {t.franja === 'tarde' && ' por la tarde'}
                 </p>

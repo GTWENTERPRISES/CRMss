@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { AlertTriangle, CheckCircle2, FileText, PhoneCall, Upload } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { api } from '../lib/apiNetwork'
 import { abrirPdf } from '../lib/pdf'
 import { dineroCero as dinero } from '../lib/formato'
 import { Aviso, Button, Card, ErrorBanner, Field, Select, Table } from '../components/ui'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Conciliación bancaria.
@@ -38,7 +39,7 @@ export default function ConciliacionPage() {
   const inputRef = useRef(null)
 
   useEffect(() => {
-    supabase
+    django
       .from('cuentas_pago')
       .select('id, nombre, tipo, banco')
       .eq('activa', true)
@@ -77,7 +78,7 @@ export default function ConciliacionPage() {
       <div>
         <h1 className="text-xl font-semibold text-slate-100">Conciliación bancaria</h1>
         <p className="text-sm text-slate-500">
-          Subí el extracto del banco y comprobá que los comprobantes registrados existan de
+          Sube el extracto del banco y comprueba que los comprobantes registrados existan de
           verdad.
         </p>
       </div>
@@ -246,7 +247,7 @@ function Informe({ informe, onPdf }) {
                   )}
                 </td>
                 <td className="px-3 py-2 font-mono text-xs">{c.n_transaccion ?? '—'}</td>
-                <td className="px-3 py-2 text-xs">{c.fecha_pago}</td>
+                <td className="px-3 py-2 text-xs">{fmtFecha(c.fecha_pago)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{dinero(c.cobrado)}</td>
                 <td className="px-3 py-2 text-xs text-slate-500">{c.motivo}</td>
               </tr>
@@ -268,7 +269,7 @@ function Informe({ informe, onPdf }) {
             renderFila={(m) => (
               <tr key={`${m.documento}-${m.fila}`} className="text-slate-300">
                 <td className="px-3 py-2 text-xs">
-                  {m.fecha} <span className="text-slate-600">{String(m.hora).slice(0, 5)}</span>
+                  {fmtFecha(m.fecha)} <span className="text-slate-600">{String(m.hora).slice(0, 5)}</span>
                 </td>
                 <td className="px-3 py-2 text-slate-100">
                   {m.probable_nombre || <span className="text-slate-600">no lo dice el banco</span>}

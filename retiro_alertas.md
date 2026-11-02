@@ -367,7 +367,7 @@ mañana, y un mensaje mal armado a esa hora es una salida al pedo.
 | **4** | Categorías de cierre y checklist | Ordena lo que hoy es texto libre |
 | **5** | Deuda de equipo y aviso al reingresar | Último: solo sirve cuando ya haya casos cerrados |
 
-Cada uno es una migración numerada con sus pruebas en `supabase/pruebas` y
+Cada uno es un cambio en el esquema de Django con sus pruebas en `backend/new/tests` y
 `middleware/test`, como el resto del módulo de cartera.
 
 ---

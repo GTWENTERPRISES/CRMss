@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { DollarSign, LogOut, Menu, ServerCog } from 'lucide-react'
+import { DollarSign, LogOut, Menu, Moon, Search, Sun } from 'lucide-react'
 import { NavLink } from '@/lib/nextNavigation'
 import { useAuth, usePermisos } from '../../lib/AuthContext'
 import { api } from '../../lib/apiNetwork'
@@ -38,15 +38,19 @@ export default function Navbar({ onAbrirMenu = () => {} }) {
     }
   }, [])
 
+  // En lenguaje de mostrador: "middleware" no le dice nada a quien cobra. El
+  // detalle técnico (qué falta configurar) queda para quien opera la red, en el
+  // tooltip.
+  const tecnico = puede('red.olts_ver')
   const indicador = {
-    consultando: ['bg-slate-500', 'consultando…'],
-    ok: ['bg-emerald-500', 'middleware ok'],
-    incompleto: ['bg-amber-500', `middleware sin configurar: ${middleware.detalle || ''}`],
-    caido: ['bg-red-500', 'middleware no responde'],
+    consultando: ['bg-slate-400', 'Conectando…', 'Consultando el servicio de red'],
+    ok: ['bg-emerald-500', 'Sistema en línea', 'El servicio de red responde'],
+    incompleto: ['bg-amber-500', 'Red sin configurar', `Falta configurar: ${middleware.detalle || ''}`],
+    caido: ['bg-red-500', 'Red sin conexión', 'El servicio de red (middleware) no responde'],
   }[middleware.estado]
 
   return (
-    <header className="flex items-center justify-between border-b border-[rgba(15,23,42,0.06)] bg-white px-3 py-2.5 sm:px-6 sm:py-3">
+    <header className="flex items-center justify-between border-b bg-background px-3 py-2.5 sm:px-6 sm:py-3">
       <div className="flex min-w-0 items-center gap-3 text-xs text-slate-400">
         {/* Abre el menú. Solo en pantallas chicas: de `lg` para arriba la barra
             lateral está siempre a la vista y este botón no haría nada. */}
@@ -64,8 +68,7 @@ export default function Navbar({ onAbrirMenu = () => {} }) {
             MODO DEMO — datos de ejemplo
           </span>
         )}
-        <span className="flex items-center gap-2" title={indicador[1]}>
-          <ServerCog size={14} />
+        <span className="flex items-center gap-2 text-muted-foreground" title={tecnico ? indicador[2] : indicador[1]}>
           <span className={`h-2 w-2 rounded-full ${indicador[0]}`} />
           {/* El texto solo desde `sm`: en un teléfono "middleware sin configurar:
               ..." empuja todo y deja sin lugar a los botones. El punto de color
@@ -75,6 +78,20 @@ export default function Navbar({ onAbrirMenu = () => {} }) {
       </div>
 
       <div className="flex items-center gap-3">
+        <BotonTema />
+        {/* El buscador global (components/layout/Buscador.jsx). El botón es
+            para quien no conoce el atajo: lo dice al lado. */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event('buscador:abrir'))}
+          aria-label="Buscar (Ctrl+K)"
+          title="Buscar cliente, factura, ticket o pantalla (Ctrl+K)"
+          className="flex items-center gap-2 rounded-xl border border-slate-700 px-2.5 py-1.5 text-xs text-slate-500 transition hover:bg-slate-800 hover:text-slate-200"
+        >
+          <Search size={14} />
+          <span className="hidden md:inline">Buscar</span>
+          <kbd className="t-dato hidden rounded border border-slate-700 px-1 text-[10px] lg:inline">Ctrl K</kbd>
+        </button>
         {/**
          * Cobrar, a un clic desde cualquier pantalla.
          *
@@ -121,5 +138,31 @@ export default function Navbar({ onAbrirMenu = () => {} }) {
         </button>
       </div>
     </header>
+  )
+}
+
+/**
+ * Claro / oscuro. Se recuerda por dispositivo (quien trabaja de noche en el NOC
+ * lo quiere oscuro en esa PC, no en el celular). La clase va en <html>: los
+ * colores de .dark están en index.css.
+ */
+function BotonTema() {
+  const [oscuro, setOscuro] = useState(() => {
+    try { return localStorage.getItem('tema-color') === 'oscuro' } catch { return false }
+  })
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', oscuro)
+    try { localStorage.setItem('tema-color', oscuro ? 'oscuro' : 'claro') } catch { /* modo privado */ }
+  }, [oscuro])
+  return (
+    <button
+      type="button"
+      onClick={() => setOscuro((v) => !v)}
+      aria-label={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      title={oscuro ? 'Modo claro' : 'Modo oscuro'}
+      className="rounded-xl border border-slate-700 p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200"
+    >
+      {oscuro ? <Sun size={15} /> : <Moon size={15} />}
+    </button>
   )
 }

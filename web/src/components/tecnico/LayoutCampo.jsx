@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from '@/lib/nextNavigation'
-import { Bell } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { Bell, Star } from 'lucide-react'
+import { django } from '../../lib/djangoClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { saludo } from '../../lib/campo'
 import BarraInferior, { DESTINOS, NavEscritorio } from './BarraInferior'
 import EstadoConexion from './EstadoConexion'
+import { useMiCuadrilla } from './MiCuadrilla'
 import { arrancarCola } from '../../lib/cola'
 // Registra qué sabe hacer la cola. El import tiene efecto de módulo y no
 // exporta nada que se use acá: sin él, la cola acepta operaciones que después
 // no sabe despachar.
 import '../../lib/colaCampo'
+import Avisos from '../layout/Avisos'
 
 /**
  * El marco de la app de campo.
@@ -38,10 +40,10 @@ export default function LayoutCampo({ children }) {
   const [sinLeer, setSinLeer] = useState(0)
 
   const contar = useCallback(async () => {
-    const { count } = await supabase
+    const { count } = await django
       .from('v_notificaciones')
-      .select('id', { count: 'exact', head: true })
-      .is('leida_en', null)
+      .select('clave', { count: 'exact', head: true })
+      .eq('leida', false)
     setSinLeer(count ?? 0)
   }, [])
 
@@ -66,9 +68,10 @@ export default function LayoutCampo({ children }) {
     d.end ? pathname === d.to : pathname.startsWith(d.to),
   )
   const enInicio = pathname === '/campo'
+  const cuadrilla = useMiCuadrilla(perfil?.tecnico_id)
 
   return (
-    <div className="min-h-dvh bg-[#F6F8FB] pb-24 text-slate-200 md:pb-6">
+    <div className="min-h-dvh bg-background pb-24 text-slate-200 md:pb-6">
       <header className="sticky top-0 z-30 border-b border-slate-800 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
@@ -85,6 +88,14 @@ export default function LayoutCampo({ children }) {
                     month: 'long',
                   })
                 : `${perfil?.nombre ?? ''} ${perfil?.apellido ?? ''}`.trim()}
+              {/* El distintivo del jefe de grupo, en todas las pantallas: es
+                  quien carga vehículo y km, y tiene que saberlo antes de salir. */}
+              {cuadrilla?.soy_jefe && (
+                <span className="ml-1.5 inline-flex items-center gap-0.5 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-500">
+                  <Star size={10} /> Jefe de grupo · {cuadrilla.cuadrilla}
+                  {cuadrilla.es_reemplazo ? ' (hoy)' : ''}
+                </span>
+              )}
             </p>
           </div>
 
@@ -114,6 +125,7 @@ export default function LayoutCampo({ children }) {
       </div>
 
       <BarraInferior pendientes={{ avisos: sinLeer }} />
+      <Avisos />
     </div>
   )
 }

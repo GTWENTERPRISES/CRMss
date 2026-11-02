@@ -125,7 +125,7 @@ async function llamarSoap(url, sobre, accion) {
         : `No se pudo contactar al SRI: ${err?.message ?? err}`,
       {
         status: 504,
-        hint: 'Los servicios del SRI se caen con cierta frecuencia. Reintentá en unos minutos; el comprobante ya emitido sigue siendo válido.',
+        hint: 'Los servicios del SRI se caen con cierta frecuencia. Reintenta en unos minutos; el comprobante ya emitido sigue siendo válido.',
       },
     )
   }
@@ -217,7 +217,7 @@ export async function consultarAutorizacion(claveAcceso, ambiente = '1') {
       numeroComprobantes: numero,
       mensajes: [],
       pendiente: true,
-      aviso: 'El SRI todavía no devolvió la autorización. Suele tardar unos segundos; volvé a consultar.',
+      aviso: 'El SRI todavía no devolvió la autorización. Suele tardar unos segundos; vuelve a consultar.',
     }
   }
 

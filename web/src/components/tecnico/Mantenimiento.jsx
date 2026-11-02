@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Check, Wrench } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Badge, Button, ErrorBanner, Field, Input, Modal, SkeletonTabla } from '../ui'
 import { fechaLocal } from '../../lib/abonados'
 import { cuantoFalta, urgencia } from '../../lib/mantenimiento'
+import { numero as fmtNumero } from '@/lib/formato'
 
 /**
  * Qué le falta a cada vehículo, y registrar lo que se le hizo.
@@ -45,7 +46,7 @@ export default function Mantenimiento() {
   const [registrando, setRegistrando] = useState(null)
 
   const cargar = useCallback(async () => {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('v_mantenimiento')
       .select('*')
       .order('vehiculo')
@@ -56,7 +57,7 @@ export default function Mantenimiento() {
         err.code === '42P01'
           ? {
               message: 'Falta la migración 191',
-              hint: 'Corré supabase/migracion-191-el-mantenimiento-de-los-vehiculos.sql en el SQL Editor.',
+              hint: 'Actualiza la base: python manage.py migrate.',
             }
           : err,
       )
@@ -122,13 +123,13 @@ export default function Mantenimiento() {
                       <p className="text-[13px] font-medium text-slate-200">{m.tipo}</p>
                       <p className="t-dato mt-0.5 text-[11px] text-slate-500">
                         {cuantoFalta(m)}
-                        {m.cada_km && ` · cada ${m.cada_km.toLocaleString('es-EC')} km`}
+                        {m.cada_km && ` · cada ${fmtNumero(m.cada_km)} km`}
                         {m.cada_meses && ` · cada ${m.cada_meses} meses`}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <Badge color={COLOR[u]}>{ETIQUETA[u]}</Badge>
-                      <Button
+                      <Button variante="primario"
                         icon={Check}
                         className="py-1 text-xs"
                         onClick={() =>
@@ -181,7 +182,7 @@ function RegistrarServicio({ m, onCerrar, onHecho, onError }) {
 
   async function guardar() {
     setGuardando(true)
-    const { error } = await supabase.from('mantenimientos').insert({
+    const { error } = await django.from('mantenimientos').insert({
       vehiculo_id: m.vehiculo_id,
       tipo_id: m.tipo_id,
       fecha: form.fecha,
@@ -201,14 +202,14 @@ function RegistrarServicio({ m, onCerrar, onHecho, onError }) {
     <Modal abierto titulo={`${m.tipo} · ${m.vehiculo}`} onCerrar={onCerrar}>
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Fecha">
+          <Field campo="fecha" label="Fecha">
             <Input
               type="date"
               value={form.fecha}
               onChange={(e) => setForm({ ...form, fecha: e.target.value })}
             />
           </Field>
-          <Field
+          <Field campo="odometro"
             label="Odómetro"
             hint={
               m.cada_km
@@ -216,14 +217,14 @@ function RegistrarServicio({ m, onCerrar, onHecho, onError }) {
                 : 'Opcional: este servicio va por fecha.'
             }
           >
-            <Input
+            <Input placeholder="Ej.: 45230"
               type="number"
               inputMode="numeric"
               value={form.odometro}
               onChange={(e) => setForm({ ...form, odometro: e.target.value })}
             />
           </Field>
-          <Field label="Costo">
+          <Field campo="costo" label="Costo">
             <Input
               type="number"
               inputMode="decimal"
@@ -232,7 +233,7 @@ function RegistrarServicio({ m, onCerrar, onHecho, onError }) {
               placeholder="Opcional"
             />
           </Field>
-          <Field label="Taller">
+          <Field campo="taller" label="Taller">
             <Input
               value={form.taller}
               onChange={(e) => setForm({ ...form, taller: e.target.value })}
@@ -241,7 +242,7 @@ function RegistrarServicio({ m, onCerrar, onHecho, onError }) {
           </Field>
         </div>
 
-        <Field label="Nota">
+        <Field campo="nota" label="Nota">
           <Input
             value={form.nota}
             onChange={(e) => setForm({ ...form, nota: e.target.value })}

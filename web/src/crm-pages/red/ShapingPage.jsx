@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { AlertTriangle, Check, Radio, SlidersHorizontal, Waypoints } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Aviso, Badge, Card, Cargando, ErrorBanner, Table } from '../../components/ui'
 
 /**
@@ -61,7 +61,7 @@ export default function ShapingPage() {
   const [error, setError] = useState(null)
 
   const recargar = useCallback(async () => {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('v_clientes_ficha')
       .select('id, nombre, estado, tipo_conexion, plan, plan_id, onu_id, router_id, ip')
       .neq('estado', 'baja')

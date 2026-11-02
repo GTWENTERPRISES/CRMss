@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Gauge, PlayCircle, TriangleAlert } from 'lucide-react'
 import { api } from '../../../lib/apiNetwork'
-import { supabase } from '../../../lib/supabaseClient'
+import { django } from '../../../lib/djangoClient'
 import { PRUEBAS, conUnidad, semaforoPruebas } from '../../../lib/instalaciones'
 import { Aviso, Button } from '../../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Paso 4 — la prueba de salida.
@@ -52,7 +53,7 @@ export default function PasoPruebas({ orden, onError, onGuardado }) {
   useEffect(() => {
     if (!orden.plan_id) return
     let vivo = true
-    supabase
+    django
       .from('v_planes')
       .select('bajada_mbps')
       .eq('id', orden.plan_id)
@@ -139,7 +140,7 @@ export default function PasoPruebas({ orden, onError, onGuardado }) {
 
       {pingOk === false && (
         <Aviso tipo="alerta">
-          El equipo no está tomando la configuración. Revisá que el usuario y la clave estén bien
+          El equipo no está tomando la configuración. Revisa que el usuario y la clave estén bien
           cargados en {orden.tecnologia === 'wireless' ? 'el CPE' : 'la ONT'}, o que el equipo tenga
           DHCP activado del lado WAN.
         </Aviso>
@@ -147,7 +148,7 @@ export default function PasoPruebas({ orden, onError, onGuardado }) {
 
       {orden.pruebas_at && (
         <p className="text-xs text-slate-500">
-          Última prueba: {new Date(orden.pruebas_at).toLocaleString()}
+          Última prueba: {fmtFechaHora(orden.pruebas_at)}
         </p>
       )}
     </div>

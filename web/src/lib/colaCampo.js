@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { encolar, registrarTipo } from './cola'
 
 /**
@@ -30,7 +30,7 @@ import { encolar, registrarTipo } from './cola'
  * misma orden aplicados al revés dejarían los valores viejos encima.
  */
 registrarTipo('instalacion.guardar', async ({ id, campos }) => {
-  const { error } = await supabase.from('instalaciones').update(campos).eq('id', id)
+  const { error } = await django.from('instalaciones').update(campos).eq('id', id)
   if (error) throw error
 })
 
@@ -48,7 +48,7 @@ registrarTipo('material.consumir', async ({ movimientos }, clave) => {
     ...m,
     clave_idempotencia: derivar(clave, i),
   }))
-  const { error } = await supabase.from('movimientos_inventario').insert(filas)
+  const { error } = await django.from('movimientos_inventario').insert(filas)
   if (error) throw error
 })
 
@@ -60,7 +60,7 @@ registrarTipo('material.consumir', async ({ movimientos }, clave) => {
  * posible que el botón sea uno solo.
  */
 registrarTipo('instalacion.finalizar', async ({ id }) => {
-  const { error } = await supabase.rpc('finalizar_alta_instalacion', { p_instalacion_id: id })
+  const { error } = await django.rpc('finalizar_alta_instalacion', { p_instalacion_id: id })
   if (error) throw error
 })
 
@@ -82,7 +82,7 @@ registrarTipo('instalacion.finalizar', async ({ id }) => {
  * sería protegerse de algo que la base ya impide.
  */
 registrarTipo('ticket.actualizar', async ({ id, campos }) => {
-  const { error } = await supabase.from('tickets').update(campos).eq('id', id)
+  const { error } = await django.from('tickets').update(campos).eq('id', id)
   if (error) throw error
 })
 
@@ -127,7 +127,7 @@ async function intentarOEncolar(tipo, datos, ejecutar) {
 /**
  * ¿Falló por la red?
  *
- * supabase-js devuelve `TypeError: Failed to fetch` cuando no hay salida, y un
+ * el cliente PostgREST devuelve `TypeError: Failed to fetch` cuando no hay salida, y un
  * objeto con `code` cuando el servidor contestó. Un error sin `code` es, casi
  * siempre, que nunca llegó.
  */
@@ -140,7 +140,7 @@ const esDeConexion = (err) =>
 export const campoApi = {
   guardarOrden: (id, campos) =>
     intentarOEncolar('instalacion.guardar', { id, campos }, async () => {
-      const { error } = await supabase.from('instalaciones').update(campos).eq('id', id)
+      const { error } = await django.from('instalaciones').update(campos).eq('id', id)
       if (error) throw error
     }),
 
@@ -149,7 +149,7 @@ export const campoApi = {
   // mirar `encolado` antes de usarlo.
   finalizarOrden: (id) =>
     intentarOEncolar('instalacion.finalizar', { id }, async () => {
-      const { data, error } = await supabase.rpc('finalizar_alta_instalacion', {
+      const { data, error } = await django.rpc('finalizar_alta_instalacion', {
         p_instalacion_id: id,
       })
       if (error) throw error
@@ -159,13 +159,13 @@ export const campoApi = {
   /** Cerrar el ticket, marcarlo en ruta, cambiarle el estado: es lo mismo. */
   actualizarTicket: (id, campos) =>
     intentarOEncolar('ticket.actualizar', { id, campos }, async () => {
-      const { error } = await supabase.from('tickets').update(campos).eq('id', id)
+      const { error } = await django.from('tickets').update(campos).eq('id', id)
       if (error) throw error
     }),
 
   consumirMaterial: (movimientos) =>
     intentarOEncolar('material.consumir', { movimientos }, async () => {
-      const { error } = await supabase.from('movimientos_inventario').insert(movimientos)
+      const { error } = await django.from('movimientos_inventario').insert(movimientos)
       if (error) throw error
     }),
 }

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from '@/lib/nextNavigation'
 import { AlertTriangle, LifeBuoy, Plus, Radio, Waves } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { Button, Card, ErrorBanner, Modal, Stat } from '../components/ui'
 import TicketForm from '../components/soporte/TicketForm'
 import ConPermiso from '../components/layout/ConPermiso'
 import { usePermisos } from '../lib/AuthContext'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 // Un id que no existe. Sirve para que el filtro por técnico no traiga nada
 // cuando el usuario no tiene técnico vinculado: sin esto, `.eq('tecnico_id',
@@ -31,7 +32,7 @@ import {
 const PESO_PRIORIDAD = { alta: 0, media: 1, baja: 2 }
 
 const fecha = (f) =>
-  f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : null
+  f ? fmtFecha(`${String(f).slice(0, 10)}T12:00:00`) : null
 
 export default function SoportePage() {
   const navegar = useNavigate()
@@ -65,8 +66,17 @@ export default function SoportePage() {
   const recargar = useCallback(async () => {
     setCargando(true)
 
-    let consulta = supabase.from('v_tickets').select('*')
-    if (!puede('soporte.ver')) consulta = consulta.eq('tecnico_id', perfil?.tecnico_id ?? NADIE)
+    let consulta = django.from('v_tickets').select('*')
+    if (!puede('soporte.ver')) {
+      /* Los suyos y los de las cuadrillas que integra: un ticket asignado a la
+         cuadrilla es trabajo de todos sus integrantes, no de nadie. */
+      const yo = perfil?.tecnico_id ?? NADIE
+      const { data: cuadrillas } = await django.rpc('mis_cuadrillas')
+      const ids = (cuadrillas ?? []).map((c) => (typeof c === 'string' ? c : c.mis_cuadrillas))
+      consulta = ids.length
+        ? consulta.or(`tecnico_id.eq.${yo},cuadrilla_id.in.(${ids.join(',')})`)
+        : consulta.eq('tecnico_id', yo)
+    }
 
     const { data, error: err } = await consulta
       .order('created_at', { ascending: false })
@@ -123,15 +133,15 @@ export default function SoportePage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Sin resolver" valor={abiertos.length} icon={LifeBuoy} />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Sin resolver" valor={abiertos.length} icon={LifeBuoy} />
+        <Stat cargando={cargando}
           label="Prioridad alta"
           valor={altos.length}
           icon={AlertTriangle}
           color="text-rose-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Visita atrasada"
           valor={atrasados.length}
           sub={atrasados.length ? 'La fecha pactada ya pasó' : 'Todo al día'}

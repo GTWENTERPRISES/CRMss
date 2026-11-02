@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from '@/lib/nextNavigation'
 import { ArrowLeft, ExternalLink, Package, Printer } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { api } from '../lib/apiNetwork'
 import { abrirPdf } from '../lib/pdf'
 import { Card, ErrorBanner } from '../components/ui'
@@ -9,6 +9,7 @@ import TicketFicha from '../components/soporte/TicketFicha'
 import CambioDeEquipo from '../components/soporte/CambioDeEquipo'
 import MaterialUsado from '../components/inventario/MaterialUsado'
 import ConPermiso from '../components/layout/ConPermiso'
+import { useMiga } from '../lib/migas'
 
 /**
  * Un ticket, a pantalla completa.
@@ -34,11 +35,12 @@ export default function TicketPage() {
   const enCampo = pathname.startsWith('/campo')
 
   const [ticket, setTicket] = useState(null)
+  useMiga(ticket ? `Ticket #${String(ticket.numero ?? '').padStart(6, '0')}` : null)
   const [error, setError] = useState(null)
   const [cargando, setCargando] = useState(true)
 
   const cargar = useCallback(async () => {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('v_tickets')
       .select('*')
       .eq('id', id)

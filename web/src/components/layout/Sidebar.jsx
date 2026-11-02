@@ -1,56 +1,68 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from '@/lib/nextNavigation'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { useMarca } from '../../lib/useMarca'
+import { usePais } from '../../lib/pais'
 import { puedeEntrar } from '../../lib/rutasPermisos'
 import {
   Activity,
+  ArrowLeftRight,
+  TrendingUp,
   Megaphone,
   Award,
   Backpack,
   Ban,
   BarChart3,
   Box,
+  Boxes,
   Calculator,
   CalendarDays,
-  Gift,
-  Boxes,
   ChevronDown,
   ChevronsLeft,
+  ClipboardList,
+  Cloud,
+  Cpu,
   CreditCard,
   FileSignature,
+  Filter,
   Gauge,
+  Gift,
+  Globe,
+  HandCoins,
   HardHat,
   History,
   Inbox,
+  Landmark,
   Layers,
-  Lightbulb,
   LayoutDashboard,
+  LifeBuoy,
+  Lightbulb,
+  LocateFixed,
   Map,
   MapPinned,
   Network,
   Package,
   PackageX,
+  PieChart,
   Radio,
-  LifeBuoy,
   Receipt,
   Router as RouterIcon,
   ScanSearch,
-  ShoppingCart,
   Search,
+  Server,
+  Settings,
+  ShoppingCart,
   SlidersHorizontal,
   Target,
+  Trophy,
   Truck,
   Users,
   Wallet,
   Waves,
+  Wifi,
   Wrench,
-  Cloud,
-  Cpu,
-  Settings,
-  Landmark,
-  ClipboardList,
+  Route,
 } from 'lucide-react'
 
 /**
@@ -88,7 +100,7 @@ const SECCIONES = [
       {
         to: '/',
         label: 'Dashboard',
-        icon: Gauge,
+        icon: LayoutDashboard,
         end: true,
         permiso: ['red.olts_ver', 'instalaciones.asignadas', 'soporte.asignados'],
       },
@@ -122,12 +134,12 @@ const SECCIONES = [
       {
         to: '/servicios',
         label: 'Servicios',
-        icon: Gauge,
+        icon: Package,
         hijos: [
-          { to: '/servicios/planes', label: 'Planes de internet', icon: Gauge },
+          { to: '/servicios/planes', label: 'Planes de internet', icon: Wifi },
           // Las traffic tables viven en las OLTs, no en la base: el plan solo
           // apunta a una y le pone el precio. Por eso van al lado.
-          { to: '/servicios/velocidades', label: 'Perfiles de velocidad', icon: Activity },
+          { to: '/servicios/velocidades', label: 'Perfiles de velocidad', icon: Gauge },
         ],
       },
       /**
@@ -140,7 +152,7 @@ const SECCIONES = [
       {
         to: '/finanzas',
         label: 'Finanzas',
-        icon: Wallet,
+        icon: Landmark,
         hijos: [
           { to: '/pagos', label: 'Pagos', icon: CreditCard },
           { to: '/transacciones', label: 'Transacciones', icon: Search },
@@ -149,8 +161,9 @@ const SECCIONES = [
           { to: '/conciliacion', label: 'Conciliación bancaria', icon: Landmark },
           // El reporte del regulador va en Finanzas y no en Ajustes: sale de las
           // facturas, y quien lo arma es el mismo que mira la caja.
-          { to: '/arcotel', label: 'Reporte ARCOTEL', icon: ClipboardList },
+          { to: '/arcotel', label: 'Reporte ARCOTEL', icon: ClipboardList, modulo: 'reporteRegulador' },
           { to: '/estadisticas', label: 'Estadísticas', icon: BarChart3 },
+          { to: '/reportes/crecimiento-routers', label: 'Crecimiento por router', icon: TrendingUp },
           { to: '/facturacion', label: 'Facturación', icon: Receipt },
         ],
       },
@@ -161,7 +174,8 @@ const SECCIONES = [
         hijos: [
           { to: '/soporte', label: 'Tickets', icon: LifeBuoy, end: true },
           { to: '/soporte/tecnicos', label: 'Técnicos y cuadrillas', icon: HardHat },
-          { to: '/soporte/desempeno', label: 'Desempeño del equipo', icon: Gauge },
+          { to: '/soporte/desempeno', label: 'Desempeño del equipo', icon: TrendingUp },
+          { to: '/soporte/rutas', label: 'Rutas del día', icon: Route },
           { to: '/soporte/jornadas', label: 'Ingresos del día', icon: CalendarDays },
           { to: '/soporte/vehiculos', label: 'Vehículos', icon: Truck },
         ],
@@ -173,7 +187,7 @@ const SECCIONES = [
         hijos: [
           { to: '/inventario/stock', label: 'Stock', icon: Package },
           { to: '/inventario/compras', label: 'Compras y proveedores', icon: ShoppingCart },
-          { to: '/inventario/movimientos', label: 'Movimientos', icon: History },
+          { to: '/inventario/movimientos', label: 'Movimientos', icon: ArrowLeftRight },
           // Los equipos que quedaron en casas que dejaron de pagar. Va en
           // Inventario y no en Ventas porque el trabajo es logístico: alguien
           // tiene que ir a buscarlos y devolverlos al stock.
@@ -206,7 +220,7 @@ const SECCIONES = [
       // Reportes—. Las rutas siguen existiendo y siguen siendo alcanzables
       // escribiéndolas; esto no es un permiso, es dejar de ofrecer lo que no
       // corresponde.
-      { to: '/ventas/tablero', label: 'Mi día', icon: LayoutDashboard, soloVendedor: true },
+      { to: '/ventas/tablero', label: 'Mi día', icon: CalendarDays, soloVendedor: true },
       // Va segunda, pegada a "Mi día": es la otra pregunta que el vendedor se
       // hace todas las mañanas, y tenerla escondida abajo la convierte en algo
       // que se consulta a fin de mes en vez de algo que orienta el día.
@@ -215,9 +229,9 @@ const SECCIONES = [
       // Vistas preajustadas de la misma pantalla, no pantallas nuevas. Son los
       // dos cortes que un vendedor hace todo el tiempo, y llegar a ellos con un
       // clic en vez de tres es la diferencia entre usarlos y no.
-      { to: '/ventas/prospectos?f=abiertos', label: 'Pipeline', icon: Layers, soloVendedor: true },
+      { to: '/ventas/prospectos?f=abiertos', label: 'Pipeline', icon: Filter, soloVendedor: true },
       { to: '/ventas/prospectos?f=enfriando', label: 'Seguimientos', icon: History, contador: 'enfriando', soloVendedor: true },
-      { to: '/ventas/cobertura', label: 'Verificar cobertura', icon: Radio },
+      { to: '/ventas/cobertura', label: 'Verificar cobertura', icon: LocateFixed },
       { to: '/ventas/mapa', label: 'Mapa comercial', icon: MapPinned },
       { to: '/ventas/cotizador', label: 'Cotizador', icon: Calculator },
       { to: '/ventas/promociones', label: 'Promociones', icon: Gift },
@@ -226,27 +240,27 @@ const SECCIONES = [
   {
     titulo: 'Reportes',
     items: [
-      { to: '/ventas/reportes', label: 'Reportes comerciales', icon: BarChart3 },
+      { to: '/ventas/reportes', label: 'Reportes comerciales', icon: PieChart },
       { to: '/ventas/inteligencia', label: 'Inteligencia comercial', icon: Lightbulb },
       // Aparte de Inteligencia comercial y no adentro: esa pantalla contesta
       // dónde nos piden servicio y no llegamos; esta, cuánto cuesta el canal y
       // qué calidad trae cada uno. Son dos preguntas distintas y juntarlas en
       // una sola pantalla no ayuda a ninguna de las dos.
-      { to: '/ventas/comisiones', label: 'Comisiones del equipo', icon: Award },
+      { to: '/ventas/comisiones', label: 'Comisiones del equipo', icon: Trophy },
     ],
   },
   {
     titulo: 'Cobranzas',
     items: [
-      { to: '/ventas/cobranza', label: 'Cobros por gestionar', icon: Wallet, contador: 'cobros' },
+      { to: '/ventas/cobranza', label: 'Cobros por gestionar', icon: HandCoins, contador: 'cobros' },
     ],
   },
   {
     titulo: 'OLT / GPON',
     items: [
       // El tablero va primero: es la pantalla desde la que se empieza el día.
-      { to: '/gpon', label: 'Tablero GPON', icon: LayoutDashboard },
-      { to: '/olts', label: 'OLTs', icon: Network },
+      { to: '/gpon', label: 'Tablero GPON', icon: Gauge },
+      { to: '/olts', label: 'OLTs', icon: Server },
       // Global y no por OLT: un modelo de ONT es el mismo cuelgue de donde
       // cuelgue, y tenerlo por equipo haría que las copias se contradigan.
       { to: '/onu-types', label: 'Tipos de ONU', icon: Cpu },
@@ -271,7 +285,7 @@ const SECCIONES = [
         icon: Network,
         hijos: [
           { to: '/red/routers', label: 'Routers MikroTik', icon: RouterIcon },
-          { to: '/red/redes', label: 'Redes IPv4', icon: Boxes },
+          { to: '/red/redes', label: 'Redes IPv4', icon: Globe },
           { to: '/red/auditoria', label: 'Auditoría de subred', icon: ScanSearch },
           { to: '/red/shaping', label: 'Regla de shaping', icon: SlidersHorizontal },
           // El tablero y el inventario son la misma pregunta hecha dos veces:
@@ -308,6 +322,54 @@ const SECCIONES = [
  * en cada navegación y traer trescientos prospectos para mostrar un "12" sería
  * pagar caro un número chico.
  */
+/**
+ * El menú podado para quien entró: solo lo alcanzable. Lo usa también el
+ * buscador (Ctrl+K), así que ofrece exactamente las mismas pantallas.
+ */
+export function podarMenu(puede, pais = null) {
+  return (
+    SECCIONES.map((seccion) => ({
+      ...seccion,
+      items: seccion.items
+        .map((item) => {
+          // `permiso` explícito gana sobre el mapa de rutas. Es la excepción
+          // para "/" y está documentada ahí; cualquier otra entrada se sigue
+          // resolviendo sola, que es lo que evita que el menú y el guardián
+          // se contradigan.
+          //
+          // Acepta un arreglo, y ahí alcanza con tener uno — igual que el
+          // mapa de rutas y que `ConPermiso`. Que las tres formas de pedir un
+          // permiso se comporten distinto es cómo aparecen los ítems que se
+          // ven y no abren.
+          // La agenda personal del vendedor no se le ofrece a quien maneja
+          // la cartera: no es su trabajo diario. No es un permiso —puede
+          // entrar igual— es no ocuparle el menú con lo de otro.
+          if (item.soloVendedor && puede('clientes.cartera')) return null
+          if (item.permiso && ![item.permiso].flat().some((p) => puede(p))) return null
+          if (!item.hijos) return item.permiso ? item : puedeEntrar(puede, item.to) ? item : null
+          // Lo que es de un país (la factura electrónica del SRI, Arcotel) se
+          // ve solo si el ISP es de ese país (lib/pais.js).
+          const hijos = item.hijos.filter(
+            (h) => puedeEntrar(puede, h.to) && (!h.modulo || !pais || pais.modulos[h.modulo]),
+          )
+          return hijos.length ? { ...item, hijos } : null
+        })
+        .filter(Boolean),
+    })).filter((s) => s.items.length)
+  )
+}
+
+/** Las pantallas alcanzables, aplanadas: [{to, label, icon, seccion}]. */
+export function pantallasDelMenu(puede, pais = null) {
+  return podarMenu(puede, pais).flatMap((s) =>
+    s.items.flatMap((item) =>
+      item.hijos
+        ? item.hijos.map((h) => ({ ...h, seccion: item.label }))
+        : [{ ...item, seccion: s.titulo ?? '' }],
+    ),
+  )
+}
+
 function useContadores(puede) {
   const [n, setN] = useState({})
 
@@ -315,21 +377,21 @@ function useContadores(puede) {
     const pedidos = {}
 
     if (puede('pagos.observaciones')) {
-      pedidos.cobros = supabase
+      pedidos.cobros = django
         .from('v_cobros_por_gestionar')
         .select('asignacion_id', { count: 'exact', head: true })
     }
     if (puede('ventas.prospectos')) {
       // "Enfriándose" es la condición del embudo que se mira todos los días:
       // abierto y sin contacto hace cinco días o más.
-      pedidos.enfriando = supabase
+      pedidos.enfriando = django
         .from('v_prospectos')
         .select('id', { count: 'exact', head: true })
         .in('estado', ['nuevo', 'contactado', 'cotizado', 'negociacion'])
         .gte('dias_sin_contacto', 5)
     }
     if (puede('instalaciones.backoffice')) {
-      pedidos.nuevas = supabase
+      pedidos.nuevas = django
         .from('instalaciones')
         .select('id', { count: 'exact', head: true })
         .in('estado', ['nueva', 'revisando', 'lista_asignar'])
@@ -354,11 +416,13 @@ function useContadores(puede) {
   return n
 }
 
+// Estilo del Sidebar de shadcn/ui: renglón compacto, el activo con fondo
+// atenuado y texto pleno (sin franjas ni celestes).
 const CLASE_ITEM = (activo) =>
-  `flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${
+  `flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition ${
     activo
-      ? 'bg-[#F0F9FF] font-semibold text-sky-400 shadow-[inset_3px_0_0_var(--marca)]'
-      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+      ? 'bg-black/[0.05] font-medium text-foreground'
+      : 'text-muted-foreground hover:bg-black/[0.04] hover:text-foreground'
   }`
 
 
@@ -426,17 +490,17 @@ function Grupo({ item, contadores, plegado }) {
       </button>
 
       {abierto && !plegado && (
-        <div className="mt-1 space-y-0.5 border-l border-[rgba(15,23,42,0.08)] pl-3 ml-4">
+        <div className="mt-0.5 ml-4 space-y-0.5 border-l pl-2.5">
           {item.hijos.map((h) => (
             <NavLink
               key={h.to}
               to={h.to}
               end={h.end}
               className={({ isActive }) =>
-                `flex items-center gap-2 rounded-xl px-3 py-1.5 text-[13px] transition ${
+                `flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition ${
                   isActive
-                    ? 'bg-[#F0F9FF] font-semibold text-sky-400 shadow-[inset_3px_0_0_var(--marca)]'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                    ? 'bg-black/[0.05] font-medium text-foreground'
+                    : 'text-muted-foreground hover:bg-black/[0.04] hover:text-foreground'
                 }`
               }
             >
@@ -453,6 +517,8 @@ function Grupo({ item, contadores, plegado }) {
 
 export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
   const { puede, perfil, cargandoPerfil } = usePermisos()
+  // Lo que es de un solo país —el reporte de ARCOTEL— no se ofrece en otro.
+  const pais = usePais()
   const marca = useMarca()
   const contadores = useContadores(puede)
 
@@ -473,34 +539,39 @@ export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
    * porque el cajón no tiene permiso propio dejaría afuera a los pagos que sí
    * lo tienen.
    */
-  const secciones = useMemo(
-    () =>
-      SECCIONES.map((seccion) => ({
-        ...seccion,
-        items: seccion.items
-          .map((item) => {
-            // `permiso` explícito gana sobre el mapa de rutas. Es la excepción
-            // para "/" y está documentada ahí; cualquier otra entrada se sigue
-            // resolviendo sola, que es lo que evita que el menú y el guardián
-            // se contradigan.
-            //
-            // Acepta un arreglo, y ahí alcanza con tener uno — igual que el
-            // mapa de rutas y que `ConPermiso`. Que las tres formas de pedir un
-            // permiso se comporten distinto es cómo aparecen los ítems que se
-            // ven y no abren.
-            // La agenda personal del vendedor no se le ofrece a quien maneja
-            // la cartera: no es su trabajo diario. No es un permiso —puede
-            // entrar igual— es no ocuparle el menú con lo de otro.
-            if (item.soloVendedor && puede('clientes.cartera')) return null
-            if (item.permiso && ![item.permiso].flat().some((p) => puede(p))) return null
-            if (!item.hijos) return item.permiso ? item : puedeEntrar(puede, item.to) ? item : null
-            const hijos = item.hijos.filter((h) => puedeEntrar(puede, h.to))
-            return hijos.length ? { ...item, hijos } : null
-          })
-          .filter(Boolean),
-      })).filter((s) => s.items.length),
-    [puede],
-  )
+  const secciones = useMemo(() => podarMenu(puede, pais), [puede, pais])
+
+  // Secciones plegadas, recordadas por dispositivo.
+  const [seccionesPlegadas, setSeccionesPlegadas] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('menu-secciones-plegadas') || '[]') } catch { return [] }
+  })
+  const alternarSeccion = (titulo) =>
+    setSeccionesPlegadas((prev) => {
+      const nuevo = prev.includes(titulo) ? prev.filter((t) => t !== titulo) : [...prev, titulo]
+      try { localStorage.setItem('menu-secciones-plegadas', JSON.stringify(nuevo)) } catch { /* modo privado */ }
+      return nuevo
+    })
+
+  // Recientes: las últimas 4 pantallas del menú que se abrieron (no el Panel).
+  const { pathname } = useLocation()
+  const pantallas = useMemo(() => pantallasDelMenu(puede, pais), [puede, pais])
+  const [rutasRecientes, setRutasRecientes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('menu-recientes') || '[]') } catch { return [] }
+  })
+  useEffect(() => {
+    // La pantalla del menú más específica que contiene la ruta actual.
+    const actual = pantallas
+      .filter((x) => x.to !== '/' && (pathname === x.to || pathname.startsWith(`${x.to}/`)))
+      .sort((a, b) => b.to.length - a.to.length)[0]
+    if (!actual) return
+    setRutasRecientes((prev) => {
+      if (prev[0] === actual.to) return prev
+      const nuevo = [actual.to, ...prev.filter((r) => r !== actual.to)].slice(0, 4)
+      try { localStorage.setItem('menu-recientes', JSON.stringify(nuevo)) } catch { /* modo privado */ }
+      return nuevo
+    })
+  }, [pathname, pantallas])
+  const recientes = rutasRecientes.map((r) => pantallas.find((x) => x.to === r)).filter(Boolean)
 
   return (
     <>
@@ -527,13 +598,13 @@ export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
         campos se apretaban tanto que no se podía ni buscar un abonado.
       */}
       <aside
-        className={`z-40 flex shrink-0 flex-col border-r border-[rgba(15,23,42,0.06)] bg-white transition-transform lg:transition-[width] max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:w-64 ${
+        className={`z-40 flex shrink-0 flex-col border-r bg-[#fafafa] transition-transform lg:transition-[width] max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:w-64 ${
           abierto ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'
         } ${plegado ? 'lg:w-16' : 'lg:w-60'}`}
       >
       {/* La marca sale de la configuración, no está escrita acá: cada ISP que
           instala el sistema pone la suya en Ajustes → General. */}
-      <div className="flex items-center gap-2 border-b border-[rgba(15,23,42,0.06)] px-4 py-4">
+      <div className="flex items-center gap-2 px-4 py-4">
         {/* `contain` y no `cover`: un logo apaisado metido en un cuadrado se
             recorta por los lados, y lo que se pierde suele ser el nombre. */}
         {marca?.logo_b64 ? (
@@ -543,21 +614,21 @@ export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
             className="h-8 w-auto max-w-28 shrink-0 rounded-lg object-contain"
           />
         ) : (
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-tr from-sky-700 to-sky-400 text-sm font-bold text-white">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
             {(marca?.nombre_sistema ?? 'S').trim().charAt(0).toUpperCase()}
           </div>
         )}
         {!plegado && (
           <div className="min-w-0 leading-tight">
-            <p className="t-titulo truncate text-sm font-bold text-slate-100">
+            <p className="truncate text-sm font-semibold text-foreground">
               {marca?.nombre_sistema ?? 'SmartOLT'}
             </p>
-            <p className="truncate text-[11px] text-slate-500">{marca?.lema ?? ''}</p>
+            <p className="truncate text-xs text-muted-foreground">{marca?.lema ?? ''}</p>
           </div>
         )}
       </div>
 
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-4 overflow-y-auto px-3 pb-4">
         {/* Mientras no se sabe quién entró, el menú no se dibuja.
             Antes se dibujaba entero —`puede()` decía que sí durante la carga— y
             el vendedor veía por unos segundos Clientes, Finanzas, OLT y Ajustes
@@ -568,19 +639,45 @@ export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
         {cargandoPerfil && !perfil ? (
           <MenuCargando plegado={plegado} />
         ) : (
-          secciones.map((seccion, i) => (
+          <>
+          {/* Las pantallas que esta persona abrió hace poco: cada rol usa
+              siempre las mismas pocas, y el menú es largo. */}
+          {!plegado && recientes.length > 0 && (
+            <div>
+              <p className="mb-1 px-2.5 text-xs font-medium text-muted-foreground">Recientes</p>
+              <div className="space-y-0.5">
+                {recientes.map((r) => (
+                  <NavLink key={r.to} to={r.to} end className={({ isActive }) => CLASE_ITEM(isActive)}>
+                    <r.icon size={16} />
+                    <span className="truncate">{r.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
+          {secciones.map((seccion, i) => (
           <div key={i}>
-            {/* Plegado, el título se reemplaza por una línea: sin él las
-                secciones se pegan y el menú se lee como una lista sola. */}
+            {/* Plegado (menú angosto), el título se reemplaza por una línea.
+                Abierto, el título pliega la sección y se recuerda. */}
             {seccion.titulo &&
               (plegado ? (
-                <div className="mx-auto mb-2 h-px w-6 bg-slate-800" />
+                <div className="mx-auto mb-2 h-px w-6 bg-black/10" />
               ) : (
-                <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                <button
+                  type="button"
+                  onClick={() => alternarSeccion(seccion.titulo)}
+                  aria-expanded={!seccionesPlegadas.includes(seccion.titulo)}
+                  className="mb-1 flex w-full items-center justify-between rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+                >
                   {seccion.titulo}
-                </p>
+                  <ChevronDown
+                    size={13}
+                    className={`transition-transform ${seccionesPlegadas.includes(seccion.titulo) ? '-rotate-90' : ''}`}
+                  />
+                </button>
               ))}
-            <div className="space-y-1">
+            {!(seccion.titulo && !plegado && seccionesPlegadas.includes(seccion.titulo)) && (
+            <div className="space-y-0.5">
               {seccion.items.map((item) =>
                 item.hijos ? (
                   <Grupo key={item.to} item={item} contadores={contadores} plegado={plegado} />
@@ -611,8 +708,10 @@ export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
                 ),
               )}
             </div>
+            )}
           </div>
-          ))
+          ))}
+          </>
         )}
       </nav>
 

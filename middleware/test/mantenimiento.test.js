@@ -86,7 +86,8 @@ test('con intervalo pero sin nada medible no se acusa a nadie', () => {
 test('el texto dice ambos criterios cuando los dos aplican', () => {
   const t = cuantoFalta({ sin_registro: false, km_restantes: 1200, dias_restantes: 45 })
 
-  assert.match(t, /1\.200 km/)
+  // Mismo separador de miles que los montos ("$1,234.56").
+  assert.match(t, /1,200 km/)
   assert.match(t, /45 días/)
 })
 

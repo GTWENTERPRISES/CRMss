@@ -14,7 +14,7 @@ import {
   Upload,
   Users,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { useTabla } from '../../lib/useTabla'
 import { api } from '../../lib/apiNetwork'
 import { CATEGORIAS, IMPUESTOS, dinero, enMbps } from '../../lib/planes'
@@ -53,6 +53,7 @@ const TAMANOS = [15, 30, 50]
 const COLOR_CATEGORIA = {
   residencial: 'bg-sky-500 text-sky-950',
   corporativo: 'bg-violet-500 text-violet-950',
+  empresarial: 'bg-indigo-500 text-white',
   otro: 'bg-slate-500 text-white',
 }
 
@@ -99,8 +100,8 @@ export default function PlanesPage() {
      * fichas enteras.
      */
     const [{ data, error: err }, { data: pppoe }] = await Promise.all([
-      supabase.from('v_planes').select('*').order('bajada_kbps', { ascending: true }),
-      supabase.from('clientes').select('plan_id').eq('tipo_conexion', 'pppoe').neq('estado', 'baja'),
+      django.from('v_planes').select('*').order('bajada_kbps', { ascending: true }),
+      django.from('clientes').select('plan_id').eq('tipo_conexion', 'pppoe').neq('estado', 'baja'),
     ])
 
     const cuenta = new Map()
@@ -132,7 +133,7 @@ export default function PlanesPage() {
     }
 
     let vigente = true
-    supabase
+    django
       .from('plan_routers')
       .select('router_id')
       .eq('plan_id', editando.id)
@@ -148,7 +149,7 @@ export default function PlanesPage() {
   }, [oltId])
 
   async function leerVelocidades() {
-    if (!oltId) return setError(new Error('Elegí primero la OLT'))
+    if (!oltId) return setError(new Error('Elige primero la OLT'))
     try {
       setVelocidades(await api.olt.trafficTables(oltId))
     } catch (err) {
@@ -187,13 +188,13 @@ export default function PlanesPage() {
    */
   async function guardar(datos, routerIds = []) {
     const { data: fila, error: err } = editando?.id
-      ? await supabase
+      ? await django
           .from('planes_velocidad')
           .update(datos)
           .eq('id', editando.id)
           .select('id')
           .single()
-      : await supabase.from('planes_velocidad').insert(datos).select('id').single()
+      : await django.from('planes_velocidad').insert(datos).select('id').single()
 
     if (err) throw err
 
@@ -205,7 +206,7 @@ export default function PlanesPage() {
     const quitar = [...antes].filter((id) => !ahora.has(id))
 
     if (agregar.length) {
-      const { error: errIns } = await supabase
+      const { error: errIns } = await django
         .from('plan_routers')
         .insert(agregar.map((router_id) => ({ plan_id: planId, router_id })))
       if (errIns) throw errIns
@@ -215,7 +216,7 @@ export default function PlanesPage() {
     // abonados conectados con él, y quitárselo los dejaría con el de por
     // defecto en la próxima reconexión.
     if (quitar.length) {
-      const { error: errDel } = await supabase
+      const { error: errDel } = await django
         .from('plan_routers')
         .delete()
         .eq('plan_id', planId)
@@ -232,19 +233,19 @@ export default function PlanesPage() {
     if (p.abonados > 0) {
       return setError(
         Object.assign(new Error(`${p.nombre} lo tienen ${p.abonados} abonados`), {
-          hint: 'Retiralo en vez de borrarlo: así deja de ofrecerse en las altas y los que lo tienen conservan su plan y su precio.',
+          hint: 'Retíralo en vez de borrarlo: así deja de ofrecerse en las altas y los que lo tienen conservan su plan y su precio.',
         }),
       )
     }
     if (!await confirmar(`¿Eliminar el plan ${p.nombre}?`)) return
 
-    const { error: err } = await supabase.from('planes_velocidad').delete().eq('id', p.id)
+    const { error: err } = await django.from('planes_velocidad').delete().eq('id', p.id)
     if (err) return setError(err)
     await recargar()
   }
 
   async function aplicarEnOlt(p) {
-    if (!oltId) return setError(new Error('Elegí primero la OLT donde aplicar la traffic table'))
+    if (!oltId) return setError(new Error('Elige primero la OLT donde aplicar la traffic table'))
 
     setAplicandoOlt(p.id)
     setError(null)
@@ -293,17 +294,17 @@ export default function PlanesPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Planes activos" valor={activos.length} icon={Gauge} />
-        <Stat label="Abonados con plan" valor={abonados} icon={Users} color="text-sky-400" />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Planes activos" valor={activos.length} icon={Gauge} />
+        <Stat cargando={cargando} label="Abonados con plan" valor={abonados} icon={Users} color="text-sky-400" />
+        <Stat cargando={cargando}
           label="Sin aprovisionar"
           valor={sinAprovisionar.length}
           sub="Perfil PPP pendiente, en planes con abonados PPPoE"
           icon={RouterIcon}
           color={sinAprovisionar.length ? 'text-amber-400' : 'text-slate-500'}
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Retirados"
           valor={planes.length - activos.length}
           sub="No se ofrecen en las altas"
@@ -647,7 +648,7 @@ export default function PlanesPage() {
           plan={colaDe}
           onCerrar={() => setColaDe(null)}
           onGuardar={async (cambios) => {
-            const { error: err } = await supabase
+            const { error: err } = await django
               .from('planes_velocidad')
               .update(cambios)
               .eq('id', colaDe.id)

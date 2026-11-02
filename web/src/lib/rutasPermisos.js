@@ -13,9 +13,10 @@
  * ── Esto no es la seguridad, es la cortesía ──
  *
  * Ocultar una pantalla no protege el dato: quien sabe escribir la URL igual la
- * pide, y quien abre la consola pide la fila directo. Lo que protege es RLS en
- * Supabase y la verificación del middleware. Esto evita ofrecerle a alguien lo
- * que no va a poder usar, que es un problema distinto y también real.
+ * pide, y quien abre la consola pide la fila directo. Lo que protege es la
+ * autorización de Django y la verificación del servicio de red. Esto evita
+ * ofrecerle a alguien lo que no va a poder usar, que es un problema distinto y
+ * también real.
  */
 
 /**
@@ -153,6 +154,9 @@ const RUTAS = [
   ['/conciliacion', 'finanzas.conciliacion'],
   ['/arcotel', 'finanzas.reporte_arcotel'],
   ['/estadisticas', ['reportes.ver', 'finanzas.reportes']],
+  // Lee la cartera entera por router: es un reporte de gestión, no una pantalla
+  // de trabajo diario.
+  ['/reportes/crecimiento-routers', ['reportes.ver', 'finanzas.reportes']],
   ['/facturacion', 'facturacion.ver'],
 
   // Soporte. Técnicos y cuadrillas es gestión de gente, no de tickets: quien
@@ -173,6 +177,7 @@ const RUTAS = [
   // Los vehículos los administra quien maneja el campo. El técnico los ve desde
   // su jornada, para elegir con cuál sale, pero no los da de alta.
   ['/soporte/vehiculos', 'instalaciones.ver'],
+  ['/soporte/rutas', 'soporte.ruta'],
   ['/soporte', ['soporte.ver', 'soporte.asignados']],
 
   // OLT / GPON
@@ -205,7 +210,10 @@ const RUTAS = [
   // Va ANTES que '/monitoreo' porque el mapa resuelve por prefijo más largo.
   // Ver la lista de averías alcanza con poder ver el monitoreo; abrirlas —que le
   // escribe a cientos de abonados— lo decide `red.incidencias` adentro.
-  ['/monitoreo/incidencias', ['red.monitoreo_ver', 'red.incidencias']],
+  // No alcanza con `red.monitoreo_ver`: ese es el del técnico, que ve si un
+  // nodo está caído desde la app de campo, y con él se le abría la lista de
+  // cortes masivos —y el grupo "Gestión de Red e IPAM" entero en el menú—.
+  ['/monitoreo/incidencias', ['red.monitoreo', 'red.incidencias']],
   ['/monitoreo', 'red.monitoreo'],
   ['/bloqueos', 'red.cortes'],
 
@@ -227,6 +235,7 @@ const RUTAS = [
   // por qué poder abrirle la puerta al proveedor del CRM.
   ['/ajustes/integraciones', 'config.integraciones'],
   ['/ajustes/crontab', 'config.tareas'],
+  ['/ajustes/facturacion-electronica', 'config.facturacion'],
   // Va ANTES de '/ajustes' por el prefijo más largo. Mismo permiso que la
   // mensajería: una plantilla sin aprobar no manda un mensaje feo, no manda
   // nada, y el abonado no se entera de que le van a cortar.

@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 
 /**
  * Las actas de entrega de material.
@@ -15,7 +15,7 @@ import { supabase } from './supabaseClient'
 export const entregasApi = {
   /** Lo que tiene en su almacén quien pregunta. */
   async miAlmacen() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_mi_almacen_equipos')
       .select('*')
       .order('recuperado_en', { ascending: false, nullsFirst: false })
@@ -25,7 +25,7 @@ export const entregasApi = {
 
   /** Las actas que le tocan: las que entregó o las que recibió. */
   async mias() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_entregas_inventario')
       .select('*')
       .order('creado_en', { ascending: false })
@@ -36,7 +36,7 @@ export const entregasApi = {
 
   /** Solo las que esperan firma. Es la bandeja de la oficina. */
   async pendientes() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_entregas_inventario')
       .select('*')
       .eq('estado', 'pendiente')
@@ -46,7 +46,7 @@ export const entregasApi = {
   },
 
   async items(entregaId) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('entrega_items')
       .select('*')
       .eq('entrega_id', entregaId)
@@ -62,7 +62,7 @@ export const entregasApi = {
    * firmar dando vueltas.
    */
   async crear(equipos, notas, firma) {
-    const { data, error } = await supabase.rpc('crear_entrega_inventario', {
+    const { data, error } = await django.rpc('crear_entrega_inventario', {
       p_equipos: equipos,
       p_notas: notas || null,
       p_firma: firma || null,
@@ -79,7 +79,7 @@ export const entregasApi = {
    * botón".
    */
   async recibir(entregaId, { firma, almacen, notas } = {}) {
-    const { data, error } = await supabase.rpc('recibir_entrega_inventario', {
+    const { data, error } = await django.rpc('recibir_entrega_inventario', {
       p_entrega: entregaId,
       p_firma: firma,
       p_almacen: almacen || null,

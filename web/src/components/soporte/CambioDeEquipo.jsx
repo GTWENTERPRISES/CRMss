@@ -203,7 +203,7 @@ export default function CambioDeEquipo({ ticket, instalacionId, onCambio, onErro
                 {fallaOlt.hint && <p className="mt-1 text-slate-400">{fallaOlt.hint}</p>}
                 <p className="mt-2 text-slate-400">
                   El equipo ya figura instalado y descontado de tu almacén:{' '}
-                  <b>no vuelvas a cargar el cambio</b>, se descontaría una segunda ONT. Reintentá
+                  <b>no vuelvas a cargar el cambio</b>, se descontaría una segunda ONT. Reintenta
                   acá.
                 </p>
               </div>
@@ -249,21 +249,21 @@ export default function CambioDeEquipo({ ticket, instalacionId, onCambio, onErro
               <p className="text-sm text-slate-500">Buscando ONTs en tu almacén…</p>
             ) : !almacen ? (
               <Aviso tipo="alerta">
-                No tenés un almacén asignado. Pedí que te vinculen uno para poder descontar
+                No tienes un almacén asignado. Pide que te vinculen uno para poder descontar
                 equipos.
               </Aviso>
             ) : !equipos.length ? (
               <Aviso tipo="alerta">
-                No hay ONTs en stock en tu almacén ({almacen.nombre}). Pedí la transferencia antes
+                No hay ONTs en stock en tu almacén ({almacen.nombre}). Pide la transferencia antes
                 de instalar.
               </Aviso>
             ) : (
               <Field
                 label="ONT nueva"
-                hint={`De tu almacén: ${almacen.nombre}. Si el equipo que tenés en la mano no está acá, todavía no te lo transfirieron.`}
+                hint={`De tu almacén: ${almacen.nombre}. Si el equipo que tienes en la mano no está acá, todavía no te lo transfirieron.`}
               >
                 <Select value={serie} onChange={(e) => setSerie(e.target.value)}>
-                  <option value="">Elegí la serie…</option>
+                  <option value="">Elige la serie…</option>
                   {equipos.map((q) => (
                     <option key={q.id} value={q.serie}>
                       {q.serie} — {q.articulo}
@@ -273,7 +273,7 @@ export default function CambioDeEquipo({ ticket, instalacionId, onCambio, onErro
               </Field>
             )}
 
-            <Field label="Qué le pasó a la anterior">
+            <Field hint="Para el control del equipo retirado." label="Qué le pasó a la anterior">
               <Select value={motivo} onChange={(e) => setMotivo(e.target.value)}>
                 {Object.entries(MOTIVOS).map(([k, v]) => (
                   <option key={k} value={k}>
@@ -283,7 +283,7 @@ export default function CambioDeEquipo({ ticket, instalacionId, onCambio, onErro
               </Select>
             </Field>
 
-            <Field label="Qué hacés con la anterior" hint={DESTINOS[destino]?.ayuda}>
+            <Field label="Qué haces con la anterior" hint={DESTINOS[destino]?.ayuda}>
               <Select value={destino} onChange={(e) => setDestino(e.target.value)}>
                 {Object.entries(DESTINOS).map(([k, v]) => (
                   <option key={k} value={k}>

@@ -120,7 +120,7 @@ export default function TrasladosPendientes({ onError }) {
           </ul>
 
           <p className="mt-2 text-[11px] text-slate-500">
-            "Ya la di de baja" no borra nada en el equipo: solo deja de reclamarlo. Borrala primero
+            "Ya la di de baja" no borra nada en el equipo: solo deja de reclamarlo. Bórrala primero
             desde la OLT.
           </p>
         </div>

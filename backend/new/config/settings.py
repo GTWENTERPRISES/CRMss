@@ -13,6 +13,8 @@ SECRET_KEY = os.getenv(
     'django-insecure-dev-only-change-me-in-production',
 )
 FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY', SECRET_KEY)
+# Claves viejas, solo para leer lo cifrado antes de cambiarla (`manage.py recifrar`).
+FIELD_ENCRYPTION_KEYS_ANTERIORES = [c for c in os.getenv('FIELD_ENCRYPTION_KEYS_ANTERIORES', '').split(',') if c.strip()]
 
 DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
@@ -27,13 +29,19 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    # Lista negra de refresh tokens: cerrar sesión y cambiar la contraseña los
+    # revocan de verdad, y un refresh ya rotado no sirve dos veces.
+    'rest_framework_simplejwt.token_blacklist',
     'django_filters',
     'corsheaders',
     'django_celery_beat',  # Celery Beat programado con Django
     'drf_spectacular',  # OpenAPI 3.0 / Swagger
     'channels',  # WebSockets ASGI
     'apps.core',
+    'apps.red',
+    'apps.dashboard',
     'apps.olts',
+
     'apps.mikrotik',
     'apps.clientes',
     'apps.facturacion',
@@ -50,6 +58,8 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'apps.dashboard.errores.LimpiarContexto',
+    'apps.core.rutas_servicio.SoloServicio',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -106,7 +116,11 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            # SQLITE_PATH: otra base (una copia para pruebas, por ejemplo).
+            'NAME': os.getenv('SQLITE_PATH') or BASE_DIR / 'db.sqlite3',
+            # Si otro está escribiendo, esperar hasta 20 s antes de contestar
+            # "database is locked" (el valor por defecto es 5).
+            'OPTIONS': {'timeout': 20},
         }
     }
 
@@ -125,16 +139,25 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# MEDIA_ROOT_PATH: otra carpeta de archivos (la instancia de QA usa la suya).
+MEDIA_ROOT = os.getenv('MEDIA_ROOT_PATH') or BASE_DIR / 'media'
+
+# Respaldos (apps/core/respaldos.py, `manage.py respaldar`, Celery Beat cada noche).
+# Mejor en otro disco que la base: si se rompe el disco, se pierden los dos.
+RESPALDOS_DIR = os.getenv('RESPALDOS_DIR') or BASE_DIR.parent / 'respaldos'
+RESPALDOS_CONSERVAR = int(os.getenv('RESPALDOS_CONSERVAR', '14'))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',  # OpenAPI 3.0
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # JWT de simplejwt que además deja el usuario para auth.uid().
+        'apps.dashboard.autenticacion.AutenticacionJWT',
         'rest_framework.authentication.SessionAuthentication',
     ],
+    # Los RAISE de disparadores y funciones del dashboard, con su mensaje real.
+    'EXCEPTION_HANDLER': 'apps.dashboard.errores.manejar_excepcion',
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
@@ -151,7 +174,13 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_THROTTLE_RATES': {
         'anon': os.getenv('DRF_ANON_RATE', '60/minute'),
-        'user': os.getenv('DRF_USER_RATE', '600/minute'),
+        # El servicio interno de red consulta en ráfagas (un resync masivo son
+        # cientos de lecturas por segundo). 600/min lo cortaría a mitad de
+        # trabajo y el usuario vería errores que no son de la red.
+        'user': os.getenv('DRF_USER_RATE', '3000/minute'),
+        # Recuperación de contraseña (rutas públicas): pocos pedidos por IP.
+        'recuperar_clave': os.getenv('DRF_RECUPERAR_RATE', '5/hour'),
+        'verificar_codigo': os.getenv('DRF_VERIFICAR_RATE', '20/hour'),
     },
     'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
 }
@@ -213,10 +242,13 @@ SPECTACULAR_SETTINGS = {
 # SIMPLE JWT CONFIGURATION
 # ==============================================================================
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    # El access no se puede revocar (no se consulta la base para validarlo):
+    # corto, para que una sesión cerrada o una contraseña cambiada dejen de
+    # servir en minutos. El frente lo renueva solo antes de que venza.
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': False,
+    'BLACKLIST_AFTER_ROTATION': True,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
@@ -228,6 +260,21 @@ CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = [
     o.strip() for o in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()
 ]
+
+# ==============================================================================
+# SERVICIO INTERNO DE RED (middleware Node)
+# ==============================================================================
+# Django es el único backend expuesto: el navegador no habla nunca con el
+# middleware. Este módulo lo reenvía todo (OLTs, MikroTik, SRI, portal, actas).
+MIDDLEWARE_INTERNA_URL = os.getenv('MIDDLEWARE_INTERNA_URL', 'http://127.0.0.1:4000')
+# Secreto compartido con middleware/.env (CLAVE_INTERNA_MW). El middleware solo
+# acepta pedidos que la traigan, y por ella sabe que es Django quien llama.
+CLAVE_INTERNA_MW = os.getenv('CLAVE_INTERNA_MW', '')
+
+# La migración del padrón y el extracto del banco viajan enteros en el cuerpo
+# (hasta 25 MB). El límite por defecto de Django los rechazaría con un error
+# que en el navegador se ve como "no se pudo subir", sin decir por qué.
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('DATA_UPLOAD_MAX_MEMORY_SIZE', str(30 * 1024 * 1024)))
 
 CHANNEL_LAYERS = {
     'default': {
@@ -298,14 +345,26 @@ IVA_PORCENTAJE = float(os.getenv('IVA_PORCENTAJE', '12'))  # Ecuador 12%
 DIAS_MORA_CORTE = int(os.getenv('DIAS_MORA_CORTE', '5'))  # Días después de vencimiento
 ADMIN_EMAILS = [e.strip() for e in os.getenv('ADMIN_EMAILS', '').split(',') if e.strip()]
 
-# Email
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+# Email: por acá salen los correos de Django (el código de recuperación de
+# contraseña). Con EMAIL_HOST cargado en .env se usa SMTP; sin él, el backend de
+# consola, que muestra el correo en el log del servidor (desarrollo).
 EMAIL_HOST = os.getenv('EMAIL_HOST', '')
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST
+    else 'django.core.mail.backends.console.EmailBackend',
+)
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('1', 'true', 'yes')
+# 587 → STARTTLS (EMAIL_USE_TLS); 465 → TLS desde el saludo (EMAIL_USE_SSL).
+# No pueden ir los dos: con el puerto 465 se usa SSL salvo que se diga otra cosa.
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'True' if EMAIL_PORT == 465 else 'False').lower() in ('1', 'true', 'yes')
+EMAIL_USE_TLS = not EMAIL_USE_SSL and os.getenv('EMAIL_USE_TLS', 'True').lower() in ('1', 'true', 'yes')
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@miempresa.com')
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '20'))
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', '') or EMAIL_HOST_USER or 'noreply@miempresa.com'
+# El nombre del sistema en los correos si no hay uno en Ajustes → General.
+NOMBRE_SISTEMA = os.getenv('NOMBRE_SISTEMA', '')
 
 # ==============================================================================
 # LOGGING

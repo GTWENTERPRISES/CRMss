@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { ArrowRight, MapPin, Navigation, Ticket } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { ESTADOS, PRIORIDADES, enlaceMapa, etiquetaIncidencia } from '../../lib/soporte'
 import { mapaPreferido } from '../../lib/mapaPreferido'
 import { conCache } from '../../lib/cacheLocal'
@@ -74,7 +74,7 @@ export default function SoporteCampoPage() {
     // de OrdenesPage — la seguridad no vive en la pantalla.
     try {
       const r = await conCache(`tickets:${perfil?.id ?? 'anonimo'}`, async () => {
-        const { data, error: err } = await supabase
+        const { data, error: err } = await django
           .from('tickets')
           .select('*')
           .order('created_at', { ascending: false })
@@ -146,7 +146,7 @@ export default function SoporteCampoPage() {
     return (
       <div className="py-16 text-center">
         <Ticket size={28} className="mx-auto mb-2 text-slate-700" />
-        <p className="text-slate-400">No tenés tickets asignados.</p>
+        <p className="text-slate-400">No tienes tickets asignados.</p>
       </div>
     )
   }
@@ -204,9 +204,9 @@ export default function SoporteCampoPage() {
           <Ticket size={24} className="mx-auto mb-2 text-slate-700" />
           <p className="text-[13px] text-slate-500">
             {activa === 'asignados'
-              ? 'No tenés trabajos esperando.'
+              ? 'No tienes trabajos esperando.'
               : activa === 'curso'
-                ? 'No tenés nada empezado.'
+                ? 'No tienes nada empezado.'
                 : 'Todavía no cerraste ninguno.'}
           </p>
         </div>

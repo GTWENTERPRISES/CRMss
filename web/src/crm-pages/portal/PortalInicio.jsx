@@ -55,7 +55,7 @@ export default function PortalInicio({ cuenta }) {
             {cortado && (
               <p className="mt-1 text-sm leading-snug text-amber-200/80">
                 {debe
-                  ? `Tenés ${dinero(cuenta.cuenta.saldo)} pendientes. Al registrarse el pago, el servicio vuelve solo.`
+                  ? `Tienes ${dinero(cuenta.cuenta.saldo)} pendientes. Al registrarse el pago, el servicio vuelve solo.`
                   : 'Comunicate con nosotros para reactivarlo.'}
               </p>
             )}
@@ -69,7 +69,7 @@ export default function PortalInicio({ cuenta }) {
         <Tarjeta>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500">Tenés pendiente</p>
+              <p className="text-xs text-slate-500">Tienes pendiente</p>
               <p className="text-2xl font-semibold text-slate-100">{dinero(cuenta.cuenta.saldo)}</p>
             </div>
             <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-300">
@@ -133,7 +133,7 @@ export default function PortalInicio({ cuenta }) {
 
             {!cuenta.equipo.en_linea && (
               <p className="rounded-lg bg-slate-800/60 p-3 text-xs leading-relaxed text-slate-400">
-                Probá desenchufar el equipo, esperar un minuto y volver a enchufarlo. Si sigue sin
+                Prueba desenchufar el equipo, esperar un minuto y volver a enchufarlo. Si sigue sin
                 conectar, mandanos un reclamo desde <b>Ayuda</b>.
               </p>
             )}

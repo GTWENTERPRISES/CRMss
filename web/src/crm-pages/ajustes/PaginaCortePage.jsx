@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Building2, Check, Eye, Save, ShieldAlert, Wifi } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import {
   Aviso, Badge, Button, Card, ErrorBanner, Field, Input, Select, SkeletonTabla, Textarea,
@@ -43,11 +43,11 @@ export default function PaginaCortePage() {
     setCargando(true)
     try {
       const [c, q, r, e] = await Promise.all([
-        supabase.from('config_corte').select('*').eq('id', 1).maybeSingle(),
-        supabase.from('cuentas_pago').select('*').order('nombre'),
-        supabase.from('routers_mikrotik').select('id, nombre, lista_morosos').order('nombre'),
+        django.from('config_corte').select('*').eq('id', 1).maybeSingle(),
+        django.from('cuentas_pago').select('*').order('nombre'),
+        django.from('routers_mikrotik').select('id, nombre, lista_morosos, lista_aviso, ip_host').order('nombre'),
         // Para poder mostrar de dónde sale cada dato que se completa solo.
-        supabase.from('sri_config').select('ruc, razon_social, telefono').limit(1).maybeSingle(),
+        django.from('sri_config').select('ruc, razon_social, telefono').limit(1).maybeSingle(),
       ])
       if (c.error) throw c.error
       setConfig(c.data ?? { id: 1 })
@@ -75,7 +75,7 @@ export default function PaginaCortePage() {
     setGuardando(true)
     setError(null)
     try {
-      const { error: e } = await supabase
+      const { error: e } = await django
         .from('config_corte')
         .upsert({ ...config, id: 1, actualizado_en: new Date().toISOString() })
       if (e) throw e
@@ -89,7 +89,7 @@ export default function PaginaCortePage() {
 
   const cambiarCuenta = async (cuenta, campo, valor) => {
     setCuentas((cs) => cs.map((c) => (c.id === cuenta.id ? { ...c, [campo]: valor } : c)))
-    const { error: e } = await supabase
+    const { error: e } = await django
       .from('cuentas_pago')
       .update({ [campo]: valor === '' ? null : valor })
       .eq('id', cuenta.id)
@@ -164,14 +164,14 @@ export default function PaginaCortePage() {
           </label>
 
           <Field label="Título">
-            <Input value={config?.titulo ?? ''} onChange={(e) => cambiar('titulo', e.target.value)} />
+            <Input placeholder="Ej.: Corte de fibra en Urdesa" value={config?.titulo ?? ''} onChange={(e) => cambiar('titulo', e.target.value)} />
           </Field>
 
           <Field
             label="Por qué se le cortó"
             hint="Lo primero que lee. El tono es una decisión comercial, por eso se edita acá."
           >
-            <Textarea
+            <Textarea placeholder="Ej.: Tiene 2 facturas vencidas"
               rows={2}
               value={config?.mensaje ?? ''}
               onChange={(e) => cambiar('mensaje', e.target.value)}
@@ -183,7 +183,7 @@ export default function PaginaCortePage() {
               label="WhatsApp para comprobantes"
               hint={
                 empresa.telefono
-                  ? `si lo dejás vacío se usa el de la empresa: ${empresa.telefono}`
+                  ? `si lo dejas vacío se usa el de la empresa: ${empresa.telefono}`
                   : 'el dato más importante después del monto'
               }
             >
@@ -194,7 +194,7 @@ export default function PaginaCortePage() {
               />
             </Field>
             <Field label="Teléfono" hint="para el que no usa WhatsApp">
-              <Input
+              <Input placeholder="Ej.: 0991234567"
                 value={config?.telefono_pagos ?? ''}
                 onChange={(e) => cambiar('telefono_pagos', e.target.value)}
               />
@@ -202,10 +202,27 @@ export default function PaginaCortePage() {
           </div>
 
           <Field label="Qué hacer después de pagar" hint="es lo que evita la segunda llamada">
-            <Textarea
+            <Textarea placeholder="Ej.: Envía tu comprobante al 0991234567"
               rows={2}
               value={config?.aviso_despues_de_pagar ?? ''}
               onChange={(e) => cambiar('aviso_despues_de_pagar', e.target.value)}
+            />
+          </Field>
+
+          {/* El aviso previo se cierra con "Entendido": esto dice cuánto dura
+              cerrado. Sin pausa, el que está por vencer lo vería en cada página
+              durante días. */}
+          <Field
+            label="El aviso previo vuelve a aparecer cada"
+            hint="horas, después de que el abonado toca «Entendido» · entre 1 y 72"
+          >
+            <Input
+              type="number"
+              min={1}
+              max={72}
+              value={config?.aviso_pausa_horas ?? 6}
+              onChange={(e) => cambiar('aviso_pausa_horas', e.target.value === '' ? 6 : Number(e.target.value))}
+              className="max-w-[120px]"
             />
           </Field>
 
@@ -279,7 +296,7 @@ export default function PaginaCortePage() {
                       placeholder={cedulaEmpresa ? `${cedulaEmpresa} (de la empresa)` : 'C.I./RUC del titular'}
                       title={
                         cedulaEmpresa
-                          ? 'Vacío usa la identificación de la ficha de la empresa. Cargala solo si esta cuenta está a nombre de otra persona.'
+                          ? 'Vacío usa la identificación de la ficha de la empresa. Cárgala solo si esta cuenta está a nombre de otra persona.'
                           : 'C.I. o RUC del titular de la cuenta'
                       }
                       className="max-w-[220px] py-1 text-xs"
@@ -308,17 +325,57 @@ function EnviarAlRouter({ routers }) {
   const [routerId, setRouterId] = useState('')
   const [destino, setDestino] = useState('')
   const [puerto, setPuerto] = useState(8090)
+  const [listaAviso, setListaAviso] = useState('')
+  // Lo que el sistema ya sabe de este router: con eso llega lleno el formulario.
+  const [sugerido, setSugerido] = useState(null)
   const [hecho, setHecho] = useState(null)
   const [trabajando, setTrabajando] = useState(false)
   const [error, setError] = useState(null)
 
   const equipo = routers.find((r) => r.id === routerId)
+  const listaAvisoEfectiva = listaAviso
+  const avisoIgualAlCorte =
+    Boolean(listaAvisoEfectiva) &&
+    listaAvisoEfectiva.trim().toLowerCase() === String(equipo?.lista_morosos ?? '').toLowerCase()
+
+  /**
+   * Al elegir el router, el formulario se llena con lo que el sistema sabe: la
+   * IP del servidor vista desde ese router (sale del túnel que armó
+   * `openvpn-server.sh`), el puerto de la página y la lista del aviso. Se puede
+   * editar; lo que no tiene sentido es pedir que se escriba de memoria.
+   */
+  useEffect(() => {
+    setHecho(null)
+    setSugerido(null)
+    if (!routerId) return
+    let vigente = true
+    api.mikrotik
+      .datosRedireccion(routerId)
+      .then((d) => {
+        if (!vigente) return
+        setSugerido(d.destino ?? null)
+        setDestino(d.destino ?? '')
+        if (d.puerto) setPuerto(d.puerto)
+        setListaAviso(d.listaAviso ?? '')
+      })
+      .catch((e) => vigente && setError(e))
+    return () => {
+      vigente = false
+    }
+  }, [routerId])
+  const esDelRouter = Boolean(equipo && destino.trim() === equipo.ip_host)
 
   const instalar = async () => {
     setTrabajando(true)
     setError(null)
     try {
-      setHecho(await api.mikrotik.redireccionPago(routerId, { destino, puerto }))
+      setHecho(
+        await api.mikrotik.redireccionPago(routerId, {
+          destino,
+          puerto,
+          listaAviso: listaAvisoEfectiva.trim(),
+        }),
+      )
     } catch (e) {
       setError(e)
     } finally {
@@ -335,9 +392,16 @@ function EnviarAlRouter({ routers }) {
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Router">
-            <Select value={routerId} onChange={(e) => setRouterId(e.target.value)}>
-              <option value="">Elegí el router…</option>
+          <Field hint="El MikroTik que le da servicio." label="Router">
+            <Select
+              value={routerId}
+              onChange={(e) => {
+                setRouterId(e.target.value)
+                setDestino('')
+                setListaAviso('')
+              }}
+            >
+              <option value="">Elige el router…</option>
               {routers.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.nombre}
@@ -353,12 +417,21 @@ function EnviarAlRouter({ routers }) {
             <Input
               value={destino}
               onChange={(e) => setDestino(e.target.value)}
-              placeholder="192.168.1.50"
+              placeholder={sugerido ?? '192.168.1.50'}
             />
+            {sugerido && !destino && (
+              <button
+                type="button"
+                onClick={() => setDestino(sugerido)}
+                className="mt-1 text-xs text-sky-400 hover:text-sky-300"
+              >
+                Usar {sugerido} (el servidor, visto desde este router)
+              </button>
+            )}
           </Field>
 
           <Field label="Puerto" hint="el de PORTAL_CORTE_PORT">
-            <Input type="number" value={puerto} onChange={(e) => setPuerto(e.target.value)} />
+            <Input placeholder="Ej.: 1" type="number" value={puerto} onChange={(e) => setPuerto(e.target.value)} />
           </Field>
         </div>
 
@@ -370,10 +443,50 @@ function EnviarAlRouter({ routers }) {
           </p>
         )}
 
+        <Field
+          label="Lista del aviso previo"
+          hint="vacía = este router no muestra aviso previo · al que está por vencer se lo mete acá"
+        >
+          <Input
+            value={listaAvisoEfectiva}
+            onChange={(e) => setListaAviso(e.target.value)}
+            placeholder="AVISO_PAGO"
+            disabled={!equipo}
+            className="max-w-[260px] font-mono"
+          />
+        </Field>
+
+        {equipo && listaAvisoEfectiva.trim() && !avisoIgualAlCorte && (
+          <p className="text-[11px] text-slate-500">
+            <Eye size={12} className="mr-1 inline" />
+            También se crea la redirección del aviso previo para{' '}
+            <b className="font-mono text-slate-400">{listaAvisoEfectiva.trim()}</b>, con su botón
+            «Entendido». Si este router viene de WispHub y usás su misma lista (<b>Aviso</b>), la
+            nuestra se pone delante de la de ellos — pero WispHub va a seguir metiendo y sacando
+            abonados de esa lista mientras esté encendido. Con una lista nueva no se pisan.
+          </p>
+        )}
+
+        {avisoIgualAlCorte && (
+          <Aviso tipo="alerta">
+            <AlertTriangle size={13} className="mr-1 inline" />
+            La lista del aviso no puede ser la misma que la del corte: el que está por vencer quedaría
+            cortado.
+          </Aviso>
+        )}
+
+        {esDelRouter && (
+          <Aviso tipo="alerta">
+            <AlertTriangle size={13} className="mr-1 inline" />
+            {destino} es la IP del router, no la del servidor: el router se mandaría el cortado a sí
+            mismo y la página no cargaría.{sugerido ? ` La del servidor es ${sugerido}.` : ''}
+          </Aviso>
+        )}
+
         <Button
           icon={Wifi}
           cargando={trabajando}
-          disabled={!routerId || !destino}
+          disabled={!routerId || !destino || esDelRouter || avisoIgualAlCorte}
           onClick={instalar}
         >
           Crear la regla en el router
@@ -391,7 +504,7 @@ function EnviarAlRouter({ routers }) {
         <Aviso tipo="alerta">
           <AlertTriangle size={13} className="mr-1 inline" />
           Si este router venía de otro sistema, ya tiene su propia regla de redirección más arriba
-          en la cadena y esa gana. Andá a <b>Red → Redes IPv4 → Comparar</b> para verlas y apagarlas
+          en la cadena y esa gana. Ve a <b>Red → Redes IPv4 → Comparar</b> para verlas y apagarlas
           cuando esta página esté probada.
         </Aviso>
       </div>

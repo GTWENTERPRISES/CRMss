@@ -144,7 +144,7 @@ export default function ConciliarIps({ routers = [] }) {
             onChange={(e) => setRouterId(e.target.value)}
             className="w-64"
           >
-            <option value="">Elegí el router…</option>
+            <option value="">Elige el router…</option>
             {routers.map((x) => (
               <option key={x.id} value={x.id}>
                 {x.nombre}
@@ -152,7 +152,7 @@ export default function ConciliarIps({ routers = [] }) {
             ))}
           </Select>
           <Button
-            variante="primario"
+            variante="secundario"
             icon={RefreshCw}
             cargando={cargando}
             disabled={!routerId}
@@ -170,11 +170,11 @@ export default function ConciliarIps({ routers = [] }) {
 
         {informe && (
           <>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Stat label="Abonados con IP" valor={r.abonados_con_ip} />
-              <Stat label="IPs en el router" valor={r.ips_en_el_router} />
-              <Stat label="Coinciden" valor={r.conformes} color="text-emerald-400" />
-              <Stat
+            <div className="t-kpis">
+              <Stat cargando={cargando} label="Abonados con IP" valor={r.abonados_con_ip} />
+              <Stat cargando={cargando} label="IPs en el router" valor={r.ips_en_el_router} />
+              <Stat cargando={cargando} label="Coinciden" valor={r.conformes} color="text-emerald-400" />
+              <Stat cargando={cargando}
                 label="Para revisar"
                 valor={
                   r.en_morosos + r.ocupadas_por_otro + r.duplicadas + r.sin_configurar

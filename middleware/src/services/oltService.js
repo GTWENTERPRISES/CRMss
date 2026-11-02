@@ -344,7 +344,7 @@ export function relevar(olt, comandos) {
 
 const sinRelevar = (olt, que) =>
   badRequest(`Todavía no se lee ${que} de una OLT ${olt.marca}`, {
-    hint: 'Los comandos se relevan contra el equipo antes de implementarlos. Usá la pestaña de relevamiento para ver qué acepta este modelo.',
+    hint: 'Los comandos se relevan contra el equipo antes de implementarlos. Usa la pestaña de relevamiento para ver qué acepta este modelo.',
   })
 
 export function listarOnus(olt, { frame = 0, slot = 0, puerto }) {
@@ -566,7 +566,7 @@ export function configurarServicio(olt, { puerto, onuId, vlan, tcontId, gemportI
   if (esHuawei(olt)) {
     throw badRequest(
       'En Huawei el servicio se aplica asignando un line profile al registrar la ONT, no con esta secuencia',
-      { hint: 'Usá POST /api/olt/:id/line-profiles para crear el perfil y registrá la ONT con él.' },
+      { hint: 'Usa POST /api/olt/:id/line-profiles para crear el perfil y registra la ONT con él.' },
     )
   }
   return vsol.configurarServicio(olt, {
@@ -582,7 +582,7 @@ export function configurarServicio(olt, { puerto, onuId, vlan, tcontId, gemportI
 export function crearLineProfile(olt, { nombre, vlan, gemport }) {
   if (!esHuawei(olt)) {
     throw badRequest('La creación de line profiles automatizada está implementada solo para Huawei', {
-      hint: 'En V-SOL creá el perfil desde la CLI y usá su nombre en "onu confirm line-profile <nombre>".',
+      hint: 'En V-SOL crea el perfil desde la CLI y usa su nombre en "onu confirm line-profile <nombre>".',
     })
   }
   return huawei.crearLineProfile(olt, { nombre, vlan, gemport })

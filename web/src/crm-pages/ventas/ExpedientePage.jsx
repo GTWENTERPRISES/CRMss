@@ -106,7 +106,7 @@ export default function ExpedientePage() {
           <h1 className="text-xl font-semibold text-slate-100">Enviado a instalaciones</h1>
           <p className="mt-2 text-sm text-slate-400">
             La venta de <b>{expediente.cliente}</b> ya está en la bandeja del backoffice con toda la
-            documentación. Podés seguir su estado desde el tablero.
+            documentación. Puedes seguir su estado desde el tablero.
           </p>
         </div>
         <Button variante="primario" className="w-full" onClick={() => navegar('/ventas/tablero')}>
@@ -182,7 +182,7 @@ export default function ExpedientePage() {
         {paso === 1 && (
           <div className="space-y-4">
             <Aviso>
-              Confirmá estos datos con el cliente delante. Después se usan para el contrato y para
+              Confirma estos datos con el cliente delante. Después se usan para el contrato y para
               que el técnico llegue.
             </Aviso>
             <div className="campo-sup campo-borde space-y-2 rounded-xl border p-3 text-[13px]">
@@ -195,7 +195,7 @@ export default function ExpedientePage() {
             </div>
             {!expediente.ok_plan && (
               <Aviso tipo="alerta">
-                Falta el plan. Volvé a la ficha del prospecto y elegí cuál contrató.
+                Falta el plan. Vuelve a la ficha del prospecto y elige cuál contrató.
               </Aviso>
             )}
             <Field label="Observaciones para el técnico">

@@ -104,7 +104,7 @@ function Editable({ valor, placeholder, onGuardar, children, tipo = 'texto', opc
           }}
         />
       )}
-      <Button variante="primario" icon={Check} onClick={confirmar} cargando={guardando} />
+      <Button variante="primario" icon={Check} onClick={confirmar} cargando={guardando} title="Guardar" />
       <Button variante="fantasma" icon={X} onClick={() => setEditando(false)} />
     </span>
   )
@@ -207,7 +207,7 @@ export default function OltDetalles({ olt, onRecargar }) {
 
               <Fila
                 etiqueta="Contraseña de acceso"
-                ayuda="Se guarda cifrada y no se puede volver a mostrar. Para cambiarla, usá «Editar ajustes»."
+                ayuda="Se guarda cifrada y no se puede volver a mostrar. Para cambiarla, usa «Editar ajustes»."
               >
                 <Secreto cargado />
               </Fila>

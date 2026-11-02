@@ -1,12 +1,14 @@
+import { usePais } from '../../lib/pais'
 import { useEffect, useMemo, useState } from 'react'
 import { dineroCero as dinero } from '../../lib/formato'
 import { AlertTriangle, Check } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { imprimirPdf } from '../../lib/pdf'
 import { errorTransaccionRepetida } from '../../lib/pagos'
 import { usePermisos } from '../../lib/AuthContext'
 import { Aviso, Button, Field, Input, Select, Textarea } from '../ui'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Registro de un cobro.
@@ -42,7 +44,9 @@ const FORMAS_PAGO = [
   { valor: 'transferencia', label: 'Transferencia', tipos: ['banco'], electronico: true },
   { valor: 'deposito', label: 'Depósito', tipos: ['banco'], electronico: true },
   { valor: 'tarjeta', label: 'Tarjeta', tipos: ['banco'], electronico: true },
-  // Billeteras, cobros por convenio, lo que aparezca. Se ofrecen todas porque no
+  // La billetera digital (Deuna, PayPhone...) se acredita en cualquier cuenta.
+  { valor: 'billetera', label: 'Billetera digital', tipos: null, electronico: true },
+  // Cobros por convenio, cobros por convenio, lo que aparezca. Se ofrecen todas porque no
   // se sabe cuál corresponde, pero la cuenta se sigue pidiendo.
   { valor: 'otro', label: 'Otro', tipos: null, electronico: true },
 ]
@@ -77,11 +81,12 @@ export function exigeCuenta(formaPago = 'efectivo') {
  * detectar que la misma transferencia —o el mismo recibo— se cargó dos veces.
  */
 const ORIGEN_NUMERO = {
-  efectivo: 'Si usaste recibera, anotá su número. Si imprimís el recibo, dejalo vacío.',
+  efectivo: 'Si usaste recibera, anota su número. Si imprimes el recibo, déjalo vacío.',
   transferencia: 'El N° del comprobante del banco',
   deposito: 'El N° del comprobante del depósito',
   tarjeta: 'El N° del voucher',
-  otro: 'El número con el que identificás este cobro',
+  billetera: 'El N° de la transacción en la billetera',
+  otro: 'El número con el que identificas este cobro',
 }
 
 const hoy = () => new Date().toISOString().slice(0, 10)
@@ -136,6 +141,7 @@ function diasHasta(iso) {
 
 export default function FormPago({ cliente, onRegistrado, onCancelar, onError }) {
   const { puede } = usePermisos()
+  const pais = usePais()
   /**
    * Las formas que puede usar, resueltas una vez.
    *
@@ -217,7 +223,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
       setCargando(true)
       try {
         const [f, c, p, cfg] = await Promise.all([
-          supabase
+          django
             .from('v_facturas_por_cobrar')
             .select('*')
             .eq('client_id', cliente.id)
@@ -230,14 +236,14 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
            * son de nadie en particular. Ofrecer la caja de otro hace que su arqueo
            * cierre mal y el propio bien, y nadie entiende por qué.
            */
-          supabase.from('v_mis_cuentas_de_cobro').select('*').order('nombre'),
-          supabase
+          django.from('v_mis_cuentas_de_cobro').select('*').order('nombre'),
+          django
             .from('promesas_pago')
             .select('*')
             .eq('client_id', cliente.id)
             .eq('estado', 'activa')
             .maybeSingle(),
-          supabase.from('sri_config').select('dia_maximo_pago').limit(1).maybeSingle(),
+          django.from('sri_config').select('dia_maximo_pago').limit(1).maybeSingle(),
         ])
 
         if (!vigente) return
@@ -323,7 +329,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
     const numero = form.n_transaccion.trim()
     if (!numero) return setRepetida(null)
 
-    const { data } = await supabase
+    const { data } = await django
       .from('v_pagos')
       .select('numero, cliente, monto, fecha_pago')
       .eq('n_transaccion', numero)
@@ -349,7 +355,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
    */
   async function activarServicio() {
     if (!cliente.router_id || !cliente.ip) {
-      return { ok: false, nota: 'El cliente no tiene router o IP asignados: activalo a mano.' }
+      return { ok: false, nota: 'El cliente no tiene router o IP asignados: actívalo a mano.' }
     }
 
     try {
@@ -360,7 +366,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
 
       if (!entrada) return { ok: true, nota: 'No estaba bloqueado en el router.' }
 
-      await api.mikrotik.desbloquear(cliente.router_id, entrada.id)
+      await api.mikrotik.desbloquear(cliente.router_id, entrada.id, entrada.address)
       return { ok: true, nota: `Se quitó ${cliente.ip} del corte en el router.` }
     } catch (err) {
       return { ok: false, nota: `No se pudo desbloquear en el router: ${err.message}` }
@@ -376,9 +382,9 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
    * quedarse conectado gratis.
    */
   async function registrarPromesa() {
-    const { data: sesion } = await supabase.auth.getUser()
+    const { data: sesion } = await django.auth.getUser()
 
-    const { data: promesaNueva, error } = await supabase
+    const { data: promesaNueva, error } = await django
       .from('promesas_pago')
       .insert({
         client_id: cliente.id,
@@ -395,7 +401,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
     if (error) {
       if (error.code === '23505') {
         throw new Error(
-          `${cliente.nombre} ya tiene una promesa activa. Cerrala en la pestaña de promesas antes de registrar otra.`,
+          `${cliente.nombre} ya tiene una promesa activa. Ciérrala en la pestaña de promesas antes de registrar otra.`,
         )
       }
       throw error
@@ -406,7 +412,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
     pasos.push(r)
 
     if (r.ok) {
-      const { error: errEstado } = await supabase
+      const { error: errEstado } = await django
         .from('clientes')
         .update({ estado: 'activo' })
         .eq('id', cliente.id)
@@ -417,7 +423,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
 
     pasos.push({
       ok: true,
-      nota: `Queda habilitado hasta el ${new Date(`${form.fecha_limite}T12:00:00`).toLocaleDateString()}. Si no paga, aparece en "Promesas" como vencida.`,
+      nota: `Queda habilitado hasta el ${fmtFecha(`${form.fecha_limite}T12:00:00`)}. Si no paga, aparece en "Promesas" como vencida.`,
     })
 
     return { promesa: promesaNueva, pasos }
@@ -429,7 +435,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
     const monto = Number(form.monto)
 
     if (esPromesa) {
-      if (!form.fecha_limite) return onError?.(new Error('Elegí hasta cuándo se le habilita el servicio'))
+      if (!form.fecha_limite) return onError?.(new Error('Elige hasta cuándo se le habilita el servicio'))
       if (form.fecha_limite < hoy()) {
         return onError?.(new Error('La fecha límite no puede ser anterior a hoy'))
       }
@@ -469,8 +475,8 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
         return onError?.(
           new Error(
             form.forma_pago === 'efectivo'
-              ? 'Elegí a qué caja entró el efectivo'
-              : 'Elegí a qué cuenta entró el pago: sin eso no se puede conciliar con el banco',
+              ? 'Elige a qué caja entró el efectivo'
+              : 'Elige a qué cuenta entró el pago: sin eso no se puede conciliar con el banco',
           ),
         )
       }
@@ -508,14 +514,14 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
     }
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
+      const { data: sesion } = await django.auth.getUser()
 
       // Un cobro puede saldar varias facturas: el mes atrasado, el corriente y
       // los materiales que se llevó. La base lo reparte de la más vieja a la más
       // nueva —empezando por la que está en pantalla— y devuelve el detalle.
       // Repartirlo acá obligaría a varios viajes y dejaría el cobro a medias si
       // uno fallara.
-      const { data: resultado, error } = await supabase.rpc('aplicar_cobro', {
+      const { data: resultado, error } = await django.rpc('aplicar_cobro', {
         p_client_id: cliente.id,
         p_monto: monto,
         p_forma_pago: form.forma_pago,
@@ -534,7 +540,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
 
       // El recibo se imprime desde el cobro principal: es el que lleva el número
       // y el que suma lo que el abonado entregó.
-      const { data: pago } = await supabase
+      const { data: pago } = await django
         .from('v_pagos')
         .select('*')
         .eq('id', resultado.pago_id)
@@ -565,7 +571,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
       // que prometió, incumplida si trajo una parte. Se vuelve a leer solo
       // para poder contarlo en el resultado.
       if (promesa) {
-        const { data: cerrada } = await supabase
+        const { data: cerrada } = await django
           .from('promesas_pago')
           .select('estado')
           .eq('id', promesa.id)
@@ -576,7 +582,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
           nota:
             cerrada?.estado === 'cumplida'
               ? 'Promesa cumplida: no le queda deuda de lo que prometió pagar.'
-              : 'Promesa incumplida: pagó menos de lo prometido. Podés anotarle un plazo nuevo.',
+              : 'Promesa incumplida: pagó menos de lo prometido. Puedes anotarle un plazo nuevo.',
         })
       }
 
@@ -586,7 +592,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
       // deja incumplida, el lugar queda libre para anotar el plazo nuevo que el
       // abonado acaba de pedir.
       if (esCobroParcial && form.promesa_saldo) {
-        const { error: errNueva } = await supabase.from('promesas_pago').insert({
+        const { error: errNueva } = await django.from('promesas_pago').insert({
           client_id: cliente.id,
           factura_id: form.document_id || null,
           monto: saldoRestante,
@@ -600,9 +606,9 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
           ok: !errNueva,
           nota: errNueva
             ? errNueva.code === '23505'
-              ? 'El cobro se registró. La promesa por el saldo no se creó porque el cliente ya tiene una activa: revisala en Promesas.'
+              ? 'El cobro se registró. La promesa por el saldo no se creó porque el cliente ya tiene una activa: revísala en Promesas.'
               : `El cobro se registró pero la promesa por el saldo no: ${errNueva.message}`
-            : `Quedan ${dinero(saldoRestante)} prometidos para el ${new Date(`${form.fecha_saldo}T12:00:00`).toLocaleDateString()}.`,
+            : `Quedan ${dinero(saldoRestante)} prometidos para el ${fmtFecha(`${form.fecha_saldo}T12:00:00`)}.`,
         })
       } else if (esCobroParcial) {
         // Aunque no se prometa nada, el saldo tiene que quedar dicho: es la
@@ -616,14 +622,14 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
       // El día de pago pactado vive en la ficha del cliente, no en el cobro.
       const dia = form.dia_pago === '' ? null : Number(form.dia_pago)
       if (dia !== (cliente.dia_facturacion ?? null)) {
-        await supabase.from('clientes').update({ dia_facturacion: dia }).eq('id', cliente.id)
+        await django.from('clientes').update({ dia_facturacion: dia }).eq('id', cliente.id)
       }
 
       if (form.tipo === 'activar') {
         const r = await activarServicio()
         pasos.push(r)
         if (r.ok) {
-          const { error: errEstado } = await supabase
+          const { error: errEstado } = await django
             .from('clientes')
             .update({ estado: 'activo' })
             .eq('id', cliente.id)
@@ -661,7 +667,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
           onError?.(
             new Error(
               'El cobro se registró, pero no se pudo abrir el comprobante. '
-              + 'Imprimilo desde el listado de pagos.',
+              + 'Imprímelo desde el listado de pagos.',
             ),
           )
         })
@@ -698,7 +704,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
         <Aviso tipo="alerta">
           <AlertTriangle size={14} className="mr-1 inline" />
           Tiene una promesa de pago para el{' '}
-          <b>{new Date(`${promesa.fecha_promesa}T12:00:00`).toLocaleDateString()}</b>
+          <b>{fmtFecha(`${promesa.fecha_promesa}T12:00:00`)}</b>
           {promesa.monto ? ` por ${dinero(promesa.monto)}` : ''}. Al registrar el cobro se cierra.
         </Aviso>
       )}
@@ -711,7 +717,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
               {facturas.map((f) => (
                 <option key={f.id} value={f.id}>
                   N° {f.numero} — {dinero(f.saldo)} pendiente de {dinero(f.importe_total)} (
-                  {f.fecha_emision}){f.tipo !== 'servicios' ? ` · ${f.tipo}` : ''}
+                  {fmtFecha(f.fecha_emision)}){f.tipo !== 'servicios' ? ` · ${f.tipo}` : ''}
                 </option>
               ))}
             </Select>
@@ -736,8 +742,8 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
                 de transacción solo invita a llenar datos inventados. */}
             {!esPromesa && (
               <>
-                <Field label="Comisión $" hint="Lo que retiene el intermediario">
-                  <Input
+                <Field campo="comision" label="Comisión $" hint="Lo que retiene el intermediario">
+                  <Input placeholder="Ej.: 0.50"
                     type="number"
                     step="0.01"
                     min={0}
@@ -759,7 +765,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
                  * requisito. Exigirlo obligaría a inventar uno, y un número
                  * inventado es peor que ninguno.
                  */}
-                <Field
+                <Field campo="n_transaccion"
                   label={
                     form.forma_pago === 'efectivo'
                       ? 'N° de recibera (opcional)'
@@ -772,6 +778,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
                   }
                 >
                   <Input
+                    placeholder="Ej.: 123456789"
                     value={form.n_transaccion}
                     onChange={set('n_transaccion')}
                     onBlur={verificarTransaccion}
@@ -780,7 +787,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
                   />
                 </Field>
 
-                <Field label="Forma de pago">
+                <Field hint="Cómo pagó el cliente." label="Forma de pago">
                   {/**
                    * El punto de recaudación cobra SOLO en efectivo.
                    *
@@ -808,7 +815,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
                     </Select>
                   )}
                 </Field>
-                <Field
+                <Field campo="cuenta_id"
                   label={form.forma_pago === 'efectivo' ? 'Caja' : 'Cuenta de destino'}
                   hint={
                     form.forma_pago === 'efectivo'
@@ -817,7 +824,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
                   }
                 >
                   <Select value={form.cuenta_id} onChange={set('cuenta_id')} required>
-                    <option value="">— elegí una cuenta —</option>
+                    <option value="">— elige una cuenta —</option>
                     {cuentasPara(cuentas, form.forma_pago).map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.nombre}
@@ -834,15 +841,15 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
                   {!cuentasPara(cuentas, form.forma_pago).length && (
                     <p className="mt-1 text-xs text-amber-400">
                       {form.forma_pago === 'efectivo'
-                        ? 'No tenés una caja asignada. Pedila en Ajustes → Cuentas de pago: sin caja propia no se puede cobrar en efectivo.'
-                        : 'No hay ninguna cuenta de este tipo cargada. Creala en Ajustes → Cuentas de pago.'}
+                        ? 'No tienes una caja asignada. Pídela en Ajustes → Cuentas de pago: sin caja propia no se puede cobrar en efectivo.'
+                        : 'No hay ninguna cuenta de este tipo cargada. Créala en Ajustes → Cuentas de pago.'}
                     </p>
                   )}
                 </Field>
               </>
             )}
 
-            <Field label="Tipo de pago">
+            <Field campo="tipo" hint="Registrar el pago, reconectar o dejar una promesa." label="Tipo de pago">
               <Select value={form.tipo} onChange={set('tipo')}>
                 <option value="registrar">Registrar pago</option>
                 <option value="activar">Registrar pago y activar servicio</option>
@@ -851,12 +858,12 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
             </Field>
 
             {esPromesa && (
-              <Field
+              <Field campo="fecha_limite"
                 label="Fecha límite de pago"
                 className="sm:col-span-2"
                 hint={
                   form.fecha_limite === fechaSugerida(diaMaximo)
-                    ? `Sugerida: ${DIAS_DE_GRACIA} días más allá del ${diaMaximo} de cada mes, que es la fecha máxima de pago. Tocá el campo para elegir otra.`
+                    ? `Sugerida: ${DIAS_DE_GRACIA} días más allá del ${diaMaximo} de cada mes, que es la fecha máxima de pago. Toca el campo para elegir otra.`
                     : diasFaltantes > 30
                       ? `Son ${diasFaltantes} días de plazo: es mucho para una promesa.`
                       : `El servicio queda habilitado ${diasFaltantes <= 0 ? 'solo por hoy' : `${diasFaltantes} día(s) más`}.`
@@ -884,7 +891,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
                 />
               </Field>
             )}
-            <Field label="Día de pago" hint="Día del mes en que se le factura">
+            <Field campo="dia_pago" label="Día de pago" hint="Día del mes en que se le factura">
               <Select value={form.dia_pago ?? ''} onChange={set('dia_pago')}>
                 <option value="">— sin definir —</option>
                 {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
@@ -896,7 +903,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
             </Field>
 
             {!esPromesa && (
-              <Field label="Fecha del pago">
+              <Field campo="fecha_pago" hint="El día en que pagó, no el de hoy si es otro." label="Fecha del pago">
                 <Input type="date" value={form.fecha_pago} onChange={set('fecha_pago')} max={hoy()} />
               </Field>
             )}
@@ -904,7 +911,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
 
           {/* Un cobro contra una factura ya emitida no genera otra. Solo los
               cobros sin comprobante entran a la cola del cierre. */}
-          {!esPromesa && !form.document_id && (
+          {pais.modulos.facturacionElectronica && !esPromesa && !form.document_id && (
             <div className="t-panel p-3">
               <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
                 <input
@@ -947,7 +954,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
               {/* Al SRI se le emite una sola factura por el mes, el día que
                   termina de pagarlo. Emitir por cada abono le daría dos
                   comprobantes del mismo mes. */}
-              {cliente.factura_electronica !== false && (
+              {pais.modulos.facturacionElectronica && cliente.factura_electronica !== false && (
                 <p className="text-xs text-amber-200/80">
                   No entra a la cola del SRI todavía: el comprobante se emite por el mes
                   completo cuando termine de cancelarlo.
@@ -968,7 +975,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
 
               {form.promesa_saldo && (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Se compromete a pagar el" hint="Tocá el campo para abrir el calendario">
+                  <Field campo="fecha_saldo" label="Se compromete a pagar el" hint="Toca el campo para abrir el calendario">
                     <Input
                       type="date"
                       value={form.fecha_saldo}
@@ -996,7 +1003,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
             </div>
           )}
 
-          <Field
+          <Field campo="monto"
             label={esPromesa ? 'MONTO PROMETIDO' : 'TOTAL A PAGAR'}
             hint={
               esPromesa
@@ -1013,6 +1020,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
                 $
               </span>
               <Input
+                    placeholder="Ej.: 25.00"
                 type="number"
                 step="0.01"
                 min={0.01}
@@ -1045,7 +1053,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
         </div>
 
         <div className="space-y-4 lg:border-l lg:border-slate-800 lg:pl-6">
-          <Field label="Notas">
+          <Field campo="notas" label="Notas">
             <Textarea
               rows={5}
               value={form.notas}
@@ -1059,7 +1067,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
               No se registra ningún cobro. El servicio se habilita ahora y hasta el{' '}
               <b>
                 {form.fecha_limite
-                  ? new Date(`${form.fecha_limite}T12:00:00`).toLocaleDateString()
+                  ? fmtFecha(`${form.fecha_limite}T12:00:00`)
                   : '—'}
               </b>
               . Si llega esa fecha sin pago, el cliente aparece en <b>Promesas</b> como vencido para

@@ -24,7 +24,7 @@ export default function PortalFacturas() {
   if (error) return <p className="py-8 text-center text-sm text-rose-400">{error}</p>
   if (!facturas) return <Cargando />
   if (!facturas.length) {
-    return <Vacio icono={FileText}>Todavía no tenés facturas emitidas.</Vacio>
+    return <Vacio icono={FileText}>Todavía no tienes facturas emitidas.</Vacio>
   }
 
   const pendientes = facturas.filter((f) => f.estado !== 'pagada')

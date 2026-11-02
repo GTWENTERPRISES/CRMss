@@ -33,6 +33,8 @@ const CAMPOS = {
   comisiones: [{ campo: 'comisiones_hora', label: 'Hora', tipo: 'hora' }],
   cartera: [{ campo: 'cartera_hora', label: 'Hora', tipo: 'hora' }],
   stock: [{ campo: 'stock_hora', label: 'Hora', tipo: 'hora' }],
+  foto_routers: [{ campo: 'foto_routers_hora', label: 'Hora', tipo: 'hora' }],
+  subida: [{ campo: 'subida_cada_minutos', label: 'Cada (minutos)', tipo: 'numero' }],
   avisos_pago: [{ campo: 'avisos_pago_hora', label: 'Hora', tipo: 'hora' }],
   mora: [
     { campo: 'mora_hora', label: 'Hora', tipo: 'hora' },
@@ -48,7 +50,7 @@ const CAMPOS = {
        * en quince minutos sin tocar nada.
        */
       min: 0,
-      hint: '0 = sin tope, corta a todos los que deben. Si ponés un número y se alcanza, el resto queda sin cortar hasta mañana.',
+      hint: '0 = sin tope, corta a todos los que deben. Si pones un número y se alcanza, el resto queda sin cortar hasta mañana.',
     },
     {
       campo: 'mora_reconexion_segundos',
@@ -73,6 +75,18 @@ const CAMPOS = {
       tipo: 'numero',
       hint: 'Con menos, una pérdida puntual se lee como caída',
     },
+    {
+      campo: 'nms_router_fallas',
+      label: 'Router sin conexión tras',
+      tipo: 'numero',
+      hint: 'Pasadas seguidas sin respuesta antes de avisar que el router no contesta',
+    },
+    {
+      campo: 'nms_gracia_minutos',
+      label: 'Espera al arrancar',
+      tipo: 'minutos',
+      hint: 'Después de reiniciar el servidor no se cuenta ninguna falla: la VPN tarda en levantar',
+    },
   ],
   optica: [{ campo: 'optica_cada_minutos', label: 'Cada', tipo: 'minutos' }],
   esperando: [{ campo: 'esperando_cada_minutos', label: 'Cada', tipo: 'minutos' }],
@@ -93,6 +107,8 @@ const LLAVE = {
   cartera: 'cartera_automatico',
   alertas: 'alertas_automaticas',
   pausas: 'pausas_automatico',
+  foto_routers: 'foto_routers_automatico',
+  subida: 'subida_automatico',
   stock: 'stock_automatico',
   avisos_pago: 'avisos_pago_automatico',
   mora: 'mora_automatico',
@@ -164,6 +180,13 @@ export default function TareasPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
+      {datos.apagadas_por_entorno && (
+        <Aviso tipo="alerta">
+          Esta es una copia de desarrollo con las tareas apagadas (TAREAS_APAGADAS). Lo que se
+          guarde acá vale para el servidor, pero esta copia no corre ninguna tarea.
+        </Aviso>
+      )}
+
       <form onSubmit={guardar} className="space-y-3">
         {datos.tareas.map((t) => (
           <Tarea
@@ -172,6 +195,7 @@ export default function TareasPage() {
             form={form}
             set={set}
             ultima={datos.ultimas_corridas?.[t.clave]}
+            subida={datos.subida}
           />
         ))}
 
@@ -187,7 +211,55 @@ export default function TareasPage() {
   )
 }
 
-function Tarea({ tarea, form, set, ultima }) {
+/**
+ * Qué pasó en la última medición de subida.
+ *
+ * Sin esto la tarea solo decía "corriendo" y una hora, y no había forma de
+ * saber si medía a alguien. Los números están en el orden en que alguien se
+ * cae del embudo: activo → con cola → con límite → medido.
+ */
+function SubidaResumen({ r }) {
+  if (!r) return null
+  if (r.error && r.medidos == null) {
+    return <p className="mt-2 text-xs text-red-400">Falló la última medición: {r.error}</p>
+  }
+
+  const fila = (etiqueta, valor, tono = 'text-slate-200') => (
+    <div className="rounded-lg bg-slate-800/60 px-3 py-2">
+      <p className={`text-base font-bold leading-none ${tono}`}>{valor ?? 0}</p>
+      <p className="mt-1 text-[11px] text-slate-500">{etiqueta}</p>
+    </div>
+  )
+
+  let pista = null
+  if (!r.activos) pista = 'No hay abonados activos con router asignado.'
+  else if (!r.emparejados)
+    pista = 'Ninguna cola del router coincide con un abonado: la cola tiene que apuntar a la IP del abonado, o llamarse <pppoe-usuario> con el usuario PPPoE de su ficha.'
+  else if (r.sin_limite === r.emparejados)
+    pista = 'Las colas encontradas no tienen límite de subida (Max Limit), y sin límite no hay contra qué comparar.'
+  else if (!r.medidos && r.primera_lectura)
+    pista = 'Primera lectura: se fijó el punto de partida. Desde la próxima corrida ya se mide la velocidad.'
+
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {fila('activos con router', r.activos)}
+        {fila('con cola en el router', r.emparejados)}
+        {fila('cola sin límite de subida', r.sin_limite, r.sin_limite ? 'text-amber-400' : 'text-slate-200')}
+        {fila('medidos', r.medidos, 'text-sky-400')}
+        {fila('saturando ahora', r.en_curso, r.en_curso ? 'text-red-400' : 'text-emerald-400')}
+      </div>
+      {pista && <p className="text-xs text-slate-400">{pista}</p>}
+      {r.fallidos?.length > 0 && (
+        <p className="text-xs text-amber-400">
+          No se pudo leer: {r.fallidos.map((f) => `${f.router} (${f.error})`).join(' · ')}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function Tarea({ tarea, form, set, ultima, subida }) {
   const encendida = Boolean(form[LLAVE[tarea.clave]])
 
   return (
@@ -250,6 +322,7 @@ function Tarea({ tarea, form, set, ultima }) {
               </>
             )}
             {tarea.clave === 'mora' && <MoraPrueba />}
+            {tarea.clave === 'subida' && <SubidaResumen r={subida} />}
 
             {encendida && CAMPOS[tarea.clave] && (
               <div className="mt-3 flex flex-wrap gap-3">
@@ -272,7 +345,7 @@ function Tarea({ tarea, form, set, ultima }) {
                           El mínimo lo dice cada campo, no la pantalla.
 
                           Estaba fijo en 1, y en "Máximo por corrida" el 0 es un
-                          valor válido —significa "sin tope, cortá a todos"— y
+                          valor válido —significa "sin tope, corta a todos"— y
                           además lo que su propia ayuda recomienda. El navegador
                           lo rechazaba: el campo contradecía a su propio texto.
 

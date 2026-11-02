@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@/lib/nextNavigation'
 import { MapPin } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { Aviso, Card, Cargando, ErrorBanner, Select, Stat } from '../components/ui'
+import { dineroCero } from '@/lib/formato'
+import { COLOR_ESTADO as COLORES, HEX } from '../lib/estados'
 
 /**
  * Mapa de abonados.
@@ -17,12 +19,8 @@ import { Aviso, Card, Cargando, ErrorBanner, Select, Stat } from '../components/
  * las imágenes de Leaflet, que con un bundler suelen quedar rotas.
  */
 
-const COLOR_ESTADO = {
-  activo: '#10b981',
-  cortado: '#ef4444',
-  suspendido: '#f59e0b',
-  baja: '#64748b',
-}
+// Colores de estado: los mismos en todo el sistema (lib/estados).
+const COLOR_ESTADO = Object.fromEntries(Object.entries(COLORES.abonado).map(([k, c]) => [k, HEX[c]]))
 
 /** La Maná, Cotopaxi: el centro por defecto cuando todavía no hay nadie ubicado. */
 const CENTRO_POR_DEFECTO = [-0.9376, -79.227]
@@ -40,7 +38,7 @@ export default function MapaClientesPage() {
   const [filtro, setFiltro] = useState('')
 
   useEffect(() => {
-    supabase
+    django
       .from('v_clientes_ficha')
       .select('id, nombre, estado, ip, plan, latitud, longitud, saldo, direccion')
       .not('latitud', 'is', null)
@@ -113,7 +111,7 @@ export default function MapaClientesPage() {
            <b>${c.nombre}</b><br>
            ${c.plan ?? 'sin plan'} · ${c.estado}<br>
            ${c.ip ?? ''}<br>
-           ${Number(c.saldo) > 0 ? `<span style="color:#dc2626">debe $${Number(c.saldo).toFixed(2)}</span><br>` : ''}
+           ${Number(c.saldo) > 0 ? `<span style="color:#dc2626">debe ${dineroCero(c.saldo)}</span><br>` : ''}
            <a href="#" data-cliente="${c.id}" style="color:#0284c7">Ver ficha</a>
          </div>`,
       )
@@ -148,11 +146,11 @@ export default function MapaClientesPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Stat label="En el mapa" valor={clientes.length} icon={MapPin} />
-        <Stat label="Activos" valor={contar('activo')} color="text-emerald-400" />
-        <Stat label="Cortados" valor={contar('cortado')} color="text-red-400" />
-        <Stat label="Suspendidos" valor={contar('suspendido')} color="text-amber-400" />
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="En el mapa" valor={clientes.length} icon={MapPin} />
+        <Stat cargando={cargando} label="Activos" valor={contar('activo')} color="text-emerald-400" />
+        <Stat cargando={cargando} label="Cortados" valor={contar('cortado')} color="text-red-400" />
+        <Stat cargando={cargando} label="Suspendidos" valor={contar('suspendido')} color="text-amber-400" />
       </div>
 
       <Card

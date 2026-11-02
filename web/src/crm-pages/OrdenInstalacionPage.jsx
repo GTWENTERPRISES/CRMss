@@ -14,7 +14,7 @@ import {
   Trash2,
   UserCheck,
 } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { api } from '../lib/apiNetwork'
 import { abrirPdf } from '../lib/pdf'
 import { enlaceMapa, enlaceWhatsapp } from '../lib/soporte'
@@ -24,7 +24,8 @@ import DocumentosVenta from '../components/instalaciones/DocumentosVenta'
 import FirmaContrato from '../components/contratos/FirmaContrato'
 import FactibilidadPanel from '../components/instalaciones/FactibilidadPanel'
 import AgendaPanel from '../components/instalaciones/AgendaPanel'
-import { Aviso, Badge, Button, Card, Cargando, ErrorBanner } from '../components/ui'
+import { Aviso, Badge, Button, Card, Cargando, ErrorBanner, MenuAcciones } from '../components/ui'
+import { dineroCero } from '@/lib/formato'
 
 /**
  * La orden de trabajo, del lado de la oficina.
@@ -48,7 +49,7 @@ export default function OrdenInstalacionPage() {
   const [error, setError] = useState(null)
 
   const recargar = useCallback(async () => {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('v_instalaciones')
       .select('*')
       .eq('id', id)
@@ -64,14 +65,14 @@ export default function OrdenInstalacionPage() {
   }, [recargar])
 
   async function cambiarEstado(estado) {
-    const { error: err } = await supabase.from('instalaciones').update({ estado }).eq('id', id)
+    const { error: err } = await django.from('instalaciones').update({ estado }).eq('id', id)
     if (err) return setError(err)
     await recargar()
   }
 
   async function eliminar() {
     if (!await confirmar('¿Eliminar esta orden de trabajo? No se puede deshacer.')) return
-    const { error: err } = await supabase.from('instalaciones').delete().eq('id', id)
+    const { error: err } = await django.from('instalaciones').delete().eq('id', id)
     if (err) return setError(err)
     navegar('/clientes/instalaciones')
   }
@@ -114,12 +115,12 @@ export default function OrdenInstalacionPage() {
        * el anexo 1f exige. Con la lista, el vendedor lo elige ahí mismo.
        */
       const [{ data: planes }, { data: prestador }] = await Promise.all([
-        supabase
+        django
           .from('planes_velocidad')
           .select('id, nombre, precio, bajada_kbps, subida_kbps, comparticion, minima_bajada_kbps, minima_subida_kbps')
           .eq('activo', true)
           .order('precio'),
-        supabase
+        django
           .from('prestadores')
           .select('arbitraje_por_defecto')
           .eq('predeterminado', true)
@@ -197,7 +198,7 @@ export default function OrdenInstalacionPage() {
           <Dato etiqueta="Plan" valor={orden.plan} />
           <Dato
             etiqueta="Precio mensual"
-            valor={orden.precio_mensual != null ? `$${Number(orden.precio_mensual).toFixed(2)}` : null}
+            valor={orden.precio_mensual != null ? `${dineroCero(orden.precio_mensual)}` : null}
           />
           <Dato
             etiqueta="Día de facturación"
@@ -320,12 +321,13 @@ export default function OrdenInstalacionPage() {
 
       {abierta && (
         <div className="flex flex-wrap gap-2">
-          <Button icon={Ban} onClick={() => cambiarEstado('cancelada')}>
-            Cancelar el trabajo
-          </Button>
-          <Button variante="peligro" icon={Trash2} onClick={eliminar}>
-            Eliminar
-          </Button>
+          <MenuAcciones
+            texto="Cancelar o eliminar"
+            acciones={[
+              { label: 'Cancelar el trabajo', icon: Ban, onClick: () => cambiarEstado('cancelada') },
+              { label: 'Eliminar la orden', icon: Trash2, peligro: true, onClick: eliminar },
+            ]}
+          />
         </div>
       )}
 

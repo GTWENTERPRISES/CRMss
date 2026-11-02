@@ -9,7 +9,7 @@ import { estadoWhatsapp, VIAS, automatico } from '../drivers/whatsapp/index.js'
 /**
  * Las alertas, desde la oficina.
  *
- * Todo lo que sea leer o editar reglas y destinos va directo a Supabase con RLS:
+ * Todo lo que sea leer o editar reglas y destinos va directo a Django (/api/v1/tables) con RLS:
  * es CRUD y no necesita al middleware. Acá viven las tres cosas que sí lo
  * necesitan, porque tocan credenciales o proveedores externos.
  */

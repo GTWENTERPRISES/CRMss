@@ -14,7 +14,7 @@ function getClave() {
   if (!config.credentialsKey) {
     throw new AppError('CREDENTIALS_KEY no está configurada en el .env del middleware', {
       status: 500,
-      hint: 'Copiá middleware/.env.example a middleware/.env y definí CREDENTIALS_KEY.',
+      hint: 'Copia middleware/.env.example a middleware/.env y define CREDENTIALS_KEY.',
     })
   }
   if (!claveCache) {
@@ -43,7 +43,7 @@ export function decrypt(payload) {
   if (partes.length !== 4 || partes[0] !== PREFIJO) {
     throw new AppError('La credencial guardada no tiene el formato esperado', {
       status: 500,
-      hint: 'Volvé a guardar el equipo desde la UI para regenerar la credencial cifrada.',
+      hint: 'Vuelve a guardar el equipo desde la UI para regenerar la credencial cifrada.',
     })
   }
   const [, ivB64, tagB64, ctB64] = partes
@@ -54,7 +54,7 @@ export function decrypt(payload) {
   } catch {
     throw new AppError('No se pudo descifrar la credencial del equipo', {
       status: 500,
-      hint: 'Lo más probable es que CREDENTIALS_KEY haya cambiado desde que se guardó. Volvé a cargar la contraseña del equipo.',
+      hint: 'Lo más probable es que CREDENTIALS_KEY haya cambiado desde que se guardó. Vuelve a cargar la contraseña del equipo.',
     })
   }
 }

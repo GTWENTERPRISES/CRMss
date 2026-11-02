@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { personalApi } from './personal'
 
 /**
@@ -135,7 +135,7 @@ export const aplicaAlPlan = (promo, planId) =>
 export const promocionesApi = {
   /** Las que se pueden vender hoy. Las vencidas ni aparecen. */
   async vigentes() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_promociones_vigentes')
       .select('*')
       .order('creado_en', { ascending: false })
@@ -145,7 +145,7 @@ export const promocionesApi = {
 
   /** Todas, para administrar y para medir cuál funcionó. */
   async todas() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_promociones')
       .select('*')
       .order('creado_en', { ascending: false })
@@ -164,15 +164,15 @@ export const promocionesApi = {
     }
 
     const { data, error } = id
-      ? await supabase.from('promociones').update(fila).eq('id', id).select().single()
-      : await supabase.from('promociones').insert(fila).select().single()
+      ? await django.from('promociones').update(fila).eq('id', id).select().single()
+      : await django.from('promociones').insert(fila).select().single()
     if (error) throw error
 
     // Los planes se reemplazan enteros: son dos o tres filas y calcular altas y
     // bajas para eso es más código del que ahorra.
-    await supabase.from('promocion_planes').delete().eq('promocion_id', data.id)
+    await django.from('promocion_planes').delete().eq('promocion_id', data.id)
     if (planes?.length) {
-      const { error: e2 } = await supabase
+      const { error: e2 } = await django
         .from('promocion_planes')
         .insert(planes.map((plan_id) => ({ promocion_id: data.id, plan_id })))
       if (e2) throw e2
@@ -194,7 +194,7 @@ export const promocionesApi = {
    * siempre.
    */
   async desactivar(promo) {
-    const { error } = await supabase
+    const { error } = await django
       .from('promociones')
       .update({ activa: false })
       .eq('id', promo.id)

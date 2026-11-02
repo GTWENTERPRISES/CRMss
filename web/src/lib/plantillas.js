@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 
 /**
  * Las plantillas: los textos que el sistema le manda al abonado.
@@ -112,7 +112,7 @@ export function marcadoresSinValor(texto, datos = EJEMPLO) {
 
 export const plantillasApi = {
   async listar() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('plantillas_mensaje')
       .select('*')
       .order('categoria')
@@ -126,8 +126,8 @@ export const plantillasApi = {
     const fila = { ...datos, actualizado_en: new Date().toISOString() }
 
     const { data, error } = id
-      ? await supabase.from('plantillas_mensaje').update(fila).eq('id', id).select().single()
-      : await supabase.from('plantillas_mensaje').insert(fila).select().single()
+      ? await django.from('plantillas_mensaje').update(fila).eq('id', id).select().single()
+      : await django.from('plantillas_mensaje').insert(fila).select().single()
     if (error) throw error
     return data
   },
@@ -140,7 +140,7 @@ export const plantillasApi = {
    * versiones de la verdad. La pantalla solo esconde el botón.
    */
   async borrar(id) {
-    const { error } = await supabase.from('plantillas_mensaje').delete().eq('id', id)
+    const { error } = await django.from('plantillas_mensaje').delete().eq('id', id)
     if (error) throw error
   },
 }

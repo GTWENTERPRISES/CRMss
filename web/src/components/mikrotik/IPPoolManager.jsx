@@ -66,23 +66,21 @@ export default function IPPoolManager({ router }) {
       subtitle="Rangos de direcciones que reparte el router"
       icon={Boxes}
       actions={
-        <Button icon={RefreshCw} onClick={cargar} cargando={cargando} disabled={!router}>
-          Refrescar
-        </Button>
+        <Button icon={RefreshCw} onClick={cargar} cargando={cargando} disabled={!router} title="Refrescar" />
       }
     >
       <div className="space-y-4">
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
         <form onSubmit={crear} className="grid items-end gap-3 sm:grid-cols-4">
-          <Field label="Nombre">
+          <Field campo="name" label="Nombre">
             <Input value={form.name} onChange={set('name')} placeholder="pool-clientes" required />
           </Field>
-          <Field label="Rango" hint="Ej: 10.0.0.10-10.0.0.254">
+          <Field campo="ranges" label="Rango" hint="Ej: 10.0.0.10-10.0.0.254">
             <Input value={form.ranges} onChange={set('ranges')} placeholder="10.0.0.10-10.0.0.254" required />
           </Field>
-          <Field label="Comentario">
-            <Input value={form.comment} onChange={set('comment')} />
+          <Field campo="comment" label="Comentario">
+            <Input placeholder="Ej.: Se reinició la ONT" value={form.comment} onChange={set('comment')} />
           </Field>
           <div className="pb-2">
             <Button
@@ -101,7 +99,7 @@ export default function IPPoolManager({ router }) {
         {cargando ? (
           <Cargando texto="Consultando el router…" />
         ) : pools === null ? (
-          <p className="py-6 text-center text-sm text-slate-500">Elegí un router para ver sus pools.</p>
+          <p className="py-6 text-center text-sm text-slate-500">Elige un router para ver sus pools.</p>
         ) : (
           <Table
             columnas={['Nombre', 'Rango', 'Siguiente pool', 'Comentario', '']}

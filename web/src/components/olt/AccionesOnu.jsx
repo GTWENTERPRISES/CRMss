@@ -126,7 +126,7 @@ export default function AccionesOnu({ olt, onu, planes, onListo, onCerrar }) {
         </h4>
 
         <div className="flex flex-wrap items-end gap-2">
-          <Field label="Perfil de servicio" className="min-w-[220px] flex-1">
+          <Field hint="Se crea en la OLT; define los puertos." label="Perfil de servicio" className="min-w-[220px] flex-1">
             <Select value={srvPerfil} onChange={(e) => setSrvPerfil(e.target.value)}>
               <option value="">— sin cambiar —</option>
               {(perfiles?.srv ?? []).map((p) => (
@@ -137,7 +137,7 @@ export default function AccionesOnu({ olt, onu, planes, onListo, onCerrar }) {
               ))}
             </Select>
           </Field>
-          <Field label="Perfil de línea" className="min-w-[220px] flex-1">
+          <Field hint="Se crea en la OLT; define el tráfico." label="Perfil de línea" className="min-w-[220px] flex-1">
             <Select value={linePerfil} onChange={(e) => setLinePerfil(e.target.value)}>
               <option value="">— sin cambiar —</option>
               {(perfiles?.line ?? []).map((p) => (
@@ -209,7 +209,7 @@ export default function AccionesOnu({ olt, onu, planes, onListo, onCerrar }) {
               </>
             )
           ) : (
-            'No se conoce el modelo de esta ONT: resincronizá para traerlo del equipo.'
+            'No se conoce el modelo de esta ONT: resincroniza para traerlo del equipo.'
           )}
         </p>
       </div>
@@ -221,9 +221,9 @@ export default function AccionesOnu({ olt, onu, planes, onListo, onCerrar }) {
           Cambiar plan
         </h4>
         <div className="flex flex-wrap items-end gap-2">
-          <Field label="Nuevo plan" className="min-w-[240px] flex-1">
+          <Field hint="El cambio de precio rige desde la próxima factura." label="Nuevo plan" className="min-w-[240px] flex-1">
             <Select value={plan} onChange={(e) => setPlan(e.target.value)}>
-              <option value="">— elegí —</option>
+              <option value="">— elige —</option>
               {planes.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nombre} ({Math.round(p.bajada_kbps / 1000)}/{Math.round(p.subida_kbps / 1000)} Mbps)
@@ -287,7 +287,7 @@ export default function AccionesOnu({ olt, onu, planes, onListo, onCerrar }) {
         </h4>
         <div className="flex flex-wrap items-end gap-2">
           <Field label="Placa" className="w-24">
-            <Input
+            <Input placeholder="Ej.: GBA-1234"
               type="number"
               value={destino.slot}
               onChange={(e) => setDestino((d) => ({ ...d, slot: e.target.value }))}
@@ -295,7 +295,7 @@ export default function AccionesOnu({ olt, onu, planes, onListo, onCerrar }) {
             />
           </Field>
           <Field label="Puerto" className="w-24">
-            <Input
+            <Input placeholder="Ej.: 1"
               type="number"
               value={destino.puerto}
               onChange={(e) => setDestino((d) => ({ ...d, puerto: e.target.value }))}
@@ -357,7 +357,7 @@ export default function AccionesOnu({ olt, onu, planes, onListo, onCerrar }) {
                   `Dar de baja la ONT ${onu.sn}${onu.cliente ? ` de ${onu.cliente}` : ''}.\n\n` +
                     'Se borran sus service-ports y la ONT del equipo. Es IRREVERSIBLE: para volver a ' +
                     'darle servicio hay que instalarla de nuevo.\n\n' +
-                    'Si es un corte por falta de pago, usá Suspender.\n\n¿Continuar?',
+                    'Si es un corte por falta de pago, usa Suspender.\n\n¿Continuar?',
                 ))
               ) {
                 return

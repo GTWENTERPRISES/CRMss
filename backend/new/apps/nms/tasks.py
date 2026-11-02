@@ -28,12 +28,12 @@ def sondear_red(self):
     from apps.olts.models import OLT
 
     logger.info('Iniciando sondeo completo de red')
-    
+
     olts_ok = 0
     olts_fail = 0
     routers_ok = 0
     routers_fail = 0
-    
+
     # Sondear OLTs
     for olt in OLT.objects.filter(activo=True):
         try:
@@ -44,7 +44,7 @@ def sondear_red(self):
         except Exception as e:
             olts_fail += 1
             logger.error(f'Error en sondeo OLT {olt.nombre}: {str(e)}')
-    
+
     # Sondear Routers
     for router in RouterMikrotik.objects.filter(activo=True):
         try:
@@ -55,14 +55,14 @@ def sondear_red(self):
         except Exception as e:
             routers_fail += 1
             logger.error(f'Error en sondeo router {router.nombre}: {str(e)}')
-    
+
     resultado = {
         'olts_ok': olts_ok,
         'olts_fail': olts_fail,
         'routers_ok': routers_ok,
         'routers_fail': routers_fail,
     }
-    
+
     logger.info(f'Sondeo completado: {resultado}')
     return resultado
 
@@ -71,7 +71,7 @@ def sondear_red(self):
 def sondear_olt(self, olt_id):
     """
     Sondea un OLT específico y actualiza el estado de sus ONUs
-    
+
     Args:
         olt_id: UUID del OLT
     """
@@ -87,12 +87,12 @@ def sondear_olt(self, olt_id):
 
     inicio = time.monotonic()
     onus_actualizadas = 0
-    
+
     try:
         with get_driver(olt) as driver:
             # Obtener lista de ONUs del OLT
             onus_activas = driver.get_onus()
-            
+
             for onu in ONU.objects.filter(olt=olt):
                 try:
                     # Obtener información óptica
@@ -102,12 +102,12 @@ def sondear_olt(self, olt_id):
                         onu.puerto,
                         onu.onu_index,
                     )
-                    
+
                     if info_optica:
                         rx_power = info_optica.get('rx_power')
                         tx_power = info_optica.get('tx_power')
                         distancia = info_optica.get('distance')
-                        
+
                         # Actualizar ONU
                         onu.rx_power_dbm = rx_power
                         onu.tx_power_dbm = tx_power
@@ -122,9 +122,9 @@ def sondear_olt(self, olt_id):
                             'estado',
                             'updated_at'
                         ])
-                        
+
                         onus_actualizadas += 1
-                        
+
                         # Generar alertas si hay problemas
                         if rx_power:
                             if rx_power < RX_POWER_CRITICA:
@@ -145,19 +145,20 @@ def sondear_olt(self, olt_id):
                         # ONU no responde
                         onu.estado = ONU.Estado.OFFLINE
                         onu.save(update_fields=['estado', 'updated_at'])
-                        
+
                 except Exception as e:
                     logger.error(f'Error sondeando ONU {onu.sn}: {str(e)}')
                     continue
-        
+
         # Calcular latencia
         latencia = int((time.monotonic() - inicio) * 1000)
-        
+
         # Actualizar estado del OLT
-        olt.estado_ultimo_sondeo = OLT.EstadoSondeo.ONLINE
-        olt.ultima_conexion = timezone.now()
-        olt.save(update_fields=['estado_ultimo_sondeo', 'ultima_conexion', 'updated_at'])
-        
+        olt.estado = OLT.Estado.ONLINE
+        olt.estado_at = timezone.now()
+        olt.estado_latencia_ms = latencia
+        olt.save(update_fields=['estado', 'estado_at', 'estado_latencia_ms'])
+
         # Registrar sondeo exitoso
         SondeoRed.objects.create(
             olt=olt,
@@ -165,27 +166,29 @@ def sondear_olt(self, olt_id):
             latencia_ms=latencia,
             detalle=f'{onus_actualizadas} ONUs actualizadas',
         )
-        
+
         logger.info(f'OLT {olt.nombre} sondeado: {onus_actualizadas} ONUs, {latencia}ms')
         return True
-        
+
     except Exception as exc:
         logger.error(f'Error sondeando OLT {olt.nombre}: {str(exc)}')
-        
+
         # Actualizar estado del OLT
-        olt.estado_ultimo_sondeo = OLT.EstadoSondeo.OFFLINE
-        olt.save(update_fields=['estado_ultimo_sondeo', 'updated_at'])
-        
+        olt.estado = OLT.Estado.OFFLINE
+        olt.estado_at = timezone.now()
+        olt.estado_detalle = str(exc)[:500]
+        olt.save(update_fields=['estado', 'estado_at', 'estado_detalle'])
+
         # Registrar sondeo fallido
         SondeoRed.objects.create(
             olt=olt,
             estado=SondeoRed.Estado.DOWN,
             detalle=str(exc),
         )
-        
+
         # La alerta se asocia a la ONU cuando corresponde; AlertaRed no tiene
         # relación directa con OLT, por lo que el detalle queda en el sondeo.
-        
+
         return False
 
 
@@ -193,7 +196,7 @@ def sondear_olt(self, olt_id):
 def sondear_router(self, router_id):
     """
     Sondea un router MikroTik específico
-    
+
     Args:
         router_id: UUID del router
     """
@@ -208,20 +211,20 @@ def sondear_router(self, router_id):
         return False
 
     inicio = time.monotonic()
-    
+
     try:
         with get_driver(router) as driver:
             # Verificar conectividad
             identidad = driver.obtener_identidad()
-            
+
             # Obtener recursos del router
             recursos = driver.obtener_recursos()
-            
+
             if recursos:
                 resource_info = recursos[0] if recursos else {}
                 cpu_load = resource_info.get('cpu-load', 0)
                 free_memory = resource_info.get('free-memory', 0)
-                
+
                 # Generar alertas si hay problemas de recursos
                 if cpu_load and int(cpu_load.replace('%', '')) > 80:
                     AlertaRed.objects.create(
@@ -230,17 +233,17 @@ def sondear_router(self, router_id):
                         mensaje=f'Router {router.nombre} con CPU alta: {cpu_load}',
                         router=router,
                     )
-        
+
         # Calcular latencia
         latencia = int((time.monotonic() - inicio) * 1000)
-        
+
         # Registrar sondeo exitoso
         SondeoRed.objects.create(
             router=router,
             estado=SondeoRed.Estado.OK,
             latencia_ms=latencia,
         )
-        
+
         # Verificar latencia
         if latencia > LATENCIA_CRITICAL:
             AlertaRed.objects.create(
@@ -249,20 +252,20 @@ def sondear_router(self, router_id):
                 mensaje=f'Router {router.nombre} con latencia crítica: {latencia}ms',
                 router=router,
             )
-        
+
         logger.info(f'Router {router.nombre} sondeado: {latencia}ms')
         return True
-        
+
     except Exception as exc:
         logger.error(f'Error sondeando router {router.nombre}: {str(exc)}')
-        
+
         # Registrar sondeo fallido
         SondeoRed.objects.create(
             router=router,
             estado=SondeoRed.Estado.DOWN,
             detalle=str(exc),
         )
-        
+
         # Generar alerta crítica
         AlertaRed.objects.create(
             tipo=AlertaRed.Tipo.ROUTER_CAIDO,
@@ -270,7 +273,7 @@ def sondear_router(self, router_id):
             mensaje=f'Router {router.nombre} no responde: {exc}',
             router=router,
         )
-        
+
         return False
 
 
@@ -281,19 +284,19 @@ def limpiar_alertas_antiguas(self):
     Se ejecuta semanalmente
     """
     from .models import AlertaRed
-    
+
     logger.info('Limpiando alertas antiguas')
-    
+
     fecha_limite = timezone.now() - timedelta(days=30)
-    
+
     alertas_eliminadas = AlertaRed.objects.filter(
         resuelta=True,
         created_at__lt=fecha_limite,
     ).delete()
-    
+
     count = alertas_eliminadas[0] if alertas_eliminadas else 0
     logger.info(f'{count} alertas antiguas eliminadas')
-    
+
     return count
 
 
@@ -304,18 +307,18 @@ def limpiar_sondeos_antiguos(self):
     Mantiene solo estadísticas recientes
     """
     from .models import SondeoRed
-    
+
     logger.info('Limpiando sondeos antiguos')
-    
+
     fecha_limite = timezone.now() - timedelta(days=7)
-    
+
     sondeos_eliminados = SondeoRed.objects.filter(
         created_at__lt=fecha_limite,
     ).delete()
-    
+
     count = sondeos_eliminados[0] if sondeos_eliminados else 0
     logger.info(f'{count} registros de sondeo antiguos eliminados')
-    
+
     return count
 
 
@@ -330,33 +333,31 @@ def generar_reporte_diario_red(self):
     from .models import AlertaRed, SondeoRed
     from django.core.mail import send_mail
     from django.conf import settings
-    
+
     logger.info('Generando reporte diario de red')
-    
+
     # Estadísticas del día
     hoy = timezone.now().date()
-    
+
     # OLTs
     olts_total = OLT.objects.filter(activo=True).count()
     olts_online = OLT.objects.filter(
         activo=True,
-        estado_ultimo_sondeo=OLT.EstadoSondeo.ONLINE,
+        estado=OLT.Estado.ONLINE,
     ).count()
-    
+
     # ONUs
-    onus_total = ONU.objects.filter(activo=True).count()
+    onus_total = ONU.objects.all().count()
     onus_online = ONU.objects.filter(
-        activo=True,
         estado=ONU.Estado.ONLINE,
     ).count()
     onus_offline = ONU.objects.filter(
-        activo=True,
         estado=ONU.Estado.OFFLINE,
     ).count()
-    
+
     # Routers
     routers_total = RouterMikrotik.objects.filter(activo=True).count()
-    
+
     # Alertas
     alertas_criticas = AlertaRed.objects.filter(
         severidad=AlertaRed.Severidad.CRITICAL,
@@ -366,34 +367,34 @@ def generar_reporte_diario_red(self):
         severidad=AlertaRed.Severidad.WARNING,
         resuelta=False,
     ).count()
-    
+
     # Construir mensaje
     mensaje = f"""
     Reporte Diario de Red - {hoy}
-    
+
     === OLTS ===
     Total: {olts_total}
     Online: {olts_online}
     Offline: {olts_total - olts_online}
-    
+
     === ONUs ===
     Total: {onus_total}
     Online: {onus_online}
     Offline: {onus_offline}
-    
+
     === Routers MikroTik ===
     Total: {routers_total}
-    
+
     === Alertas ===
     Críticas: {alertas_criticas}
     Advertencias: {alertas_warning}
-    
+
     Reporte generado automáticamente
     """
-    
+
     # Enviar email a administradores
     admin_emails = getattr(settings, 'ADMIN_EMAILS', [])
-    
+
     if admin_emails:
         try:
             send_mail(
@@ -406,7 +407,7 @@ def generar_reporte_diario_red(self):
             logger.info('Reporte diario enviado por email')
         except Exception as e:
             logger.error(f'Error enviando reporte por email: {str(e)}')
-    
+
     return {
         'olts_online': olts_online,
         'onus_online': onus_online,

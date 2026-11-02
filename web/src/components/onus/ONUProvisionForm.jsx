@@ -7,7 +7,7 @@ import { Aviso, Button, ErrorBanner, Field, Input, Select } from '../ui'
 /**
  * Aprovisionamiento de una ONU.
  * Vincula Cliente + Tipo de ONT + Line Profile + Plan, registra en la OLT y guarda
- * en Supabase (el middleware hace las dos cosas, en ese orden).
+ * en la base (el servicio de red hace las dos cosas, en ese orden).
  */
 export default function ONUProvisionForm({ olt, ubicacion, onuDetectada, onListo, onCancelar }) {
   const { filas: tiposOnt } = useTabla('tipos_ont', { orderBy: 'marca', ascending: true })
@@ -41,7 +41,7 @@ export default function ONUProvisionForm({ olt, ubicacion, onuDetectada, onListo
     setEnviando(true)
 
     try {
-      // Paso 1: registrar en la OLT (y persistir en Supabase si conocemos el SN)
+      // Paso 1: registrar en la OLT (y persistir en la base si conocemos el SN)
       const alta = await api.olt.registrar(olt.id, {
         frame: ubicacion.frame,
         slot: ubicacion.slot,
@@ -84,7 +84,7 @@ export default function ONUProvisionForm({ olt, ubicacion, onuDetectada, onListo
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Serial (SN)" hint={esVsol ? 'V-SOL confirma la cola de auto-find del puerto' : undefined}>
+        <Field campo="sn" label="Serial (SN)" hint={esVsol ? 'V-SOL confirma la cola de auto-find del puerto' : undefined}>
           <Input
             value={form.sn}
             onChange={set('sn')}
@@ -94,15 +94,15 @@ export default function ONUProvisionForm({ olt, ubicacion, onuDetectada, onListo
           />
         </Field>
 
-        <Field label="Cliente">
+        <Field campo="nombre_cliente" label="Cliente">
           <Input value={form.nombre_cliente} onChange={set('nombre_cliente')} placeholder="Juan Pérez" />
         </Field>
 
-        <Field label="Puerto PON">
-          <Input type="number" value={form.puerto} onChange={set('puerto')} min={0} required />
+        <Field campo="puerto" label="Puerto PON">
+          <Input placeholder="Ej.: 1" type="number" value={form.puerto} onChange={set('puerto')} min={0} required />
         </Field>
 
-        <Field label="Tipo de ONT">
+        <Field campo="tipo_ont_id" hint="El modelo del equipo que se instala." label="Tipo de ONT">
           <Select value={form.tipo_ont_id} onChange={set('tipo_ont_id')}>
             <option value="">— sin especificar —</option>
             {tiposOnt.map((t) => (
@@ -113,7 +113,7 @@ export default function ONUProvisionForm({ olt, ubicacion, onuDetectada, onListo
           </Select>
         </Field>
 
-        <Field label="Line Profile" hint="Define la VLAN que se etiqueta en la OLT">
+        <Field campo="line_profile_id" label="Line Profile" hint="Define la VLAN que se etiqueta en la OLT">
           <Select value={form.line_profile_id} onChange={set('line_profile_id')}>
             <option value="">— sin perfil —</option>
             {lineProfiles.map((p) => (
@@ -124,7 +124,7 @@ export default function ONUProvisionForm({ olt, ubicacion, onuDetectada, onListo
           </Select>
         </Field>
 
-        <Field label="Plan de velocidad">
+        <Field campo="plan_id" hint="El plan de internet que contrata." label="Plan de velocidad">
           <Select value={form.plan_id} onChange={set('plan_id')}>
             <option value="">— sin plan —</option>
             {planes.map((p) => (
@@ -135,7 +135,7 @@ export default function ONUProvisionForm({ olt, ubicacion, onuDetectada, onListo
           </Select>
         </Field>
 
-        <Field
+        <Field campo="vlan"
           label="VLAN"
           hint={perfilElegido ? `Por defecto la del perfil: ${perfilElegido.vlan_id}` : 'Requerida para dar servicio'}
           className="sm:col-span-2"

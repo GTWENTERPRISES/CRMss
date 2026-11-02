@@ -165,14 +165,14 @@ function Tarjeta({ plantilla: p, onEditar, onVer }) {
       {/* Aparecen al pasar el mouse, como pidió el pedido, pero siguen siendo
           alcanzables con el teclado: `focus-within` las mantiene visibles. */}
       <div className="mt-2 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-        <button
+        <button aria-label="Editar"
           type="button"
           onClick={onEditar}
           title="Editar plantilla"
           className="flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-800"
         >
-          <Pencil size={11} /> Editar
-        </button>
+          <Pencil size={11} />
+</button>
         <button
           type="button"
           onClick={onVer}
@@ -226,13 +226,13 @@ function Editor({ plantilla, onCerrar, onGuardado, onError }) {
     <Modal abierto titulo={form.nombre || 'Nueva plantilla'} onCerrar={onCerrar} ancho="max-w-4xl">
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-3">
-          <Field label="Nombre">
-            <Input value={form.nombre ?? ''} onChange={(e) => cambiar('nombre', e.target.value)} />
+          <Field campo="nombre" label="Nombre">
+            <Input placeholder="Ej.: Juan Pérez" value={form.nombre ?? ''} onChange={(e) => cambiar('nombre', e.target.value)} />
           </Field>
 
           {form.descripcion != null && (
-            <Field label="Para qué sirve">
-              <Textarea
+            <Field campo="descripcion" label="Para qué sirve">
+              <Textarea placeholder="Ej.: Aviso antes del vencimiento"
                 rows={2}
                 value={form.descripcion ?? ''}
                 onChange={(e) => cambiar('descripcion', e.target.value)}
@@ -241,7 +241,7 @@ function Editor({ plantilla, onCerrar, onGuardado, onError }) {
           )}
 
           {form.categoria !== 'documento' && (
-            <Field label="Por dónde se manda">
+            <Field campo="canal" hint="Por dónde se le manda el mensaje." label="Por dónde se manda">
               <Select value={form.canal} onChange={(e) => cambiar('canal', e.target.value)}>
                 {form.categoria === 'web' ? (
                   <option value="web">Página web</option>
@@ -259,12 +259,16 @@ function Editor({ plantilla, onCerrar, onGuardado, onError }) {
           )}
 
           {(form.categoria === 'correo' || form.categoria === 'web') && (
-            <Field label={form.categoria === 'web' ? 'Título de la página' : 'Asunto'}>
-              <Input value={form.asunto ?? ''} onChange={(e) => cambiar('asunto', e.target.value)} />
+            <Field campo="asunto" label={form.categoria === 'web' ? 'Título de la página' : 'Asunto'}>
+              <Input
+                value={form.asunto ?? ''}
+                onChange={(e) => cambiar('asunto', e.target.value)}
+                placeholder={form.categoria === 'web' ? 'Ej.: Tu servicio está suspendido' : 'Ej.: Tu factura de octubre'}
+              />
             </Field>
           )}
 
-          <Field
+          <Field campo="cuerpo"
             label="Texto"
             hint={
               esSms
@@ -344,9 +348,7 @@ function Editor({ plantilla, onCerrar, onGuardado, onError }) {
       <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-3">
         <div>
           {form.id && !form.del_sistema && (
-            <Button variante="fantasma" icon={Trash2} cargando={borrando} onClick={borrar}>
-              Borrar
-            </Button>
+            <Button variante="fantasma" icon={Trash2} cargando={borrando} onClick={borrar} title="Borrar" />
           )}
           {form.del_sistema && (
             <p className="text-[11px] text-slate-500">

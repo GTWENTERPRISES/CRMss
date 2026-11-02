@@ -8,18 +8,18 @@ import { configurarMoneda } from './formato'
  * el sistema, y pedirla en cada pantalla sería una consulta por navegación para
  * traer siempre lo mismo.
  *
- * Si no se puede leer —el middleware está apagado, no hay red— se usan los
- * valores por defecto en vez de dejar la pantalla en blanco. Alguien que no
- * puede entrar tiene que ver el formulario de entrada, no un cartel de error
- * sobre el nombre del sistema.
+ * Si no se puede leer —Django está apagado, no hay red— se usan los valores
+ * por defecto en vez de dejar la pantalla en blanco. Alguien que no puede
+ * entrar tiene que ver el formulario de entrada, no un cartel de error sobre
+ * el nombre del sistema.
  *
- * Usa `fetch` pelado y NO el cliente del sistema. No es un capricho: ese
- * cliente arrastra el SDK de Supabase, y el portal del abonado lo estaba
- * descargando entero —medio megabyte— solo para saber cómo se llama el ISP.
- * El abonado entra desde el celular con datos móviles.
+ * Usa `fetch` pelado y NO el cliente del sistema: el cliente arrastra toda la
+ * sesión, y el portal del abonado no la necesita — solo saber cómo se llama
+ * el ISP. El abonado entra desde el celular con datos móviles.
  */
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '')
+const DJANGO = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api/v1').replace(/\/$/, '')
+const BASE = (process.env.NEXT_PUBLIC_API_URL || `${DJANGO}/red`).replace(/\/$/, '')
 
 const POR_DEFECTO = {
   nombre_sistema: 'Taller SmartOLT',
@@ -31,7 +31,7 @@ const POR_DEFECTO = {
 let cache = null
 let pedido = null
 
-function traer() {
+export function traerMarca() {
   if (cache) return Promise.resolve(cache)
   pedido ??= fetch(`${BASE}/api/general`)
     .then((r) => (r.ok ? r.json() : POR_DEFECTO))
@@ -52,7 +52,7 @@ export function useMarca() {
 
   useEffect(() => {
     let vivo = true
-    traer().then((m) => vivo && setMarca(m))
+    traerMarca().then((m) => vivo && setMarca(m))
     return () => {
       vivo = false
     }

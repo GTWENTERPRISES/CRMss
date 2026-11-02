@@ -8,7 +8,7 @@ const router = Router()
 /**
  * POST /api/crypto/encrypt  { password }  →  { encrypted }
  *
- * El frontend guarda las OLTs y routers directamente en Supabase, pero no puede
+ * El frontend guarda las OLTs y routers directamente en la base, pero no puede
  * cifrar la contraseña (no tiene ni debe tener la clave). Pide el ciphertext acá y
  * guarda eso en password_encrypted.
  *

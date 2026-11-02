@@ -5,8 +5,8 @@ from . import endpoints
 from .views import (
     ConversacionWhatsappViewSet,
     MensajeWhatsappViewSet,
-    WhatsAppWebhookView,
 )
+from apps.red.views import proxy_integracion
 
 router = DefaultRouter()
 router.register('conversaciones', ConversacionWhatsappViewSet, basename='conversacion')
@@ -14,7 +14,10 @@ router.register('mensajes', MensajeWhatsappViewSet, basename='mensaje')
 
 # Endpoints especializados
 urlpatterns = [
-    path('webhook/', WhatsAppWebhookView.as_view(), name='whatsapp-webhook'),
+    # El webhook de Meta lo atiende el middleware, que verifica la firma
+    # X-Hub-Signature-256 con el App Secret (Ajustes → Mensajería). Esta ruta
+    # vieja se reenvía ahí: antes guardaba lo que llegara, sin firma.
+    path('webhook/', proxy_integracion('api/webhooks/whatsapp'), name='whatsapp-webhook'),
     path('enviar-mensaje/', endpoints.enviar_mensaje_directo, name='enviar-mensaje'),
     path('enviar-plantilla/', endpoints.enviar_plantilla, name='enviar-plantilla'),
     path('enviar-documento/', endpoints.enviar_documento, name='enviar-documento'),

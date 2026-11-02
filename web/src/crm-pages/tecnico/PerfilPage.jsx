@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { Gauge, KeyRound, LogOut, Map, Monitor, Phone, Route, Shield, User, Wrench } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { useAuth, usePermisos } from '../../lib/AuthContext'
 import { nombreRol } from '../../lib/permisos'
 import { APPS_MAPA, useMapaPreferido } from '../../lib/mapaPreferido'
@@ -30,7 +30,7 @@ export default function PerfilPage() {
 
   useEffect(() => {
     if (!perfil?.tecnico_id) return
-    supabase
+    django
       .from('almacenes')
       .select('nombre')
       .eq('tecnico_id', perfil.tecnico_id)
@@ -60,7 +60,7 @@ export default function PerfilPage() {
             valor={almacen}
             // Sin almacén no puede descontar material, y eso se descubre en
             // medio de una instalación si no se dice acá.
-            aviso={perfil?.tecnico_id && !almacen ? 'Pedí que te creen el almacén' : null}
+            aviso={perfil?.tecnico_id && !almacen ? 'Pide que te creen el almacén' : null}
           />
         </div>
       </section>

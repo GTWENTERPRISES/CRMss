@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Car, Fuel, Pencil, Plus, Power, Wrench } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import Mantenimiento from '../components/tecnico/Mantenimiento'
 import {
   Aviso,
@@ -49,9 +49,9 @@ export default function VehiculosPage() {
   const recargar = useCallback(async () => {
     setCargando(true)
     const [v, t, c] = await Promise.all([
-      supabase.from('v_vehiculos').select('*').order('nombre'),
-      supabase.from('tecnicos').select('id,nombre').eq('activo', true).order('nombre'),
-      supabase.from('v_combustible').select('*').order('fecha', { ascending: false }).limit(20),
+      django.from('v_vehiculos').select('*').order('nombre'),
+      django.from('tecnicos').select('id,nombre').eq('activo', true).order('nombre'),
+      django.from('v_combustible').select('*').order('fecha', { ascending: false }).limit(20),
     ])
     setError(v.error ?? null)
     setVehiculos(v.data ?? [])
@@ -76,8 +76,8 @@ export default function VehiculosPage() {
         activo: editando.activo,
       }
       const { error: err } = editando.id
-        ? await supabase.from('vehiculos').update(fila).eq('id', editando.id)
-        : await supabase.from('vehiculos').insert(fila)
+        ? await django.from('vehiculos').update(fila).eq('id', editando.id)
+        : await django.from('vehiculos').insert(fila)
       if (err) throw err
       setEditando(null)
       await recargar()
@@ -119,6 +119,7 @@ export default function VehiculosPage() {
             columnas={['Vehículo', 'Asignado a', 'Odómetro', 'Desde la carga', 'Rinde', 'Estado', '']}
             filas={vehiculos}
             vacio="Todavía no hay vehículos."
+            accionVacia={{ label: 'Agregar el primer vehículo', icon: Plus, onClick: () => setEditando({ ...VACIO }) }}
             renderFila={(v) => (
               <tr key={v.id} className="hover:bg-slate-800/40">
                 <td className="px-3 py-2">
@@ -175,7 +176,7 @@ export default function VehiculosPage() {
                       variante="fantasma"
                       title={v.activo ? 'Dar de baja' : 'Reactivar'}
                       onClick={async () => {
-                        await supabase
+                        await django
                           .from('vehiculos')
                           .update({ activo: !v.activo })
                           .eq('id', v.id)
@@ -245,19 +246,19 @@ export default function VehiculosPage() {
           onCerrar={() => setEditando(null)}
         >
           <div className="space-y-3">
-            <Field label="Nombre" hint="Como lo llaman: «Camioneta blanca», «Moto 1».">
-              <Input
+            <Field campo="nombre" label="Nombre" hint="Como lo llaman: «Camioneta blanca», «Moto 1».">
+              <Input placeholder="Ej.: Juan Pérez"
                 value={editando.nombre}
                 onChange={(e) => setEditando({ ...editando, nombre: e.target.value })}
               />
             </Field>
-            <Field label="Placa">
-              <Input
+            <Field campo="placa" regla="placa" label="Placa">
+              <Input placeholder="Ej.: GBA-1234"
                 value={editando.placa ?? ''}
                 onChange={(e) => setEditando({ ...editando, placa: e.target.value })}
               />
             </Field>
-            <Field
+            <Field campo="tecnico_id"
               label="Asignado a"
               hint="No es exclusivo: la jornada guarda con cuál salió cada día, porque se prestan."
             >
@@ -273,8 +274,8 @@ export default function VehiculosPage() {
                 ))}
               </Select>
             </Field>
-            <Field label="Notas">
-              <Input
+            <Field campo="notas" label="Notas">
+              <Input placeholder="Ej.: Llamar antes de ir"
                 value={editando.notas ?? ''}
                 onChange={(e) => setEditando({ ...editando, notas: e.target.value })}
               />

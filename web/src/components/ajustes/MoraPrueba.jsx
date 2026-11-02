@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertTriangle, Eye, Scissors, Undo2 } from 'lucide-react'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Badge, Button, ErrorBanner } from '../ui'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * A quién se cortaría hoy, sin cortar a nadie.
@@ -88,7 +89,7 @@ export default function MoraPrueba() {
                               Se habla en DÍAS porque así se habla del atraso en
                               la oficina: "está a cuarenta y cinco días", no
                               "tiene un mes y medio". */}
-                          {c.fecha_corte && `se cortaba el ${c.fecha_corte} · `}
+                          {c.fecha_corte && `se cortaba el ${fmtFecha(c.fecha_corte)} · `}
                           {c.dias_de_atraso != null
                             ? `${c.dias_de_atraso} días de atraso`
                             : `${c.meses_de_atraso ?? c.meses_sin_pago} meses de atraso`}
@@ -138,9 +139,9 @@ export default function MoraPrueba() {
           {cortar.length > 0 && (
             <Aviso tipo="alerta">
               <AlertTriangle size={13} className="mr-1 inline" />
-              Revisá la columna de la derecha antes de encender: si alguno tiene un acuerdo de pagar
-              cada varios meses, corregile los meses en su ficha —Facturación → Configuración →
-              Aplica corte— y volvé a mirar.
+              Revisa la columna de la derecha antes de encender: si alguno tiene un acuerdo de pagar
+              cada varios meses, corrígele los meses en su ficha —Facturación → Configuración →
+              Aplica corte— y vuelve a mirar.
             </Aviso>
           )}
         </>

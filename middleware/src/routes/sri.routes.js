@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { asyncHandler, badRequest, notFound, AppError } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
 import { db } from '../lib/db.js'
+import { ivaGeneral, codigoDeTarifa } from '../lib/iva.js'
+import { paisDelIsp } from '../lib/paisIsp.js'
 import { encrypt, decrypt } from '../lib/crypto.js'
 import { generarClaveAcceso } from '../sri/claveAcceso.js'
 import { generarXmlFactura, calcularTotales, leerCamposAdicionales, IVA } from '../sri/facturaXml.js'
@@ -30,6 +32,27 @@ import { generarFacturas, estadoFacturacion } from '../services/facturacionMensu
 
 const router = Router()
 router.use(requireAuth)
+
+/**
+ * El SRI es de Ecuador.
+ *
+ * Fuera de Ecuador la pantalla no muestra nada de esto, pero la API se cuida
+ * sola: firmar y mandar un comprobante ecuatoriano desde un ISP de Colombia
+ * quemaría un secuencial y daría un error del SRI que nadie entendería. Leer
+ * sí se deja, para no romper pantallas viejas abiertas en otra pestaña.
+ */
+router.use(
+  asyncHandler(async (req, _res, next) => {
+    if (req.method === 'GET') return next()
+    const pais = await paisDelIsp()
+    if (!pais.modulos.facturacionElectronica) {
+      throw badRequest(`La facturación electrónica del SRI es de Ecuador, y este ISP está configurado en ${pais.nombre}.`, {
+        hint: 'Se cambia en Ajustes → General → País.',
+      })
+    }
+    next()
+  }),
+)
 
 /** Campos con secretos: nunca salen del backend. */
 const OCULTOS = ['certificado_b64', 'certificado_pass_encrypted', 'smtp_pass_encrypted']
@@ -173,7 +196,17 @@ router.put(
       : db().from('sri_config').insert(fila)
 
     const { data, error } = await consulta.select().single()
-    if (error) throw new AppError(`No se pudo guardar: ${error.message}`, { status: 502 })
+    if (error) {
+      // El correo (SMTP) y la firma viven en la misma fila que los datos de la
+      // empresa: desde Ajustes → Correo, "Falta completar el RUC" no decía dónde.
+      if (/RUC/i.test(error.message)) {
+        throw new AppError('Falta el RUC de la empresa.', {
+          status: 400,
+          hint: 'Complétalo en Ajustes → Empresa y vuelve a guardar: el correo se guarda junto con los datos de la empresa.',
+        })
+      }
+      throw new AppError(`No se pudo guardar: ${error.message}`, { status: 502, hint: error.hint })
+    }
 
     // Desde qué número sigue la numeración de este punto de emisión.
     if (proximo_secuencial !== undefined && proximo_secuencial !== null && proximo_secuencial !== '') {
@@ -236,7 +269,7 @@ async function emitirFactura({ client_id, detalles, fecha_emision, forma_pago, o
     const emisor = await cargarConfig()
     if (!emisor?.ruc) {
       throw badRequest('Falta configurar el emisor', {
-        hint: 'Completá el RUC y la razón social en Facturación → Configuración.',
+        hint: 'Completa el RUC y la razón social en Facturación → Configuración.',
       })
     }
 
@@ -250,7 +283,7 @@ async function emitirFactura({ client_id, detalles, fecha_emision, forma_pago, o
 
     if (!cliente.identificacion) {
       throw badRequest(`"${cliente.nombre}" no tiene identificación cargada`, {
-        hint: 'El SRI exige la cédula o el RUC del comprador. Cargala en la ficha del cliente.',
+        hint: 'El SRI exige la cédula o el RUC del comprador. Cárgala en la ficha del cliente.',
       })
     }
 
@@ -412,10 +445,19 @@ router.post(
 router.post(
   '/facturar-lote',
   asyncHandler(async (req, res) => {
-    const { pagos, enviar = true, tarifa_iva = 15, codigo_porcentaje = '4' } = req.body ?? {}
+    // Sin tarifa explícita, la general; y el código del SRI sale de la tarifa.
+    // Un 12 % con el código del 15 % ('4') lo rechaza el SRI.
+    const tarifa_iva = req.body?.tarifa_iva ?? (await ivaGeneral())
+    const codigo_porcentaje = req.body?.codigo_porcentaje ?? codigoDeTarifa(tarifa_iva)
+    if (!codigo_porcentaje) {
+      throw badRequest(`El IVA general es ${tarifa_iva} %, y esa tarifa no existe en el SRI de Ecuador.`, {
+        hint: 'Para emitir comprobantes ecuatorianos el IVA tiene que ser una de sus tarifas (15, 14, 13, 12, 8 o 5 %). Se cambia en Facturación → Configuración.',
+      })
+    }
+    const { pagos, enviar = true } = req.body ?? {}
 
     if (!Array.isArray(pagos) || pagos.length === 0) {
-      throw badRequest('Mandá los ids de los cobros a facturar')
+      throw badRequest('Manda los ids de los cobros a facturar')
     }
 
     const config = await cargarConfig()
@@ -568,7 +610,7 @@ router.post(
             resultados.push({
               ...paso,
               estado: 'ENVIADO',
-              aviso: 'El SRI lo recibió pero todavía no lo autorizó. Consultá en un rato.',
+              aviso: 'El SRI lo recibió pero todavía no lo autorizó. Consulta en un rato.',
             })
             continue
           }
@@ -602,7 +644,7 @@ router.post(
           ...(emitido
             ? {
                 estado: 'FIRMADO',
-                siguiente: `La factura ${emitido.numero} quedó emitida y firmada. Reintentá el envío desde Comprobantes; no la emitas de nuevo.`,
+                siguiente: `La factura ${emitido.numero} quedó emitida y firmada. Reintenta el envío desde Comprobantes; no la emitas de nuevo.`,
               }
             : {}),
         })
@@ -690,7 +732,7 @@ router.post(
       } catch (err) {
         throw new AppError(`No se pudo confirmar con el SRI: ${err.message}`, {
           status: 502,
-          hint: 'Sin confirmar que el SRI no lo tiene, reutilizar el número puede hacer que rechace el comprobante nuevo. Reintentá cuando el servicio responda.',
+          hint: 'Sin confirmar que el SRI no lo tiene, reutilizar el número puede hacer que rechace el comprobante nuevo. Reintenta cuando el servicio responda.',
         })
       }
 
@@ -843,7 +885,7 @@ function smtpDe(config) {
   const faltan = faltantesSmtp(config)
   if (faltan.length) {
     throw badRequest(`Falta configurar ${faltan.join(', ')} para poder enviar correos`, {
-      hint: 'Completá los datos del servidor de correo en Facturación → Configuración.',
+      hint: 'Completa los datos del servidor de correo en Facturación → Configuración.',
     })
   }
   return decrypt(config.smtp_pass_encrypted)
@@ -876,7 +918,7 @@ router.post(
     const destino = para || documento.email_comprador
     if (!destino) {
       throw badRequest(`"${documento.razon_social_comprador}" no tiene correo cargado`, {
-        hint: 'Cargalo en la ficha del cliente o indicá una dirección en este envío.',
+        hint: 'Cárgalo en la ficha del cliente o indica una dirección en este envío.',
       })
     }
 
@@ -899,7 +941,7 @@ router.post(
       // credenciales, remitente no autorizado, casilla llena.
       throw new AppError(`No se pudo enviar el correo: ${err.message}`, {
         status: 502,
-        hint: 'Revisá el usuario, la contraseña y el puerto del SMTP. Gmail exige una contraseña de aplicación.',
+        hint: 'Revisa el usuario, la contraseña y el puerto del SMTP. Gmail exige una contraseña de aplicación.',
       })
     }
 
@@ -953,7 +995,7 @@ router.post(
     } catch (err) {
       throw new AppError(`El servidor de correo rechazó la prueba: ${err.message}`, {
         status: 502,
-        hint: 'Verificá host, puerto, usuario y contraseña. En Gmail hace falta una contraseña de aplicación, no la del correo.',
+        hint: 'Verifica host, puerto, usuario y contraseña. En Gmail hace falta una contraseña de aplicación, no la del correo.',
       })
     } finally {
       transporte.close()
@@ -966,7 +1008,7 @@ router.post(
   '/preview',
   asyncHandler(async (req, res) => {
     const { detalles } = req.body ?? {}
-    if (!Array.isArray(detalles)) throw badRequest('Mandá un array "detalles"')
+    if (!Array.isArray(detalles)) throw badRequest('Manda un array "detalles"')
     res.json(calcularTotales(detalles))
   }),
 )
@@ -1003,7 +1045,7 @@ router.get('/catalogos', (_req, res) => {
 function certificadoDe(config) {
   if (!config?.certificado_b64) {
     throw badRequest('No hay certificado cargado', {
-      hint: 'Subí tu archivo .p12 en Facturación → Configuración.',
+      hint: 'Sube tu archivo .p12 en Facturación → Configuración.',
     })
   }
   return {
@@ -1092,7 +1134,7 @@ router.post(
   '/probar-firma',
   asyncHandler(async (_req, res) => {
     const config = await cargarConfig()
-    if (!config?.ruc) throw badRequest('Primero completá el RUC y la razón social del emisor')
+    if (!config?.ruc) throw badRequest('Primero completa el RUC y la razón social del emisor')
 
     const { p12, password } = certificadoDe(config)
 
@@ -1212,7 +1254,7 @@ router.post(
 
     if (!doc.xml_firmado) {
       throw badRequest('El comprobante todavía no está firmado', {
-        hint: 'Firmalo antes de enviarlo al SRI.',
+        hint: 'Fírmalo antes de enviarlo al SRI.',
       })
     }
     if (doc.estado === 'AUTORIZADO') {
@@ -1233,8 +1275,8 @@ router.post(
       ...r,
       claveAcceso: doc.clave_acceso,
       siguiente: r.recibida
-        ? 'El SRI lo recibió. Consultá la autorización en unos segundos.'
-        : 'El SRI lo rechazó. Revisá los mensajes, corregí y emití uno nuevo.',
+        ? 'El SRI lo recibió. Consulta la autorización en unos segundos.'
+        : 'El SRI lo rechazó. Revisa los mensajes, corrige y emite uno nuevo.',
     })
   }),
 )
@@ -1348,7 +1390,7 @@ router.post(
         ok: false,
         pasos,
         estadoFinal: 'ENVIADO',
-        aviso: 'El SRI lo recibió pero todavía no lo autorizó. Consultá de nuevo en un rato.',
+        aviso: 'El SRI lo recibió pero todavía no lo autorizó. Consulta de nuevo en un rato.',
       })
     }
 

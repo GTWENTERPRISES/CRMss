@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { TriangleAlert } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { dineroCero as dinero } from '../../lib/formato'
 
 /**
@@ -41,7 +41,7 @@ export default function AntecedentesAbonado({ identificacion }) {
 
     let vigente = true
     const t = setTimeout(() => {
-      supabase
+      django
         .from('v_antecedentes_abonado')
         .select('*')
         .eq('identificacion', ident)

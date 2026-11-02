@@ -21,6 +21,7 @@ import ConPermiso from '../../components/layout/ConPermiso'
 import { usePermisos } from '../../lib/AuthContext'
 import { comercialApi } from '../../lib/comercial'
 import { ventasApi } from '../../lib/ventas'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Verificación de cobertura.
@@ -130,7 +131,7 @@ export default function CoberturaPage() {
 
   const verificar = async () => {
     if (!consulta.latitud || !consulta.longitud) {
-      return setError(new Error('Marcá el punto en el mapa o escribí las coordenadas'))
+      return setError(new Error('Marca el punto en el mapa o escribe las coordenadas'))
     }
     setVerificando(true)
     setError(null)
@@ -254,13 +255,13 @@ export default function CoberturaPage() {
           <div className="space-y-3">
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Quién consulta" hint="Hace falta solo si vas a cargarlo como prospecto.">
-                <Input
+                <Input placeholder="Ej.: Vecino de la calle Bolívar"
                   value={consulta.nombre}
                   onChange={(e) => setConsulta({ ...consulta, nombre: e.target.value })}
                 />
               </Field>
               <Field label="Teléfono">
-                <Input
+                <Input placeholder="Ej.: 0991234567"
                   value={consulta.telefono}
                   onChange={(e) => setConsulta({ ...consulta, telefono: e.target.value })}
                 />
@@ -275,12 +276,12 @@ export default function CoberturaPage() {
             </Field>
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Sector o barrio">
-                <Input
+                <Input placeholder="Ej.: Urdesa Central"
                   value={consulta.sector}
                   onChange={(e) => setConsulta({ ...consulta, sector: e.target.value })}
                 />
               </Field>
-              <Field label="Tecnología">
+              <Field hint="Fibra (FTTH) o radio." label="Tecnología">
                 <Select
                   value={consulta.tecnologia}
                   onChange={(e) => {
@@ -293,20 +294,20 @@ export default function CoberturaPage() {
                 </Select>
               </Field>
               <Field label="Latitud">
-                <Input
+                <Input placeholder="Ej.: -2.170998"
                   value={consulta.latitud}
                   onChange={(e) => setConsulta({ ...consulta, latitud: e.target.value })}
                 />
               </Field>
               <Field label="Longitud">
-                <Input
+                <Input placeholder="Ej.: -79.922359"
                   value={consulta.longitud}
                   onChange={(e) => setConsulta({ ...consulta, longitud: e.target.value })}
                 />
               </Field>
             </div>
             <Field label="Referencia" hint="Cómo llegar: es lo único que sirve donde no hay nomenclatura.">
-              <Input
+              <Input placeholder="Ej.: Casa esquinera, portón negro"
                 value={consulta.referencia}
                 onChange={(e) => setConsulta({ ...consulta, referencia: e.target.value })}
               />
@@ -362,7 +363,7 @@ export default function CoberturaPage() {
                 )}
 
                 <Field label="Notas">
-                  <Textarea
+                  <Textarea placeholder="Ej.: Llamar antes de ir"
                     rows={2}
                     value={consulta.notas}
                     onChange={(e) => setConsulta({ ...consulta, notas: e.target.value })}
@@ -384,7 +385,7 @@ export default function CoberturaPage() {
           </div>
         </Card>
 
-        <Card title="Marcá el punto" subtitle="Hacé clic sobre la casa">
+        <Card title="Marca el punto" subtitle="Haz clic sobre la casa">
           <div
             ref={contenedor}
             className="h-[440px] w-full overflow-hidden rounded-xl border border-slate-800"
@@ -420,7 +421,7 @@ export default function CoberturaPage() {
           renderFila={(h) => (
             <tr key={h.id} className="hover:bg-slate-800/40">
               <td className="whitespace-nowrap px-3 py-2 text-[12px] text-slate-400">
-                {new Date(h.creado_en).toLocaleDateString('es-EC')}
+                {fmtFecha(h.creado_en)}
               </td>
               <td className="px-3 py-2 text-slate-200">{h.direccion}</td>
               <td className="px-3 py-2 text-[12px] text-slate-400">{h.sector ?? '—'}</td>
@@ -499,36 +500,36 @@ export default function CoberturaPage() {
         {editandoZona && (
           <div className="space-y-3">
             <Aviso>
-              Usá las coordenadas del punto que marcaste arriba, o escribí otras. El radio se dibuja
+              Usa las coordenadas del punto que marcaste arriba, o escribe otras. El radio se dibuja
               en el mapa comercial.
             </Aviso>
             <Field label="Nombre">
-              <Input
+              <Input placeholder="Ej.: Juan Pérez"
                 value={editandoZona.nombre}
                 onChange={(e) => setEditandoZona({ ...editandoZona, nombre: e.target.value })}
               />
             </Field>
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Latitud">
-                <Input
+                <Input placeholder="Ej.: -2.170998"
                   value={editandoZona.centro_lat || consulta.latitud}
                   onChange={(e) => setEditandoZona({ ...editandoZona, centro_lat: e.target.value })}
                 />
               </Field>
               <Field label="Longitud">
-                <Input
+                <Input placeholder="Ej.: -79.922359"
                   value={editandoZona.centro_lng || consulta.longitud}
                   onChange={(e) => setEditandoZona({ ...editandoZona, centro_lng: e.target.value })}
                 />
               </Field>
               <Field label="Radio (metros)">
-                <Input
+                <Input placeholder="Ej.: 300"
                   type="number"
                   value={editandoZona.radio_m}
                   onChange={(e) => setEditandoZona({ ...editandoZona, radio_m: e.target.value })}
                 />
               </Field>
-              <Field label="Tecnología">
+              <Field hint="Fibra (FTTH) o radio." label="Tecnología">
                 <Select
                   value={editandoZona.tecnologia}
                   onChange={(e) => setEditandoZona({ ...editandoZona, tecnologia: e.target.value })}
@@ -543,7 +544,7 @@ export default function CoberturaPage() {
               <Button variante="fantasma" onClick={() => setEditandoZona(null)}>
                 Cancelar
               </Button>
-              <Button
+              <Button variante="primario"
                 onClick={async () => {
                   try {
                     await ventasApi.guardarZona({

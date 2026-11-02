@@ -66,7 +66,7 @@ export default function EscanerCodigo({ onLeer }) {
     } catch (err) {
       setFallo(
         err?.name === 'NotAllowedError'
-          ? 'No se dio permiso para usar la cámara. Escribí la serie a mano o habilitá el permiso desde el candado de la barra de direcciones.'
+          ? 'No se dio permiso para usar la cámara. Escribe la serie a mano o habilita el permiso desde el candado de la barra de direcciones.'
           : `No se pudo abrir la cámara: ${err?.message ?? err}`,
       )
       apagar()
@@ -100,7 +100,7 @@ export default function EscanerCodigo({ onLeer }) {
   if (!SOPORTADO) {
     return (
       <Aviso>
-        Este navegador no puede leer códigos con la cámara. Escribí la serie o la MAC a mano —están
+        Este navegador no puede leer códigos con la cámara. Escribe la serie o la MAC a mano —están
         impresas en la etiqueta del equipo, debajo del código.
       </Aviso>
     )
@@ -130,7 +130,7 @@ export default function EscanerCodigo({ onLeer }) {
           </button>
 
           <p className="absolute inset-x-0 bottom-0 bg-black/60 px-3 py-2 text-center text-xs text-slate-200">
-            Apuntá al código de la etiqueta del equipo
+            Apunta al código de la etiqueta del equipo
           </p>
         </div>
       ) : (

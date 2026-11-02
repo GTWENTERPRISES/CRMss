@@ -1,15 +1,22 @@
 from django.contrib import admin
 
-from .models import AuditLog
+from .models import AuditLog, Tecnico
+
+
+@admin.register(Tecnico)
+class TecnicoAdmin(admin.ModelAdmin):
+    list_display = ['nombre', 'especialidad', 'telefono', 'email', 'activo']
+    list_filter = ['activo', 'especialidad']
+    search_fields = ['nombre', 'identificacion', 'telefono', 'email']
+    list_editable = ['activo']
 
 
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ['created_at', 'accion', 'entidad', 'entidad_id', 'usuario']
-    list_filter = ['accion', 'entidad', 'created_at']
-    search_fields = ['entidad', 'entidad_id', 'detalle']
+    list_display = ['created_at', 'categoria', 'accion', 'entidad', 'entidad_id', 'actor_email']
+    list_filter = ['accion', 'categoria', 'entidad']
+    search_fields = ['entidad', 'descripcion', 'actor_email']
     date_hierarchy = 'created_at'
-    readonly_fields = [f.name for f in AuditLog._meta.fields]
 
     def has_add_permission(self, request):
         return False

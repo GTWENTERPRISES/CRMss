@@ -64,7 +64,7 @@ export const VIAS = [
     resumen: 'Gratis, con tu propio número. La sesión vive en un servicio aparte.',
     automatico: true,
     costo: 'gratis',
-    aviso: 'No es oficial: usá un número distinto al que atiende clientes.',
+    aviso: 'No es oficial: usa un número distinto al que atiende clientes.',
   },
   {
     clave: 'baileys',

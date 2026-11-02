@@ -12,8 +12,9 @@ autorización queda con nombre y fecha.
 
 ## 1. Las migraciones, en orden
 
-Se ejecutan en el **SQL Editor** de Supabase, una por una y en este orden. Todas
-son idempotentes: volver a correr una no rompe nada ni pisa valores ya ajustados.
+Ya están en el esquema de Django: `python manage.py migrate` (en `backend/new`)
+deja andando todo el módulo. La tabla queda como referencia de qué aporta cada parte;
+las funciones y vistas viven en `backend/new/apps/dashboard/esquema_fuente.py`.
 
 | # | Archivo | Qué deja andando |
 |---|---|---|
@@ -115,15 +116,14 @@ técnico**, `retiros.gestionar`.
 
 ## 6. Cómo verificar que funciona
 
-**Las migraciones, antes de tocar la base del cliente:**
+**El backend, antes de tocar la base del cliente:**
 
 ```bash
-cd supabase/pruebas && npm install && npm test
+cd backend/new && python -m pytest tests
 ```
 
-Aplica las 107 sobre un Postgres real en memoria, comprueba que las 8 del módulo
-se puedan volver a correr, ejecuta todas las funciones y hace pasar una venta por
-el circuito entero. Tarda unos tres segundos.
+Crea una base de prueba, corre las funciones del módulo y verifica la seguridad
+por fila (quién ve qué comisión).
 
 **El cálculo del navegador** (lo que ve el vendedor mientras vende):
 

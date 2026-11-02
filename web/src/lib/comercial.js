@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { ESTADOS_ABIERTOS } from './ventas'
 import { loQueFalta as loQueFaltaEnExpediente } from './expedientes'
 
@@ -127,7 +127,7 @@ export function logros({ altas, meta, racha, prospectosDelMes }) {
       clave: 'primera',
       nombre: 'Primera venta',
       logrado: altas >= 1,
-      ayuda: altas >= 1 ? 'Ya cerraste tu primera del mes' : 'Cerrá tu primera venta del mes',
+      ayuda: altas >= 1 ? 'Ya cerraste tu primera del mes' : 'Cierra tu primera venta del mes',
       color: '#3987e5',
     },
     {
@@ -137,7 +137,7 @@ export function logros({ altas, meta, racha, prospectosDelMes }) {
       ayuda:
         racha >= 3
           ? `${racha} días seguidos vendiendo`
-          : `Llevás ${racha} ${racha === 1 ? 'día' : 'días'} — hacen falta 3`,
+          : `Llevas ${racha} ${racha === 1 ? 'día' : 'días'} — hacen falta 3`,
       color: '#c98500',
     },
     {
@@ -184,10 +184,10 @@ export const comercialApi = {
    * estabas mirando salte de lugar.
    */
   async tablero({ vendedorId } = {}) {
-    let q = supabase.from('v_prospectos').select('*').limit(1000)
+    let q = django.from('v_prospectos').select('*').limit(1000)
     if (vendedorId) q = q.eq('vendedor_id', vendedorId)
 
-    let qs = supabase
+    let qs = django
       .from('v_seguimientos')
       .select('*')
       .neq('estado', 'cancelado')
@@ -199,12 +199,12 @@ export const comercialApi = {
     const [prospectos, seguimientos, equipo, cobros, expedientes] = await Promise.all([
       q,
       qs,
-      supabase.from('v_comercial_vendedor').select('*'),
+      django.from('v_comercial_vendedor').select('*'),
       // La bandeja ya viene filtrada por vendedor desde la propia vista, así que
       // acá no hace falta volver a acotarla — ni se puede: la vista corre con
       // privilegio y decide adentro.
-      supabase.from('v_cobros_por_gestionar').select('*'),
-      supabase.from('v_expedientes').select('*').eq('estado', 'abierto'),
+      django.from('v_cobros_por_gestionar').select('*'),
+      django.from('v_expedientes').select('*').eq('estado', 'abierto'),
     ])
 
     if (prospectos.error) throw prospectos.error
@@ -213,7 +213,7 @@ export const comercialApi = {
     // ventas del año para mirar hacia atrás día por día.
     let racha = 0
     if (vendedorId) {
-      const { data } = await supabase.rpc('racha_de_ventas', { p_vendedor: vendedorId })
+      const { data } = await django.rpc('racha_de_ventas', { p_vendedor: vendedorId })
       racha = data ?? 0
     }
 
@@ -238,7 +238,7 @@ export const comercialApi = {
   async guardarMeta({ vendedorId, meta_altas, meta_monto }) {
     const { anio, mes } = mesActual()
 
-    let busca = supabase.from('metas_venta').select('id').eq('anio', anio).eq('mes', mes)
+    let busca = django.from('metas_venta').select('id').eq('anio', anio).eq('mes', mes)
     busca = vendedorId ? busca.eq('vendedor_id', vendedorId) : busca.is('vendedor_id', null)
     const { data: existente } = await busca.maybeSingle()
 
@@ -250,8 +250,8 @@ export const comercialApi = {
       meta_monto: Number(meta_monto) || 0,
     }
     const { error } = existente
-      ? await supabase.from('metas_venta').update(fila).eq('id', existente.id)
-      : await supabase.from('metas_venta').insert(fila)
+      ? await django.from('metas_venta').update(fila).eq('id', existente.id)
+      : await django.from('metas_venta').insert(fila)
     if (error) throw error
   },
 
@@ -263,7 +263,7 @@ export const comercialApi = {
    * descuento, dos ventas del mismo día se prometen sobre la misma caja llena.
    */
   async verificar({ lat, lng, tecnologia = 'ftth' }) {
-    const { data, error } = await supabase.rpc('cobertura_cercana', {
+    const { data, error } = await django.rpc('cobertura_cercana', {
       p_lat: lat,
       p_lng: lng,
       p_tecnologia: tecnologia,
@@ -295,7 +295,7 @@ export const comercialApi = {
   },
 
   async guardarVerificacion(v) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('verificaciones_cobertura')
       .insert(v)
       .select()
@@ -305,7 +305,7 @@ export const comercialApi = {
   },
 
   async verificaciones(limite = 100) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('verificaciones_cobertura')
       .select('*')
       .order('creado_en', { ascending: false })
@@ -317,20 +317,20 @@ export const comercialApi = {
   /** Las capas del mapa comercial. Cada una se pide entera y se filtra en pantalla. */
   async mapa() {
     const [prospectos, clientes, cajas, zonas, instalaciones] = await Promise.all([
-      supabase
+      django
         .from('v_prospectos')
         .select('id, nombre, sector, estado, puntaje, latitud, longitud, vendedor, vendedor_id, telefono, plan, valor_mensual')
         .not('latitud', 'is', null),
-      supabase
+      django
         .from('v_clientes_ficha')
         .select('id, nombre, estado, latitud, longitud, plan')
         .not('latitud', 'is', null),
-      supabase
+      django
         .from('v_cajas_nap')
         .select('id, nombre, latitud, longitud, capacidad, libres, llena, activo')
         .not('latitud', 'is', null),
-      supabase.from('zonas_cobertura').select('*').eq('activa', true),
-      supabase
+      django.from('zonas_cobertura').select('*').eq('activa', true),
+      django
         .from('v_instalaciones')
         .select('id, titular, estado, latitud, longitud, fecha')
         .in('estado', ['prospecto', 'agendada', 'en_curso'])
@@ -408,7 +408,7 @@ export function loQueHayQueHacer(prospectos, seguimientos, cobros = [], expedien
         tipo: e.completo ? 'Listo para enviar' : e.ok_contrato ? 'Falta la firma' : 'Expediente incompleto',
         titulo: e.cliente,
         detalle: e.completo
-          ? 'Todo cargado — envialo a instalaciones'
+          ? 'Todo cargado — envíalo a instalaciones'
           : `Falta: ${loQueFaltaEnExpediente(e).slice(0, 2).join(', ')}`,
         a: `/ventas/expediente/${e.id}`,
       }),

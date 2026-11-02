@@ -18,7 +18,7 @@ import {
  *
  * Afuera del guardia de sesión y afuera del guardián de licencia, igual que el
  * aviso del proveedor de firma. Quien golpea es el servidor de Meta: no tiene
- * sesión de Supabase, no sabe nada de nuestra licencia, y si le contestamos
+ * la sesión de Django, no sabe nada de nuestra licencia, y si le contestamos
  * cualquier cosa que no sea 200 reintenta — y después de varios reintentos
  * fallidos DA DE BAJA la suscripción, que es la forma de quedarse sin acuses de
  * entrega sin que nadie lo note.
@@ -115,7 +115,7 @@ router.post('/whatsapp', async (req, res) => {
   }
   if (!appSecret) {
     console.warn(
-      '[whatsapp] webhook sin App Secret configurado: las bajas por chat no se van a aplicar. Cargalo en Ajustes → Mensajería.',
+      '[whatsapp] webhook sin App Secret configurado: las bajas por chat no se van a aplicar. Cárgalo en Ajustes → Mensajería.',
     )
   }
 
@@ -196,7 +196,7 @@ async function entrante(mensaje, valor, { verificado }) {
 
   if (!verificado) {
     console.warn(
-      `[whatsapp] ${telefono} pidió la baja pero el webhook no está firmado: no se aplica. Cargá el App Secret.`,
+      `[whatsapp] ${telefono} pidió la baja pero el webhook no está firmado: no se aplica. Carga el App Secret.`,
     )
     return
   }

@@ -1,4 +1,5 @@
 import { db, cargarRouter } from '../lib/db.js'
+import { reactivarServicio } from './reactivacion.js'
 import * as mt from './mikrotikService.js'
 import { fechaLocal } from './cortesPromesas.js'
 import { listasQueCortan } from './conciliacionIps.js'
@@ -125,13 +126,27 @@ async function devolverServicio(lista, equipo) {
       // Se saca del address-list por su id de RouterOS si se guardó; si no, se
       // busca por dirección. Un corte hecho antes de que se guardara el id
       // igual tiene que poder deshacerse.
-      if (r.routeros_id) {
-        await mt.desbloquear(eq, r.routeros_id)
-      } else {
-        const entradas = await mt.listarBloqueos(eq, r.lista || eq.lista_morosos)
-        for (const e of entradas.filter((x) => x.address === r.ip)) {
+      //
+      // Si el id ya no existe en el router ("no such item"), la entrada la sacó
+      // otro —una reactivación por promesa, "Reparar", alguien a mano—. No es
+      // un fallo: se busca por dirección por si quedó con otro id y se sigue.
+      // Tomarlo como fallo dejaba el pedido reintentándose cada cinco segundos
+      // para siempre.
+      const quitarPorDireccion = async () => {
+        const entradas = await mt.listarBloqueos(eq, r.lista || eq.lista_morosos || mt.LISTA_MOROSOS)
+        for (const e of entradas.filter((x) => String(x.address ?? '').split('/')[0] === r.ip)) {
           await mt.desbloquear(eq, e['.id'])
         }
+      }
+      if (r.routeros_id) {
+        try {
+          await mt.desbloquear(eq, r.routeros_id)
+        } catch (err) {
+          if (!/no such item/i.test(err.message)) throw err
+          await quitarPorDireccion()
+        }
+      } else {
+        await quitarPorDireccion()
       }
 
       /**
@@ -165,6 +180,7 @@ async function devolverServicio(lista, equipo) {
         } catch (err) {
           fallidos.push({
             cliente: r.nombre,
+            router_id: r.router_id,
             motivo: `Se reconectó en IPv4 pero quedó bloqueado en IPv6: ${err.message}`,
           })
         }
@@ -180,7 +196,7 @@ async function devolverServicio(lista, equipo) {
 
       reconectados.push({ cliente: r.nombre, ip: r.ip, saldo: r.saldo })
     } catch (err) {
-      fallidos.push({ accion: 'reconectar', cliente: r.nombre, ip: r.ip, error: err.message })
+      fallidos.push({ accion: 'reconectar', cliente: r.nombre, ip: r.ip, router_id: r.router_id, error: err.message })
     }
   }
 
@@ -207,6 +223,9 @@ async function devolverServicio(lista, equipo) {
  * dejaría un abonado cortado que pagó, y ese olvido no da error: simplemente no
  * pasa nada. Con el disparador da igual desde dónde se cobre.
  */
+/** Cuántas veces se reintenta un pedido de reconexión antes de dejarlo. */
+const TOPE_INTENTOS_RECONEXION = 100
+
 export async function ejecutarReconexiones() {
   const { data, error } = await db().from('v_reconexiones_a_procesar').select('*')
 
@@ -217,7 +236,10 @@ export async function ejecutarReconexiones() {
     throw new Error(`No se pudo leer la cola de reconexiones: ${error.message}`)
   }
 
-  if (!data?.length) return { reconectados: [], fallidos: [] }
+  // Los cortados sin registro del sistema que pagaron hace poco (la 214).
+  const sinRegistro = await reactivarSinRegistro({ soloConPedido: true })
+
+  if (!data?.length) return sinRegistro
 
   const routers = new Map()
   const equipo = async (id) => {
@@ -225,7 +247,9 @@ export async function ejecutarReconexiones() {
     return routers.get(id)
   }
 
-  const { reconectados, fallidos } = await devolverServicio(data, equipo)
+  const r = await devolverServicio(data, equipo)
+  const reconectados = [...r.reconectados, ...sinRegistro.reconectados]
+  const fallidos = [...r.fallidos, ...sinRegistro.fallidos]
 
   /**
    * Los pedidos se cierran por su id, uno por uno.
@@ -246,10 +270,30 @@ export async function ejecutarReconexiones() {
   for (const f of fallidos) {
     const pedido = data.find((p) => p.nombre === f.cliente)
     if (!pedido) continue
-    // Se deja abierto y se anota el error: el próximo intento es en segundos.
+    /**
+     * Se deja abierto y se anota el error: el próximo intento es en segundos.
+     *
+     * Los intentos se leen de la tabla: la vista no los trae, y contar sobre
+     * `undefined` dejaba el contador siempre en 1. Con tope: un pedido que
+     * falla cien veces seguidas no se arregla en la vuelta ciento uno, y cada
+     * vuelta es una sesión contra el router. Se cierra con el error a la
+     * vista; la barrida y "Reparar el router" lo siguen cubriendo.
+     */
+    const { data: actual } = await db()
+      .from('reconexiones_pendientes')
+      .select('intentos')
+      .eq('id', pedido.pedido_id)
+      .maybeSingle()
+    const intentos = (actual?.intentos ?? 0) + 1
     await db()
       .from('reconexiones_pendientes')
-      .update({ error: f.error, intentos: (pedido.intentos ?? 0) + 1 })
+      .update({
+        error: f.error,
+        intentos,
+        ...(intentos >= TOPE_INTENTOS_RECONEXION
+          ? { procesado_en: new Date().toISOString(), error: `Se dejó de reintentar tras ${intentos} intentos: ${f.error}` }
+          : {}),
+      })
       .eq('id', pedido.pedido_id)
   }
 
@@ -267,7 +311,9 @@ export async function ejecutarReconexiones() {
 export async function barridaCompleta() {
   const { data, error } = await db().from('v_clientes_a_reconectar').select('*')
   if (error) throw new Error(`No se pudo leer a quién reconectar: ${error.message}`)
-  if (!data?.length) return { reconectados: [], fallidos: [] }
+
+  const sinRegistro = await reactivarSinRegistro()
+  if (!data?.length) return sinRegistro
 
   const routers = new Map()
   const equipo = async (id) => {
@@ -275,7 +321,58 @@ export async function barridaCompleta() {
     return routers.get(id)
   }
 
-  return devolverServicio(data, equipo)
+  const r = await devolverServicio(data, equipo)
+  return {
+    reconectados: [...r.reconectados, ...sinRegistro.reconectados],
+    fallidos: [...r.fallidos, ...sinRegistro.fallidos],
+  }
+}
+
+/**
+ * Los cortados que el corte por mora no registró y que ya pagaron.
+ *
+ * ── Por qué aparte ──
+ *
+ * `devolverServicio` deshace un corte que este sistema hizo: tiene su registro
+ * en `firewall_bloqueos` y sabe qué sacar del router. Un abonado que vino
+ * cortado del sistema anterior, o que cortó una promesa incumplida, no tiene
+ * ese registro: pagaba y quedaba cortado (el caso de la 214). Para él se usa
+ * `reactivarServicio`, que busca su IP en la lista de morosos del router.
+ *
+ * `soloConPedido`: la cola corre cada pocos segundos; ahí solo se atiende a
+ * quien acaba de pagar, para no golpear un router caído en cada vuelta. La
+ * barrida, que corre pocas veces por hora, los mira a todos.
+ *
+ * `routerId`: solo los de un router, para "Reparar el router".
+ */
+export async function reactivarSinRegistro({ soloConPedido = false, routerId = null, aplicar = true } = {}) {
+  let q = db().from('v_cortados_sin_registro_a_reconectar').select('*')
+  if (routerId) q = q.eq('router_id', routerId)
+  const { data, error } = await q
+  // Sin la 214, no hay nada que hacer acá.
+  if (error || !data?.length) return { reconectados: [], fallidos: [], pendientes: [] }
+
+  let lista = data
+  if (soloConPedido) {
+    const desde = new Date(Date.now() - 864e5).toISOString()
+    const { data: pedidos } = await db()
+      .from('reconexiones_pendientes')
+      .select('cliente_id')
+      .in('cliente_id', data.map((c) => c.cliente_id))
+      .gte('creado_en', desde)
+    const con = new Set((pedidos ?? []).map((p) => p.cliente_id))
+    lista = data.filter((c) => con.has(c.cliente_id))
+  }
+  if (!aplicar) return { reconectados: [], fallidos: [], pendientes: lista }
+
+  const reconectados = []
+  const fallidos = []
+  for (const c of lista) {
+    const r = await reactivarServicio(c.cliente_id, { motivo: 'Pagó; el corte venía de antes del sistema' })
+    if (r.ok) reconectados.push({ cliente: c.nombre, ip: c.ip, saldo: c.saldo })
+    else fallidos.push({ accion: 'reconectar', cliente: c.nombre, ip: c.ip, router_id: c.router_id, error: r.nota })
+  }
+  return { reconectados, fallidos, pendientes: lista }
 }
 
 /**
@@ -319,7 +416,7 @@ export async function ejecutarCorteMora({ simular = false, limite = null } = {})
    */
   const { count: totalACortar } = await db()
     .from('v_clientes_a_cortar_por_mora')
-    .select('client_id', { count: 'exact', head: true })
+    .select('cliente_id', { count: 'exact', head: true })
 
   const consultaCortar = db().from('v_clientes_a_cortar_por_mora').select('*')
 
@@ -332,7 +429,7 @@ export async function ejecutarCorteMora({ simular = false, limite = null } = {})
     const falta = /does not exist/i.test(rCortar.error.message)
     throw new Error(
       falta
-        ? 'Falta la vista del corte por mora. Corré supabase/migracion-132-el-corte-por-mora.sql'
+        ? 'Falta la vista del corte por mora. Actualiza la base: python manage.py migrate'
         : `No se pudo leer a quién cortar: ${rCortar.error.message}`,
     )
   }
@@ -370,10 +467,46 @@ export async function ejecutarCorteMora({ simular = false, limite = null } = {})
     console.warn(
       `[mora] el tope de ${tope} dejó ${quedaronSinCortar} abonado(s) SIN CORTAR de `
       + `${totalACortar} que corresponden. Siguen con servicio hasta la próxima corrida. `
-      + 'Subí el tope en Ajustes → Tareas si esto no es lo que esperabas.',
+      + 'Sube el tope en Ajustes → Tareas si esto no es lo que esperabas.',
     )
   }
 
+  const { cortados, reconectados, fallidos } = await aplicarCortes(aCortar, aReconectar)
+
+  return {
+    simulado: false,
+    fecha: fechaLocal(),
+    cortados,
+    reconectados,
+    fallidos,
+
+    /**
+     * Cuántos quedaron afuera por el tope.
+     *
+     * ── Por qué este número estaba mal ──
+     *
+     * Antes se calculaba así:
+     *
+     *     Math.max(0, aCortar.length === tope ? -1 : 0)
+     *
+     * que da CERO siempre: si se alcanzó el tope da `max(0, -1)` = 0, y si no,
+     * `max(0, 0)` = 0. El comentario decía lo correcto —"sin esto, 50 cortados
+     * con 200 pendientes parece un trabajo terminado"— y el cálculo hacía
+     * exactamente lo que el comentario quería evitar.
+     *
+     * Ahora sale de contar cuántos hay de verdad contra cuántos se trajeron.
+     */
+    pendientes: quedaronSinCortar,
+    total_a_cortar: totalACortar ?? aCortar.length,
+    tope,
+  }
+}
+
+/**
+ * Corta y reconecta una lista ya decidida. Lo usan la corrida diaria y
+ * "Reparar el router", que la llama solo con los abonados de ese router.
+ */
+async function aplicarCortes(aCortar, aReconectar) {
   // Un router se carga una vez por corrida aunque tenga veinte morosos: cada
   // carga descifra credenciales y golpea la base.
   const routers = new Map()
@@ -476,6 +609,7 @@ export async function ejecutarCorteMora({ simular = false, limite = null } = {})
         } catch (err) {
           fallidos.push({
             cliente: c.nombre,
+            router_id: c.router_id,
             motivo: `Se cortó en IPv4 pero no en IPv6: ${err.message}`,
           })
         }
@@ -538,36 +672,88 @@ export async function ejecutarCorteMora({ simular = false, limite = null } = {})
       })
     } catch (err) {
       // Que falle un router no puede dejar sin cortar a los demás.
-      fallidos.push({ accion: 'cortar', cliente: c.nombre, ip: c.ip, error: err.message })
+      fallidos.push({ accion: 'cortar', cliente: c.nombre, ip: c.ip, router_id: c.router_id, error: err.message })
     }
   }
 
-  return {
-    simulado: false,
-    fecha: fechaLocal(),
-    cortados,
-    reconectados,
-    fallidos,
 
-    /**
-     * Cuántos quedaron afuera por el tope.
-     *
-     * ── Por qué este número estaba mal ──
-     *
-     * Antes se calculaba así:
-     *
-     *     Math.max(0, aCortar.length === tope ? -1 : 0)
-     *
-     * que da CERO siempre: si se alcanzó el tope da `max(0, -1)` = 0, y si no,
-     * `max(0, 0)` = 0. El comentario decía lo correcto —"sin esto, 50 cortados
-     * con 200 pendientes parece un trabajo terminado"— y el cálculo hacía
-     * exactamente lo que el comentario quería evitar.
-     *
-     * Ahora sale de contar cuántos hay de verdad contra cuántos se trajeron.
-     */
-    pendientes: quedaronSinCortar,
-    total_a_cortar: totalACortar ?? aCortar.length,
-    tope,
+  return { cortados, reconectados, fallidos }
+}
+
+/**
+ * Lo que el corte por mora le debe a UN router, para "Reparar el router".
+ *
+ * ── Por qué está acá ──
+ *
+ * Cuando la corrida diaria no pudo cortar a alguien —el router no respondía—,
+ * ese abonado no queda registrado como cortado y sigue navegando hasta la
+ * corrida de mañana. "Reparar" es el botón que deja el router igual a lo que
+ * dice el sistema, y el sistema dice que ese abonado va cortado: es el lugar
+ * natural para aplicarlo, sin otro botón.
+ *
+ * Usa las MISMAS vistas que la corrida diaria. Con dos criterios, el día que
+ * difieran el que se entera es el abonado.
+ *
+ * Con `aplicar` en falso solo cuenta: es lo que muestra la revisión.
+ */
+export async function moraDelRouter(routerId, { aplicar = false } = {}) {
+  const [rCortar, rReconectar] = await Promise.all([
+    db().from('v_clientes_a_cortar_por_mora').select('*').eq('router_id', routerId),
+    db().from('v_clientes_a_reconectar').select('*').eq('router_id', routerId),
+  ])
+  // Sin la vista (migración 132) no hay corte por mora que aplicar.
+  if (rCortar.error || rReconectar.error) {
+    return { a_cortar: [], a_reconectar: [], cortados: [], reconectados: [], fallidos: [] }
+  }
+
+  const aCortar = rCortar.data ?? []
+  const aReconectar = rReconectar.data ?? []
+  // Los cortados sin registro del sistema que ya pagaron (la 214).
+  const { pendientes: sinRegistro } = await reactivarSinRegistro({ routerId, aplicar: false })
+  const resumen = {
+    a_cortar: aCortar.map((c) => c.nombre),
+    a_reconectar: [...aReconectar, ...sinRegistro].map((r) => r.nombre),
+  }
+  const pendientes = [...aCortar, ...aReconectar, ...sinRegistro]
+  if (!aplicar || !pendientes.length) {
+    olvidarFallidosResueltos(routerId, pendientes)
+    return { ...resumen, cortados: [], reconectados: [], fallidos: [] }
+  }
+
+  const r = await aplicarCortes(aCortar, aReconectar)
+  if (sinRegistro.length) {
+    const otros = await reactivarSinRegistro({ routerId })
+    r.reconectados.push(...otros.reconectados)
+    r.fallidos.push(...otros.fallidos)
+  }
+
+  // Lo que sigue pendiente es lo que falló recién.
+  olvidarFallidosResueltos(routerId, r.fallidos)
+
+  return { ...resumen, ...r }
+}
+
+/**
+ * El aviso del panel sale de la última corrida: de este router se dejan solo
+ * los que siguen pendientes.
+ *
+ * No alcanza con sacar los que se acaban de aplicar. Entre la corrida y el
+ * "Reparar" el abonado pudo pagar, recibir una promesa o quedar cortado por
+ * otro camino —el corte de promesas, por ejemplo—; ninguno vuelve a estar en
+ * las vistas, y el aviso seguiría diciendo que falta hasta la madrugada.
+ *
+ * Se compara por IP cuando la hay: dos abonados pueden llamarse igual. Los
+ * fallos de IPv6 no traen IP y van por nombre.
+ */
+export function olvidarFallidosResueltos(routerId, pendientes) {
+  const ult = estadoMora.ultimoResultado
+  if (!ult?.fallidos?.length) return
+  const ips = new Set(pendientes.map((p) => p.ip).filter(Boolean))
+  const nombres = new Set(pendientes.map((p) => p.cliente ?? p.nombre).filter(Boolean))
+  const sigue = (f) => (f.ip ? ips.has(f.ip) : nombres.has(f.cliente))
+  estadoMora.ultimoResultado = {
+    ...ult,
+    fallidos: ult.fallidos.filter((f) => f.router_id !== routerId || sigue(f)),
   }
 }
 

@@ -1,7 +1,7 @@
 /**
  * MODO DEMO — se activa con NEXT_PUBLIC_DEMO_MODE=true en web/.env
  *
- * Sirve para recorrer la interfaz sin Supabase ni equipos de red: reemplaza la
+ * Sirve para recorrer la interfaz sin la base ni equipos de red: reemplaza la
  * capa de datos por un store en memoria y las llamadas al middleware por
  * respuestas de ejemplo.
  *
@@ -142,7 +142,7 @@ export function resetDemo() {
   store = estructuraInicial()
 }
 
-// --- Capa de datos (reemplaza a Supabase) -----------------------------------
+// --- Capa de datos (reemplaza a la base) -----------------------------------
 
 const esperar = (ms = 180) => new Promise((r) => setTimeout(r, ms))
 
@@ -371,7 +371,7 @@ const ESCANEO_DEMO = {
   },
 }
 
-/** Sesión falsa para poder entrar sin Supabase. */
+/** Sesión falsa para poder entrar sin la base. */
 export const usuarioDemo = {
   id: 'demo-user',
   email: 'demo@taller.local',

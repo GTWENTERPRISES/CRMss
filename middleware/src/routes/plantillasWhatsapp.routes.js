@@ -30,7 +30,7 @@ async function exigir(req, permiso) {
   }
   if (!actor.activo) throw new AppError('Tu usuario está desactivado', { status: 403 })
   if (permiso && !tienePermiso(actor, permiso)) {
-    throw new AppError('No tenés permiso para esto', {
+    throw new AppError('No tienes permiso para esto', {
       status: 403,
       hint: `Hace falta el permiso "${permiso}".`,
     })

@@ -4,6 +4,7 @@ import { Archive, Download, Eye, Trash2 } from 'lucide-react'
 import { api } from '../../lib/apiNetwork'
 import { descargar } from '../../lib/olts'
 import { Aviso, Button, Card, ErrorBanner, Modal, SkeletonTabla, Table } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Respaldos de configuración.
@@ -84,7 +85,7 @@ export default function OltBackups({ olt }) {
   }
 
   const kb = (bytes) => (bytes ? `${(bytes / 1024).toFixed(1)} KB` : '—')
-  const cuando = (iso) => new Date(iso).toLocaleString('es-EC')
+  const cuando = (iso) => fmtFechaHora(iso)
 
   return (
     <>

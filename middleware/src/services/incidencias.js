@@ -147,25 +147,25 @@ export function normalizarAlcance(datos = {}) {
 
   if (alcance === 'zona') {
     fila.zona = String(datos.zona ?? '').trim()
-    if (!fila.zona) throw badRequest('Decí qué zona: sin eso el aviso saldría a quien no corresponde.')
+    if (!fila.zona) throw badRequest('Di qué zona: sin eso el aviso saldría a quien no corresponde.')
   } else if (alcance === 'punto') {
     fila.punto_id = datos.punto_id || null
-    if (!fila.punto_id) throw badRequest('Elegí la caja NAP, la antena o la torre afectada.')
+    if (!fila.punto_id) throw badRequest('Elige la caja NAP, la antena o la torre afectada.')
   } else if (alcance === 'nodo') {
     fila.nodo_id = datos.nodo_id || null
-    if (!fila.nodo_id) throw badRequest('Elegí el nodo del monitoreo.')
+    if (!fila.nodo_id) throw badRequest('Elige el nodo del monitoreo.')
   } else if (alcance === 'olt') {
     fila.olt_id = datos.olt_id || null
-    if (!fila.olt_id) throw badRequest('Elegí la OLT.')
+    if (!fila.olt_id) throw badRequest('Elige la OLT.')
     // El puerto es opcional pero cambia mucho el alcance: sin él va la OLT
     // entera, que pueden ser novecientos abonados por una fibra de sesenta.
     fila.puerto_pon = String(datos.puerto_pon ?? '').trim() || null
   } else if (alcance === 'router') {
     fila.router_id = datos.router_id || null
-    if (!fila.router_id) throw badRequest('Elegí el router.')
+    if (!fila.router_id) throw badRequest('Elige el router.')
   } else {
     fila.clientes_manual = Array.isArray(datos.clientes_manual) ? datos.clientes_manual : []
-    if (!fila.clientes_manual.length) throw badRequest('Elegí al menos un abonado.')
+    if (!fila.clientes_manual.length) throw badRequest('Elige al menos un abonado.')
   }
 
   return fila
@@ -176,7 +176,7 @@ const TIPOS = ['averia', 'fibra_rota', 'mantenimiento', 'corte_energia', 'enlace
 export async function crear(datos = {}, usuarioId = null) {
   const titulo = String(datos.titulo ?? '').trim()
   if (!titulo) {
-    throw badRequest('Escribí qué pasó: ese texto es el que le va a llegar al abonado.')
+    throw badRequest('Escribe qué pasó: ese texto es el que le va a llegar al abonado.')
   }
 
   const tipo = String(datos.tipo ?? 'averia')

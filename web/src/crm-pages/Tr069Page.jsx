@@ -305,14 +305,14 @@ function FormPerfil({ abierto, base, olts, perfiles, onCerrar, alCrear }) {
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Nombre">
+          <Field campo="nombre" label="Nombre">
             <Input
               placeholder="GenieACS"
               value={datos.nombre}
               onChange={(e) => setDatos({ ...datos, nombre: e.target.value })}
             />
           </Field>
-          <Field label="URL del ACS" hint="Tiene que ser alcanzable desde la red de gestión de las ONT.">
+          <Field campo="url" label="URL del ACS" hint="Tiene que ser alcanzable desde la red de gestión de las ONT.">
             <Input
               placeholder="http://192.168.55.254:7547"
               value={datos.url}
@@ -322,14 +322,14 @@ function FormPerfil({ abierto, base, olts, perfiles, onCerrar, alCrear }) {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Usuario" hint="Solo si el ACS lo pide. GenieACS por defecto no.">
-            <Input
+          <Field campo="usuario" label="Usuario" hint="Solo si el ACS lo pide. GenieACS por defecto no.">
+            <Input placeholder="Ej.: jperez"
               value={datos.usuario}
               onChange={(e) => setDatos({ ...datos, usuario: e.target.value })}
             />
           </Field>
-          <Field label="Clave">
-            <Input
+          <Field campo="clave" label="Clave">
+            <Input placeholder="Mínimo 8 caracteres"
               type="password"
               value={datos.clave}
               onChange={(e) => setDatos({ ...datos, clave: e.target.value })}
@@ -370,6 +370,7 @@ function FormPerfil({ abierto, base, olts, perfiles, onCerrar, alCrear }) {
                       número de perfil
                       <Input
                         type="number"
+                        placeholder="0"
                         className="w-20"
                         value={v?.profileId ?? ''}
                         onChange={(e) =>
@@ -405,7 +406,7 @@ function FormPerfil({ abierto, base, olts, perfiles, onCerrar, alCrear }) {
 
         <div className="flex justify-end gap-2">
           <Button onClick={onCerrar}>Cerrar</Button>
-          <Button
+          <Button variante="primario"
             icon={Plus}
             cargando={guardando}
             disabled={!datos.nombre || !datos.url || marcadas.length === 0}
@@ -489,10 +490,10 @@ function Estado() {
                   <p className="text-sm text-amber-400">{o.error}</p>
                 ) : (
                   <>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <Stat label="Perfiles" valor={o.perfiles?.length ?? 0} />
-                      <Stat label="ONT apuntadas" valor={o.ontsConPerfil ?? 0} />
-                      <Stat
+                    <div className="t-kpis">
+                      <Stat cargando={cargando} label="Perfiles" valor={o.perfiles?.length ?? 0} />
+                      <Stat cargando={cargando} label="ONT apuntadas" valor={o.ontsConPerfil ?? 0} />
+                      <Stat cargando={cargando}
                         label="ONT con IP de gestión"
                         valor={o.ontsConIpDeGestion ?? 0}
                         color="text-amber-400"
@@ -574,12 +575,12 @@ function ConsultarOnt({ olts }) {
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
         <div className="grid gap-3 sm:grid-cols-6">
-          <Field label="OLT" className="sm:col-span-2">
+          <Field hint="La OLT a la que está conectada la ONU." label="OLT" className="sm:col-span-2">
             <Select
               value={donde.oltId}
               onChange={(e) => setDonde({ ...donde, oltId: e.target.value })}
             >
-              <option value="">Elegí…</option>
+              <option value="">Elige…</option>
               {olts
                 .filter((o) => !o.error)
                 .map((o) => (
@@ -678,7 +679,7 @@ function ConsultarOnt({ olts }) {
                   hint="Una ONT habla con un ACS a la vez: cambiarla la saca del anterior."
                 >
                   <Select value={destino} onChange={(e) => setDestino(e.target.value)}>
-                    <option value="">Elegí un perfil…</option>
+                    <option value="">Elige un perfil…</option>
                     {perfiles.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.id} · {p.nombre} — {p.url}
@@ -703,7 +704,7 @@ function ConsultarOnt({ olts }) {
                 <b>
                   {hecho.perfil} · {hecho.perfilNombre}
                 </b>
-                . Para volver atrás, elegí el {hecho.perfilAnterior ?? '—'} y aplicá de nuevo.
+                . Para volver atrás, elige el {hecho.perfilAnterior ?? '—'} y aplica de nuevo.
               </Aviso>
             )}
           </div>

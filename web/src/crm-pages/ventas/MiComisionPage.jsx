@@ -156,7 +156,7 @@ export default function MiComisionPage() {
         <div>
           <h1 className="t-titulo text-lg font-bold text-slate-100">Mi comisión</h1>
           <p className="mt-0.5 text-xs text-slate-500">
-            Lo que llevás ganado este mes, y qué te falta para el escalón siguiente.
+            Lo que llevas ganado este mes, y qué te falta para el escalón siguiente.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -426,7 +426,7 @@ function Hero({ delMes, proy }) {
           {sig && (
             <div className="mt-3 border-t border-slate-800 pt-3">
               <p className="text-xs text-slate-400">
-                Si conseguís {sig.faltan} {sig.faltan === 1 ? 'venta más' : 'ventas más'}:
+                Si consigues {sig.faltan} {sig.faltan === 1 ? 'venta más' : 'ventas más'}:
               </p>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="text-xl font-semibold text-slate-100">{dinero(sig.monto)}</span>
@@ -551,7 +551,7 @@ function Calidad({ cohorte }) {
 
           {cohorte.excluidos > 0 && (
             <p className="mt-2 text-[11px] text-slate-500">
-              {cohorte.excluidos} no se cuentan: se fueron por motivos que no dependen de vos.
+              {cohorte.excluidos} no se cuentan: se fueron por motivos que no dependen de ti.
             </p>
           )}
           {cohorte.detalle && (
@@ -576,7 +576,7 @@ function Calidad({ cohorte }) {
           {abierta && cohorte.siguiente_bono != null && (
             <p className="mt-3 inline-flex items-start gap-1.5 text-xs leading-snug text-amber-300">
               <Flame size={14} className="mt-0.5 shrink-0" />
-              Mantené {cohorte.siguiente_calidad} % o más para llegar a{' '}
+              Mantén {cohorte.siguiente_calidad} % o más para llegar a{' '}
               {dinero(cohorte.siguiente_bono)}
               {cohorte.faltan_para_siguiente > 0
                 ? ` — te ${cohorte.faltan_para_siguiente === 1 ? 'falta' : 'faltan'} ${

@@ -484,7 +484,7 @@ function FormularioPool({ olt, proposito, vlans, onListo, onCancelar }) {
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Red (CIDR)" hint="el bloque completo, como 10.100.0.0/20" className="sm:col-span-2">
+        <Field campo="cidr" label="Red (CIDR)" hint="el bloque completo, como 10.100.0.0/20" className="sm:col-span-2">
           <Input
             value={form.cidr}
             onChange={set('cidr')}
@@ -494,13 +494,13 @@ function FormularioPool({ olt, proposito, vlans, onListo, onCancelar }) {
           />
         </Field>
 
-        <Field
+        <Field campo="desde"
           label="Desde"
           hint="primera dirección que el pool entrega"
         >
           <Input value={form.desde} onChange={set('desde')} placeholder="10.100.0.2" spellCheck={false} />
         </Field>
-        <Field label="Hasta" hint="última">
+        <Field campo="hasta" label="Hasta" hint="última">
           <Input value={form.hasta} onChange={set('hasta')} placeholder="10.100.15.254" spellCheck={false} />
         </Field>
 
@@ -514,7 +514,7 @@ function FormularioPool({ olt, proposito, vlans, onListo, onCancelar }) {
           </p>
         </div>
 
-        <Field label="Gateway" hint="no se reparte: se descuenta del pool">
+        <Field campo="gateway" label="Gateway" hint="no se reparte: se descuenta del pool">
           <Input value={form.gateway} onChange={set('gateway')} placeholder="10.100.0.1" spellCheck={false} />
         </Field>
 
@@ -527,7 +527,7 @@ function FormularioPool({ olt, proposito, vlans, onListo, onCancelar }) {
             se ofrecen todas con el aviso puesto. Trabar el formulario por un
             dato administrativo que nadie cargó es peor que dejar elegir mal
             avisando. */}
-        <Field
+        <Field campo="vlan"
           label="VLAN"
           hint={
             hayDelUso
@@ -567,14 +567,14 @@ function FormularioPool({ olt, proposito, vlans, onListo, onCancelar }) {
           )}
         </Field>
 
-        <Field label="DNS primario">
+        <Field campo="dns1" label="DNS primario">
           <Input value={form.dns1} onChange={set('dns1')} placeholder="8.8.8.8" spellCheck={false} />
         </Field>
-        <Field label="DNS secundario">
+        <Field campo="dns2" label="DNS secundario">
           <Input value={form.dns2} onChange={set('dns2')} placeholder="8.8.4.4" spellCheck={false} />
         </Field>
 
-        <Field label="Nombre" hint="opcional; si se deja vacío se arma solo" className="sm:col-span-2">
+        <Field campo="nombre" label="Nombre" hint="opcional; si se deja vacío se arma solo" className="sm:col-span-2">
           <Input value={form.nombre} onChange={set('nombre')} placeholder="Gestión ONUs VLAN 999" />
         </Field>
       </div>
@@ -640,8 +640,8 @@ function PanelImportacion({ datos, trabajando, onAplicar, onCerrar }) {
 
       {r.sin_pool > 0 && (
         <Aviso tipo="alerta">
-          {r.sin_pool} ONT(s) tienen una dirección que no cae en ningún pool cargado. Creá el pool de
-          ese bloque y volvé a traer, o van a quedar fuera del control del sistema.
+          {r.sin_pool} ONT(s) tienen una dirección que no cae en ningún pool cargado. Crea el pool de
+          ese bloque y vuelve a traer, o van a quedar fuera del control del sistema.
         </Aviso>
       )}
 

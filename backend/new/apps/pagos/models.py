@@ -1,86 +1,41 @@
-from decimal import Decimal
+"""
+Pagos y cortes de servicio.
 
+`pagos` tiene las columnas de la tabla del dashboard (apps/dashboard/columnas.py,
+columnas.py): cada pago apunta a UNA factura (`factura_id`); un
+cobro que alcanza para varias se reparte en varios pagos (`es_reparto`) y lo que
+sobra queda como excedente (`es_excedente`, `pago_origen_id`).
+"""
 from django.db import models
 
-from apps.core.fields import EncryptedCharField
 from apps.core.models import BaseModel
+from apps.dashboard import columnas
 
 
-class Pago(BaseModel):
+class Pago(columnas.ColumnasPago):
     class FormaPago(models.TextChoices):
-        TRANSFERENCIA = 'transferencia', 'Transferencia'
         EFECTIVO = 'efectivo', 'Efectivo'
+        TRANSFERENCIA = 'transferencia', 'Transferencia'
+        DEPOSITO = 'deposito', 'Depósito'
         TARJETA = 'tarjeta', 'Tarjeta'
-        DEPOSITO = 'deposito', 'Deposito'
-        BILLETERA = 'billetera', 'Billetera Digital'
+        BILLETERA = 'billetera', 'Billetera digital'
+        OTRO = 'otro', 'Otro'
 
-    class Estado(models.TextChoices):
-        PENDIENTE = 'pendiente', 'Pendiente Verificacion'
-        CONFIRMADO = 'confirmado', 'Confirmado'
-        RECHAZADO = 'rechazado', 'Rechazado'
+    forma_pago = models.CharField(max_length=20, choices=FormaPago.choices, default=FormaPago.EFECTIVO, blank=True)
 
-    cliente = models.ForeignKey(
-        'clientes.Cliente', on_delete=models.CASCADE, related_name='pagos',
-    )
-    facturas = models.ManyToManyField(
-        'facturacion.Factura', through='PagoFactura', related_name='pagos',
-    )
-
-    monto = models.DecimalField(max_digits=10, decimal_places=2)
-    forma_pago = models.CharField(max_length=20, choices=FormaPago.choices)
-    referencia = EncryptedCharField(max_length=255, blank=True)
-    banco_origen = EncryptedCharField(max_length=255, blank=True)
-    num_comprobante = EncryptedCharField(max_length=255, blank=True, db_index=True)
-    hash_qr = EncryptedCharField(max_length=255, blank=True)
-
-    estado = models.CharField(
-        max_length=20, choices=Estado.choices,
-        default=Estado.PENDIENTE, db_index=True,
-    )
-    acreditado = models.BooleanField(default=False, db_index=True)
-    fecha_transaccion = models.DateTimeField()
-    verificado_por = models.CharField(max_length=50, blank=True)
-    cuenta_destino = EncryptedCharField(max_length=255, blank=True)
-    origen = models.CharField(max_length=30, blank=True)
-    saldo_restante = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
-    class Meta:
+    class Meta(columnas.ColumnasPago.Meta):
         db_table = 'pagos'
-        ordering = ['-fecha_transaccion']
+        ordering = ['-fecha_pago', '-created_at']
         verbose_name = 'Pago'
         verbose_name_plural = 'Pagos'
-        indexes = [
-            models.Index(fields=['cliente', 'estado']),
-            models.Index(fields=['fecha_transaccion']),
-        ]
 
     def __str__(self):
-        return f'Pago {self.monto} ({self.get_forma_pago_display()})'
-
-
-class PagoFactura(models.Model):
-    pago = models.ForeignKey(Pago, on_delete=models.CASCADE, related_name='aplicaciones')
-    factura = models.ForeignKey(
-        'facturacion.Factura', on_delete=models.CASCADE, related_name='pagos_factura',
-    )
-    monto_aplicado = models.DecimalField(max_digits=10, decimal_places=2)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'pago_factura'
-        verbose_name = 'Aplicacion de Pago'
-        verbose_name_plural = 'Aplicaciones de Pago'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['pago', 'factura'], name='uniq_pago_factura',
-            ),
-        ]
-
-    def __str__(self):
-        return f'{self.monto_aplicado} a {self.factura.numero}'
+        return f'Pago {self.monto} ({self.forma_pago})'
 
 
 class Corte(BaseModel):
+    """Registro de un corte de servicio hecho desde Django (no es tabla del dashboard)."""
+
     class Motivo(models.TextChoices):
         MORA = 'MORA', 'Mora'
         MANUAL = 'MANUAL', 'Manual'

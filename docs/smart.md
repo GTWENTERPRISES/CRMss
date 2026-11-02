@@ -5,7 +5,7 @@
 Para un taller práctico o de aprendizaje, desarrollar una plataforma con alcance similar a
 SmartOLT requiere dividir la complejidad en módulos independientes. A continuación, el análisis
 técnico y la arquitectura recomendada utilizando tecnologías modernas y de rápido despliegue
-(React/Next.js, Supabase y un servicio intermedio para las integraciones de red).
+(React/Next.js, Django y un servicio intermedio para las integraciones de red).
 
 ---
 
@@ -25,10 +25,10 @@ de MikroTik/OLT por restricciones de seguridad y protocolos, la arquitectura deb
             |                             |
             v                             v
 +-----------------------+     +-------------------------+
-|   SUPABASE (Backend)  |     |   API MIDDLEWARE (Red)  |
-|  - Auth (Usuarios)    |     |  - RouterOS REST API    |
-|  - PostgreSQL (DB)    |     |  - SSH / Telnet OLT     |
-|  - Row Level Security |     |  - SNMP (Estadísticas)  |
+|   DJANGO (Backend)    |     |   API MIDDLEWARE (Red)  |
+|  - Auth (JWT)         |     |  - RouterOS REST API    |
+|  - SQLite/PostgreSQL  |     |  - SSH / Telnet OLT     |
+|  - Seguridad por fila |     |  - SNMP (Estadísticas)  |
 +-----------------------+     +-------------------------+
 ```
 
@@ -37,7 +37,7 @@ de MikroTik/OLT por restricciones de seguridad y protocolos, la arquitectura deb
 ## 2. Tecnologías Recomendadas
 
 - **Frontend Web**: React (con Next.js) + Tailwind CSS + Lucide Icons.
-- **Base de Datos y Autenticación**: Supabase (PostgreSQL autohospedado o cloud).
+- **Base de Datos y Autenticación**: Django + DRF (SQLite o PostgreSQL, JWT).
 - **Backend de Integración / Agent**: Node.js (Express/Fastify) o Python (FastAPI).
 - **Librerías clave**:
   - MikroTik: REST API de RouterOS v7 (`fetch`), o `@node-routeros/api` / `librouteros` para la API binaria.
@@ -46,7 +46,7 @@ de MikroTik/OLT por restricciones de seguridad y protocolos, la arquitectura deb
 
 ---
 
-## 3. Estructura de la Base de Datos (Supabase)
+## 3. Estructura de la Base de Datos
 
 ```sql
 -- 1. Tabla de OLTs
@@ -173,10 +173,10 @@ src/
 │   ├── Dashboard.jsx              # Resumen global de la red
 │   ├── MikrotikPage.jsx           # Gestión de Routers
 │   ├── OLTPage.jsx                # Gestión de OLTs y ONUs
-│   ├── Login.jsx                  # Autenticación Supabase
+│   ├── Login.jsx                  # Autenticación (JWT de Django)
 │
 ├── lib/
-│   ├── supabaseClient.js          # Configuración de cliente Supabase
+│   ├── djangoClient.js            # Cliente de la API de Django
 │   ├── apiNetwork.js              # Llamadas a la API Middleware
 ```
 
@@ -246,7 +246,7 @@ traffic table ip index 10 name "PLAN_100M" cir 10240 pir 102400 priority 6
 
 ### Fase 1: Configuración de Base de Datos e Interfaz (1-2 horas)
 
-- Configurar proyecto en Supabase (Auth + Tablas SQL).
+- Levantar Django (`migrate`, usuario de prueba) y la API de tablas.
 - Crear el Layout Web con el menú lateral de navegación.
 
 ### Fase 2: Integración MikroTik (2 horas)
@@ -258,7 +258,7 @@ traffic table ip index 10 name "PLAN_100M" cir 10240 pir 102400 priority 6
 
 - Crear plantillas de comandos SSH para OLT Huawei y V-SOL.
 - Diseñar el flujo de aprovisionamiento de una ONU:
-  Detectar → Seleccionar Perfil/VLAN → Registrar en OLT → Guardar en Supabase.
+  Detectar → Seleccionar Perfil/VLAN → Registrar en OLT → Guardar en la base.
 
 ### Fase 4: Panel de Métricas (1 hora)
 
@@ -269,10 +269,10 @@ traffic table ip index 10 name "PLAN_100M" cir 10240 pir 102400 priority 6
 
 ## Checkpoint de Fase 1
 
-- [ ] Las 8 tablas existen en Supabase con RLS activado.
+- [ ] `python manage.py migrate` corre sin errores y las tablas existen.
 - [ ] Login funciona con el usuario de prueba y redirige al Dashboard.
 - [ ] Sidebar/Navbar visibles y con navegación entre páginas.
 - [ ] Se puede crear una fila de prueba en `olts` desde la UI y verla listada (y confirmarla
-      también en Supabase Table Editor).
-- [ ] Intentar leer `olts` **sin** estar autenticado falla (prueba rápida de que RLS está
-      protegiendo los datos).
+      también en el admin de Django).
+- [ ] Intentar leer `olts` **sin** estar autenticado falla (prueba rápida de que la API
+      protege los datos).

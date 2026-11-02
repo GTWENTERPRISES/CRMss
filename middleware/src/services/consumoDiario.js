@@ -1,4 +1,4 @@
-import { db } from '../lib/db.js'
+import { conClave, db } from '../lib/db.js'
 import * as mk from '../services/mikrotikService.js'
 import { fechaLocal } from './facturacionMensual.js'
 
@@ -138,6 +138,8 @@ export function emparejar(colas = [], clientes = []) {
       origen: nombre || objetivo,
       subida: rx,
       bajada: tx,
+      // La cola entera: la medición de subida saturada necesita su límite.
+      cola: q,
     })
   }
 
@@ -174,7 +176,22 @@ export async function recolectar({ simular = false, fecha = null } = {}) {
     .eq('activo_servicio', true)
   const conPromesa = new Set((promesas ?? []).map((p) => p.client_id))
 
-  const resultado = { fecha: hoy, simulado: simular, routers: [], medidos: 0, fallidos: [] }
+  /**
+   * `arranques` se cuenta aparte de `medidos` a propósito.
+   *
+   * La primera lectura de cada abonado solo fija el punto de partida, y no deja
+   * nada en la gráfica. Contarla como "medido" hacía que el botón dijera "Se
+   * midieron 27 abonados" sobre una ficha vacía, y parecía que no andaba.
+   */
+  const resultado = {
+    fecha: hoy,
+    simulado: simular,
+    routers: [],
+    medidos: 0,
+    arranques: 0,
+    sin_emparejar: 0,
+    fallidos: [],
+  }
 
   for (const router of routers ?? []) {
     const suyos = (clientes ?? []).filter((c) => c.router_id === router.id)
@@ -182,8 +199,11 @@ export async function recolectar({ simular = false, fecha = null } = {}) {
 
     let colas
     try {
-      colas = await mk.listarSimpleQueues(router)
+      // Dentro del try: una credencial que no se puede descifrar es un router
+      // que no se mide, no una medición que se cae para todos.
+      colas = await mk.listarSimpleQueues(conClave(router))
     } catch (err) {
+      console.warn(`[consumo] ${router.nombre}: no se pudieron leer las colas — ${err.message}`)
       resultado.fallidos.push({ router: router.nombre, error: err.message })
       continue
     }
@@ -191,6 +211,7 @@ export async function recolectar({ simular = false, fecha = null } = {}) {
     const lecturas = emparejar(colas ?? [], suyos)
     const consumos = repartir(lecturas, previas)
 
+    resultado.sin_emparejar += suyos.length - lecturas.length
     resultado.routers.push({
       router: router.nombre,
       colas: colas?.length ?? 0,
@@ -253,7 +274,8 @@ export async function recolectar({ simular = false, fecha = null } = {}) {
         continue
       }
 
-      resultado.medidos++
+      if (c.arranque) resultado.arranques++
+      else resultado.medidos++
     }
   }
 
@@ -276,7 +298,7 @@ export async function sincronizarSesiones() {
   for (const router of routers ?? []) {
     let activas = []
     try {
-      activas = (await mk.listarPppActive(router)) ?? []
+      activas = (await mk.listarPppActive(conClave(router))) ?? []
     } catch {
       // Sin PPPoE en este router no hay sesiones que seguir. No es un error.
       continue

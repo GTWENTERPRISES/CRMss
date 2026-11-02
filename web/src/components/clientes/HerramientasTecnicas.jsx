@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
+import { conDeshacer } from '../../lib/notificaciones'
 import {
   Activity,
   Gauge,
@@ -16,9 +17,9 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
-import { Aviso, Button, Card, Field, Input, Modal, Select } from '../ui'
+import { Aviso, Button, Card, Field, Input, Modal, Select, MenuAcciones } from '../ui'
 
 /**
  * Las herramientas que hoy se usan entrando al Winbox, en la ficha del abonado.
@@ -83,7 +84,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
   useEffect(() => {
     if (!baja || motivos.length) return
     let vivo = true
-    supabase
+    django
       .from('motivos_baja')
       .select('id, nombre, afecta_calidad')
       .eq('activo', true)
@@ -142,13 +143,21 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
    */
   async function cambiarEstado(estado, aviso) {
     if (!await confirmar(aviso)) return
+    // Cortar o suspender espera unos segundos con "Deshacer" (lib/notificaciones):
+    // un clic en el abonado equivocado deja a alguien sin internet. Reactivar
+    // va directo: nadie se arrepiente de devolver el servicio.
+    if (estado === 'activo') return aplicarEstado(estado)
+    const que = estado === 'cortado' ? 'Servicio cortado' : `Servicio ${estado}`
+    await conDeshacer(`${que}: ${cliente.nombre}`, () => aplicarEstado(estado)).catch(() => {})
+  }
 
+  async function aplicarEstado(estado) {
     setGuardando(true)
     onError?.(null)
     try {
       // Al reactivar se limpia la pausa: dejar el motivo viejo haría que la
       // ficha siga diciendo "de viaje" sobre alguien que ya volvió.
-      const { error } = await supabase
+      const { error } = await django
         .from('clientes')
         .update(
           estado === 'activo'
@@ -165,7 +174,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
         onError?.(
           new Error(
             `El abonado quedó como "${estado}" en el sistema, pero el router no se actualizó: ` +
-              `${enElRouter.nota} Corregilo con "Reparar el router".`,
+              `${enElRouter.nota} Corrígelo con "Reparar el router".`,
           ),
         )
       }
@@ -193,7 +202,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
     setGuardando(true)
     onError?.(null)
     try {
-      const { error } = await supabase
+      const { error } = await django
         .from('clientes')
         .update({
           estado: 'suspendido',
@@ -211,7 +220,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
         onError?.(
           new Error(
             `El abonado quedó pausado en el sistema, pero el router no se actualizó: ` +
-              `${enElRouter.nota} Corregilo con "Reparar el router".`,
+              `${enElRouter.nota} Corrígelo con "Reparar el router".`,
           ),
         )
       }
@@ -250,7 +259,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
       }
 
       if (!entrada) return { ok: true, nota: '' }
-      await api.mikrotik.desbloquear(cliente.router_id, entrada.id)
+      await api.mikrotik.desbloquear(cliente.router_id, entrada.id, entrada.address)
       return { ok: true, nota: '' }
     } catch (err) {
       return { ok: false, nota: err.message }
@@ -267,24 +276,22 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
    */
   async function darDeBaja(e) {
     e.preventDefault()
-    setGuardando(true)
+    const datos = { p_cliente: cliente.id, p_motivo: baja.motivo || null, p_nota: baja.nota?.trim() || null }
+    // La ventana se cierra ya; la baja sale a los segundos si no se deshace.
+    setBaja(null)
     onError?.(null)
-
-    try {
-      const { error } = await supabase.rpc('dar_de_baja_cliente', {
-        p_cliente: cliente.id,
-        p_motivo: baja.motivo || null,
-        p_nota: baja.nota?.trim() || null,
-      })
-      if (error) throw error
-
-      setBaja(null)
-      await onGuardado?.()
-    } catch (err) {
-      onError?.(err)
-    } finally {
-      setGuardando(false)
-    }
+    await conDeshacer(`Baja de ${cliente.nombre}`, async () => {
+      setGuardando(true)
+      try {
+        const { error } = await django.rpc('dar_de_baja_cliente', datos)
+        if (error) throw error
+        await onGuardado?.()
+      } catch (err) {
+        onError?.(err)
+      } finally {
+        setGuardando(false)
+      }
+    }).catch(() => {})
   }
 
   async function crearPromesa(e) {
@@ -293,8 +300,8 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
     onError?.(null)
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
-      const { error } = await supabase.from('promesas_pago').insert({
+      const { data: sesion } = await django.auth.getUser()
+      const { error } = await django.from('promesas_pago').insert({
         client_id: cliente.id,
         monto: Number(promesa.monto) || null,
         fecha_promesa: promesa.fecha,
@@ -311,7 +318,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
     } catch (err) {
       onError?.(
         err?.code === '23505'
-          ? new Error(`${cliente.nombre} ya tiene una promesa activa. Cerrala antes de crear otra.`)
+          ? new Error(`${cliente.nombre} ya tiene una promesa activa. Ciérrala antes de crear otra.`)
           : err,
       )
     } finally {
@@ -350,7 +357,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
         {sinRouter && (
           <Aviso tipo="alerta">
             Este abonado no tiene router MikroTik asignado en su ficha, así que las herramientas de
-            red no pueden saber a qué equipo hablarle. Asignalo en la pestaña <b>Servicio</b>.
+            red no pueden saber a qué equipo hablarle. Asígnalo en la pestaña <b>Servicio</b>.
           </Aviso>
         )}
 
@@ -362,7 +369,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <Herramienta
                 icon={Zap}
-                label="Hacé ping"
+                label="Haz ping"
                 disabled={sinRouter}
                 cargando={corriendo === 'ping'}
                 onClick={() =>
@@ -486,18 +493,6 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
                   )
                 }
               />
-              <Herramienta
-                icon={PowerOff}
-                label="Suspender servicio"
-                tono="peligro"
-                disabled={cliente.estado === 'cortado' || guardando}
-                onClick={() =>
-                  cambiarEstado(
-                    'cortado',
-                    `¿Suspender el servicio de ${cliente.nombre}? Se le corta el internet en el router.`,
-                  )
-                }
-              />
               {/*
                 Pausar no es suspender por mora: el abonado no debe nada, pidió
                 parar, y mientras está pausado NO se le factura. Por eso es una
@@ -527,12 +522,30 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
                   })
                 }
               />
-              <Herramienta
-                icon={Trash2}
-                label="Dar de baja"
-                tono="peligro"
-                disabled={cliente.estado === 'baja' || guardando}
-                onClick={() => setBaja({ motivo: '', nota: '' })}
+            </div>
+            {/* Lo que deja a alguien sin internet, aparte y en un menú: no a un
+                clic de "Conceder promesa". */}
+            <div className="mt-2 flex justify-end">
+              <MenuAcciones
+                texto="Suspender o dar de baja"
+                acciones={[
+                  cliente.estado !== 'cortado' && !guardando && {
+                    label: 'Suspender el servicio',
+                    icon: PowerOff,
+                    peligro: true,
+                    onClick: () =>
+                      cambiarEstado(
+                        'cortado',
+                        `¿Suspender el servicio de ${cliente.nombre}? Se le corta el internet en el router.`,
+                      ),
+                  },
+                  cliente.estado !== 'baja' && !guardando && {
+                    label: 'Dar de baja',
+                    icon: Trash2,
+                    peligro: true,
+                    onClick: () => setBaja({ motivo: '', nota: '' }),
+                  },
+                ]}
               />
             </div>
           </div>
@@ -566,7 +579,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
       <Modal abierto={Boolean(wifi)} titulo="Cambiar red WiFi" onCerrar={() => setWifi(null)}>
         {wifi && (
           <form onSubmit={guardarWifi} className="space-y-4">
-            <Field label="Nombre de la red (SSID)" hint="Dejalo vacío para no cambiarlo">
+            <Field label="Nombre de la red (SSID)" hint="Déjalo vacío para no cambiarlo">
               <Input
                 value={wifi.ssid}
                 onChange={(e) => setWifi((w) => ({ ...w, ssid: e.target.value }))}
@@ -575,7 +588,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
             </Field>
 
             <Field label="Clave" hint="Mínimo 8 caracteres. Vacío = no se cambia">
-              <Input
+              <Input placeholder="Mínimo 8 caracteres"
                 value={wifi.clave}
                 onChange={(e) => setWifi((w) => ({ ...w, clave: e.target.value }))}
               />
@@ -583,7 +596,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
 
             <Aviso tipo="alerta">
               Al cambiarla, todos los aparatos de la casa se desconectan y hay que reconectarlos con
-              la clave nueva. Avisale al abonado antes de aplicar.
+              la clave nueva. Avísale al abonado antes de aplicar.
             </Aviso>
 
             <div className="flex justify-end gap-2">
@@ -628,7 +641,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Vence el">
+              <Field hint="Después de esta fecha queda vencida." label="Vence el">
                 <Input
                   type="date"
                   value={promesa.fecha}
@@ -637,7 +650,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
                 />
               </Field>
               <Field label="Monto prometido" hint="Lo que debe hoy">
-                <Input
+                <Input placeholder="Ej.: 25.00"
                   type="number"
                   step="0.01"
                   value={promesa.monto}
@@ -671,7 +684,8 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
       </Modal>
 
       {/* ---------------------------------------------------- Baja */}
-      <Modal abierto={Boolean(baja)} titulo="Dar de baja el servicio" onCerrar={() => setBaja(null)}>
+      <Modal abierto={Boolean(baja)} titulo="Dar de baja el servicio" onCerrar={() => setBaja(null)} avisoAlGuardar={false}>
+
 
         {baja && (
           <form onSubmit={darDeBaja} className="space-y-4">
@@ -689,7 +703,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
                 onChange={(e) => setBaja((b) => ({ ...b, motivo: e.target.value }))}
                 required
               >
-                <option value="">Elegí un motivo…</option>
+                <option value="">Elige un motivo…</option>
                 {motivos.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.nombre}

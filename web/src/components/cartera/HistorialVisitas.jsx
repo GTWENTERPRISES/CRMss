@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react'
 import { carteraApi, RESULTADOS_INTENTO } from '../../lib/cartera'
 import { Badge } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Las visitas de una orden de retiro, con lo que dijo el abonado.
@@ -72,12 +73,7 @@ export default function HistorialVisitas({ retiroId, intentos = 0, abiertoAlPrin
               <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                 <span className="text-slate-500">{i + 1}ª</span>
                 <span className="text-slate-400">
-                  {new Date(v.creado_en).toLocaleString('es-EC', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {fmtFechaHora(v.creado_en)}
                 </span>
                 <Badge color={v.resultado === 'recuperado' ? 'verde' : 'ambar'}>
                   {RESULTADOS_INTENTO.find((r) => r.clave === v.resultado)?.label ?? v.resultado}

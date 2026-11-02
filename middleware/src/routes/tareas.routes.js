@@ -63,7 +63,7 @@ router.get(
     if (error) {
       throw new AppError(`No se pudieron leer los avisos pendientes: ${error.message}`, {
         status: 502,
-        hint: 'Si dice que no existe la vista, corré supabase/migracion-127-los-tres-avisos-de-pago.sql',
+        hint: 'Si dice que no existe la vista, actualiza la base (python manage.py migrate)',
       })
     }
 

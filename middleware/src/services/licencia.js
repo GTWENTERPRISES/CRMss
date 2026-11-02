@@ -213,7 +213,7 @@ export async function estado({ ahora = new Date() } = {}) {
     en_gracia: enGracia,
     excedido,
     ...(excedido
-      ? { aviso: `Tenés ${abonados} abonados y la licencia cubre ${lic.clientes_max}.` }
+      ? { aviso: `Tienes ${abonados} abonados y la licencia cubre ${lic.clientes_max}.` }
       : {}),
   }
 }
@@ -243,7 +243,7 @@ export async function activar(token) {
 
   if (lic.instalacion && lic.instalacion !== fila.instalacion) {
     throw badRequest('Esa licencia fue emitida para otra instalación.', {
-      hint: `El identificador de esta instalación es ${fila.instalacion}. Pedile al proveedor una licencia para ese código.`,
+      hint: `El identificador de esta instalación es ${fila.instalacion}. Pídele al proveedor una licencia para ese código.`,
     })
   }
 

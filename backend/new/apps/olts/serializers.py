@@ -10,13 +10,9 @@ class OLTSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OLT
-        fields = [
-            'id', 'nombre', 'marca', 'marca_display', 'ip_host', 'puerto_ssh',
-            'usuario', 'password', 'enable_password', 'activo',
-            'estado_ultimo_sondeo', 'ultima_conexion', 'modelo',
-            'created_at', 'updated_at',
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'ultima_conexion', 'estado_ultimo_sondeo']
+        exclude = ['password_encrypted', 'enable_password_encrypted', 'snmp_ro_encrypted', 'snmp_rw_encrypted']
+        read_only_fields = ['id', 'numero', 'created_at', 'updated_at', 'estado', 'estado_at',
+                            'estado_latencia_ms', 'estado_detalle']
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
@@ -61,14 +57,7 @@ class ONUSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ONU
-        fields = [
-            'id', 'olt', 'olt_nombre', 'sn', 'nombre_cliente',
-            'frame', 'slot', 'puerto', 'onu_index', 'posicion',
-            'tipo_ont', 'line_profile', 'plan',
-            'estado', 'estado_display', 'rx_power_dbm', 'tx_power_dbm',
-            'distancia_m', 'ultima_lectura', 'potencia_optima',
-            'created_at', 'updated_at',
-        ]
+        fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at', 'ultima_lectura']
 
 

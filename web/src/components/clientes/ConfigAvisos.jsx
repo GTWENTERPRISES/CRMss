@@ -1,6 +1,7 @@
+import { usePais } from '../../lib/pais'
 import { useEffect, useState } from 'react'
 import { AlertTriangle, BellOff, Save, Send } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import {
   COMBINACIONES_FACTURA, OPCIONES_DIAS, OPCIONES_PANTALLA,
   avisosEnOrden, canalesDeCombinacion, combinacionDe, describirDias,
@@ -48,11 +49,12 @@ const AVISOS = [
   {
     campo: 'aviso_dias_3',
     titulo: 'Último aviso',
-    para: 'El de antes del corte. Poné un día antes si querés que le llegue justo a tiempo.',
+    para: 'El de antes del corte. Pon un día antes si quieres que le llegue justo a tiempo.',
   },
 ]
 
 export default function ConfigAvisos({ cliente, onGuardado, onError }) {
+  const pais = usePais()
   const [form, setForm] = useState(() => ({
     avisos_activos: cliente.avisos_activos !== false,
     avisos_pantalla: cliente.avisos_pantalla !== false,
@@ -77,7 +79,7 @@ export default function ConfigAvisos({ cliente, onGuardado, onError }) {
   const [generales, setGenerales] = useState({})
 
   useEffect(() => {
-    supabase
+    django
       .from('config_avisos_pago')
       .select('dias_aviso_1, dias_aviso_2, dias_aviso_3')
       .eq('id', 1)
@@ -119,7 +121,7 @@ export default function ConfigAvisos({ cliente, onGuardado, onError }) {
     onError?.(null)
     try {
       const numero = (v) => (v === '' || v == null ? null : Number(v))
-      const { error } = await supabase
+      const { error } = await django
         .from('clientes')
         .update({
           avisos_activos: form.avisos_activos,
@@ -234,9 +236,9 @@ export default function ConfigAvisos({ cliente, onGuardado, onError }) {
                 porque no recuerda una deuda: informa que se emitió, y se le
                 manda a TODOS. La opción de apagarlo existe solo para el abonado
                 que lo pide. */}
-            <Field
+            <Field campo="aviso_factura"
               label="Aviso de nueva factura"
-              hint="Se manda a todos cuando se crea la factura. No tiene que ver con la factura electrónica del SRI."
+              hint={`Se manda a todos cuando se crea la factura.${pais.modulos.facturacionElectronica ? ' No tiene que ver con la factura electrónica del SRI.' : ''}`}
             >
               <Select
                 value={form.aviso_factura ?? ''}
@@ -271,7 +273,7 @@ export default function ConfigAvisos({ cliente, onGuardado, onError }) {
                 tiene servicio. Es un rango y no un día porque no es un mensaje
                 que se manda una vez, es un estado que dura hasta el vencimiento. */}
             {form.avisos_pantalla && (
-              <Field
+              <Field campo="aviso_pantalla_dias"
                 label="Pantalla de aviso antes del corte"
                 hint="Mientras todavía tiene servicio, para que se entere antes de quedarse sin internet."
               >
@@ -298,8 +300,8 @@ export default function ConfigAvisos({ cliente, onGuardado, onError }) {
                   <Field key={a.campo} label={a.titulo} hint={a.para}>
                     {/* Se elige de una lista y no se escribe: el número es en
                         días respecto del vencimiento y el signo lo cambia todo.
-                        Un menos que falta convierte "avisale un día antes" en
-                        "avisale un día tarde", y eso no se ve revisando la
+                        Un menos que falta convierte "avísale un día antes" en
+                        "avísale un día tarde", y eso no se ve revisando la
                         ficha — se ve cuando el abonado llama diciendo que le
                         cortaron sin avisar. */}
                     <Select

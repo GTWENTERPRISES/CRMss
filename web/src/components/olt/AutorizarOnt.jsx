@@ -102,7 +102,7 @@ export default function AutorizarOnt({ olt, ont, onListo, onCancelar }) {
             <p className="mt-0.5 text-xs text-slate-400">
               {resultado.guardadaEnBase
                 ? 'Registrada en el equipo y guardada en el sistema.'
-                : 'Registrada en el equipo. No se pudo guardar en el sistema — revisá el detalle.'}
+                : 'Registrada en el equipo. No se pudo guardar en el sistema — revisa el detalle.'}
             </p>
           </div>
         </div>
@@ -181,7 +181,7 @@ export default function AutorizarOnt({ olt, ont, onListo, onCancelar }) {
           hint="Define la VLAN y los GEM ports. El propuesto es el que usa la mayoría de tus ONTs."
         >
           <Select value={form.lineProfileId} onChange={set('lineProfileId')} required>
-            <option value="">— elegí —</option>
+            <option value="">— elige —</option>
             {datos.perfiles.line.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.id} · {p.nombre}
@@ -196,11 +196,11 @@ export default function AutorizarOnt({ olt, ont, onListo, onCancelar }) {
           hint={
             datos.sugerido.srv_por_modelo
               ? `Propuesto por el modelo que reportó la ONT (${ont.modelo}).`
-              : 'No hay uno que coincida con el modelo: elegilo a mano.'
+              : 'No hay uno que coincida con el modelo: elígelo a mano.'
           }
         >
           <Select value={form.srvProfileId} onChange={set('srvProfileId')} required>
-            <option value="">— elegí —</option>
+            <option value="">— elige —</option>
             {datos.perfiles.srv.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.id} · {p.nombre}
@@ -214,11 +214,11 @@ export default function AutorizarOnt({ olt, ont, onListo, onCancelar }) {
       {/* --- Lo que casi siempre hay que tocar --- */}
       <div className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field
+          <Field campo="vlan"
             label="VLAN de usuario"
             hint="Es el dato que cambia en cada alta."
           >
-            <Input
+            <Input placeholder="Ej.: 100"
               type="number"
               value={form.vlan}
               onChange={set('vlan')}
@@ -228,10 +228,10 @@ export default function AutorizarOnt({ olt, ont, onListo, onCancelar }) {
               autoFocus
             />
           </Field>
-          <Field label="GEM port">
-            <Input type="number" value={form.gemport} onChange={set('gemport')} min={1} />
+          <Field campo="gemport" label="GEM port">
+            <Input placeholder="Ej.: 1" type="number" value={form.gemport} onChange={set('gemport')} min={1} />
           </Field>
-          <Field
+          <Field campo="plan_id"
             label="Plan"
             hint="Define la velocidad: se aplica con las traffic tables del equipo."
           >
@@ -258,11 +258,11 @@ export default function AutorizarOnt({ olt, ont, onListo, onCancelar }) {
 
       {/* --- Identificación --- */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Nombre" hint={sinInstalacion ? undefined : 'De la orden de instalación'}>
-          <Input value={form.nombre} onChange={set('nombre')} required />
+        <Field campo="nombre" label="Nombre" hint={sinInstalacion ? undefined : 'De la orden de instalación'}>
+          <Input placeholder="Ej.: Juan Pérez" value={form.nombre} onChange={set('nombre')} required />
         </Field>
-        <Field label="Dirección o comentario">
-          <Input value={form.comentario} onChange={set('comentario')} />
+        <Field campo="comentario" label="Dirección o comentario">
+          <Input placeholder="Ej.: Cliente moroso" value={form.comentario} onChange={set('comentario')} />
         </Field>
       </div>
 
@@ -333,9 +333,9 @@ function FichaManual({ ficha }) {
   return (
     <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
       <div>
-        <p className="text-sm font-semibold text-amber-200">Configurá el equipo a mano</p>
+        <p className="text-sm font-semibold text-amber-200">Configura el equipo a mano</p>
         <p className="mt-0.5 text-xs leading-snug text-amber-200/80">
-          Esta ONT no se pudo configurar sola. Entrá a su interfaz web y cargá esto. Tocá cualquier
+          Esta ONT no se pudo configurar sola. Entra a su interfaz web y carga esto. Toca cualquier
           valor para copiarlo.
         </p>
       </div>
@@ -375,14 +375,14 @@ function FichaManual({ ficha }) {
           que falta se dice con todas las letras. */}
       {ficha.faltantes?.length > 0 && (
         <Aviso tipo="alerta">
-          Falta {ficha.faltantes.join(' y ')}. Completalo en el paso de red de la instalación antes
+          Falta {ficha.faltantes.join(' y ')}. Complétalo en el paso de red de la instalación antes
           de cargar el equipo, o el abonado no va a poder autenticar.
         </Aviso>
       )}
 
       <p className="text-[11px] leading-snug text-slate-500">
         El nombre y la clave de WiFi ya quedaron guardados en la ficha de la ONU. Si en el equipo
-        ponés otros, cambialos también ahí — es lo que el soporte va a leer cuando el abonado llame
+        pones otros, cambialos también ahí — es lo que el soporte va a leer cuando el abonado llame
         preguntando su clave.
       </p>
     </div>

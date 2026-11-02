@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { ArrowLeft, Boxes, Check, FileSignature, FileText, PackageCheck } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { entregasApi } from '../../lib/entregas'
 import { api } from '../../lib/apiNetwork'
 import { abrirPdf } from '../../lib/pdf'
 import FirmaDigital from '../../components/soporte/FirmaDigital'
 import { Aviso, Badge, Button, Card, Cargando, ErrorBanner, Textarea } from '../../components/ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Lo que tengo en la camioneta, y el acta para devolverlo.
@@ -87,7 +88,7 @@ export default function EntregarEquiposPage() {
             Entregar equipos a la oficina
           </h1>
           <p className="text-xs text-slate-500">
-            {disponibles.length === 0 ? 'No tenés equipos para entregar' : `${disponibles.length} en tu poder`}
+            {disponibles.length === 0 ? 'No tienes equipos para entregar' : `${disponibles.length} en tu poder`}
           </p>
         </div>
       </div>
@@ -96,7 +97,7 @@ export default function EntregarEquiposPage() {
 
       {hecha && (
         <Aviso>
-          Acta <b>N° {hecha.numero}</b> generada. Mostrala en la oficina: quien la reciba tiene que
+          Acta <b>N° {hecha.numero}</b> generada. Muéstrala en la oficina: quien la reciba tiene que
           firmarla, y recién ahí los equipos salen de tu inventario.
         </Aviso>
       )}
@@ -105,7 +106,7 @@ export default function EntregarEquiposPage() {
         <Cargando />
       ) : (
         <>
-          <Card title="Lo que tenés">
+          <Card title="Lo que tienes">
             {disponibles.length === 0 ? (
               <p className="text-xs text-slate-500">
                 Tu almacén está vacío. Los equipos que recuperes de un abonado aparecen acá hasta que
@@ -159,7 +160,7 @@ export default function EntregarEquiposPage() {
                 />
 
                 {/* Tu firma va acá, al armar el acta, y no en un paso aparte:
-                    hacer la lista de lo que entregás ES entregarlo. La otra
+                    hacer la lista de lo que entregas ES entregarlo. La otra
                     firma —la de quien recibe— se pone en la oficina, y recién
                     con las dos el acta prueba algo. */}
                 <div>
@@ -177,7 +178,7 @@ export default function EntregarEquiposPage() {
                 >
                   {firma
                     ? `Generar acta con ${elegidos.size} ${elegidos.size === 1 ? 'equipo' : 'equipos'}`
-                    : 'Firmá para generar el acta'}
+                    : 'Firma para generar el acta'}
                 </Button>
               </div>
             )}
@@ -199,7 +200,7 @@ export default function EntregarEquiposPage() {
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-500">
-                        {new Date(a.creado_en).toLocaleString('es-EC')}
+                        {fmtFechaHora(a.creado_en)}
                         {a.recibe ? ` · recibió ${a.recibe}` : ''}
                       </div>
                     </div>

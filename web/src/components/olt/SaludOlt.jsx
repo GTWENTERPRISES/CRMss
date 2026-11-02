@@ -89,9 +89,7 @@ export default function SaludOlt({ olt, onCerrar, auto = true }) {
       icon={HardDrive}
       actions={
         <div className="flex gap-2">
-          <Button icon={RefreshCw} onClick={consultar} cargando={cargando}>
-            Actualizar
-          </Button>
+          <Button icon={RefreshCw} onClick={consultar} cargando={cargando} title="Actualizar" />
           {onCerrar && (
             <Button variante="fantasma" onClick={onCerrar}>
               Cerrar
@@ -110,7 +108,7 @@ export default function SaludOlt({ olt, onCerrar, auto = true }) {
             <p className="py-2 text-xs leading-relaxed text-slate-500">
               Temperatura, placas, consumo y puertos PON se leen en vivo del equipo. Son varios
               comandos por la CLI, así que se piden cuando hacen falta y no en cada carga de la
-              página. Apretá <b className="text-slate-300">Actualizar</b>.
+              página. Aprieta <b className="text-slate-300">Actualizar</b>.
             </p>
           )
         ) : (

@@ -19,7 +19,7 @@ import { PLANTILLAS } from '../../lib/mensajesRetiro'
 import FirmaDigital from '../../components/soporte/FirmaDigital'
 import HistorialVisitas from '../../components/cartera/HistorialVisitas'
 import { abrirPdf } from '../../lib/pdf'
-import { enlaceWhatsApp } from '../../lib/telefono'
+import { enlaceLlamada, enlaceWhatsApp } from '../../lib/telefono'
 import { useMarca } from '../../lib/useMarca'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Badge, Button, Card, Cargando, ErrorBanner, Input, Modal, Select, Textarea } from '../../components/ui'
@@ -127,7 +127,7 @@ export default function MisRetirosPage() {
       {cargando ? (
         <Cargando />
       ) : ordenes.length === 0 ? (
-        <Aviso>No tenés equipos por retirar. Cuando te asignen uno, aparece acá.</Aviso>
+        <Aviso>No tienes equipos por retirar. Cuando te asignen uno, aparece acá.</Aviso>
       ) : (
         ordenes.map((o) => (
           <Orden
@@ -213,7 +213,7 @@ function Contacto({ o, onError }) {
       <div className="flex flex-wrap gap-1.5">
         {o.telefono ? (
           <a
-            href={`tel:${o.telefono}`}
+            href={enlaceLlamada(o.telefono)}
             className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] text-slate-200 hover:bg-slate-700"
           >
             <Phone size={13} />
@@ -324,7 +324,7 @@ function Orden({ o, onAgendar, onVisitar, onCerrar, onError }) {
           <Button icon={CalendarClock} onClick={onAgendar} className="py-1.5 text-xs">
             {cita ? 'Cambiar la cita' : 'Agendar'}
           </Button>
-          <Button icon={XCircle} onClick={onVisitar} className="py-1.5 text-xs">
+          <Button variante="primario" icon={XCircle} onClick={onVisitar} className="py-1.5 text-xs">
             Registrar visita
           </Button>
           <Button variante="primario" icon={CheckCircle2} onClick={onCerrar} className="py-1.5 text-xs">
@@ -649,8 +649,8 @@ function Cierre({ orden, onCerrar, onListo, onError }) {
         {recuperado ? (
           <>
             <label className="block text-xs text-slate-400">
-              Serie del equipo que traés
-              <Input
+              Serie del equipo que traes
+              <Input campo="serie"
                 value={serie}
                 onChange={(e) => setSerie(e.target.value)}
                 placeholder={orden?.serie ?? 'Si es distinta a la de la orden'}
@@ -667,7 +667,7 @@ function Cierre({ orden, onCerrar, onListo, onError }) {
                 className="mt-1"
               />
               <span className="mt-1 block text-[11px] text-slate-500">
-                Casi nunca es el titular: firma el hijo, la esposa, el inquilino. Anotá quién fue.
+                Casi nunca es el titular: firma el hijo, la esposa, el inquilino. Anota quién fue.
               </span>
             </label>
 
@@ -728,7 +728,7 @@ function Cierre({ orden, onCerrar, onListo, onError }) {
         <div className="flex items-center justify-end gap-2">
           {!listo && (
             <span className="mr-auto text-[11px] text-amber-400">
-              {recuperado ? 'Falta la firma.' : 'Elegí una categoría.'}
+              {recuperado ? 'Falta la firma.' : 'Elige una categoría.'}
             </span>
           )}
           <Button variante="secundario" onClick={onCerrar}>

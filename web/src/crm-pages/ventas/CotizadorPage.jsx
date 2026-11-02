@@ -9,7 +9,7 @@ import {
   Search,
   UserPlus,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import {
   Aviso,
   Badge,
@@ -38,6 +38,7 @@ import {
   prepararWhatsApp,
   ultimosMensajes,
 } from '../../lib/mensajesComerciales'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Cotizador.
@@ -103,7 +104,7 @@ export default function CotizadorPage() {
         // Solo las vigentes: la vista no devuelve las vencidas, así que no hay
         // forma de ofrecer una promo que ya terminó ni por descuido.
         promocionesApi.vigentes(),
-        supabase.from('v_cotizaciones').select('*').order('creado_en', { ascending: false }).limit(60),
+        django.from('v_cotizaciones').select('*').order('creado_en', { ascending: false }).limit(60),
         // Si la migración 83 todavía no corrió, la pantalla funciona igual: la
         // lista de mensajes queda vacía y el resto no se entera.
         ultimosMensajes(20).catch(() => []),
@@ -249,12 +250,12 @@ export default function CotizadorPage() {
   }
 
   const guardar = async () => {
-    if (!form.plan_id) return setError(new Error('Elegí el plan'))
+    if (!form.plan_id) return setError(new Error('Elige el plan'))
     if (!form.nombre.trim()) return setError(new Error('Falta el nombre de quien consulta'))
 
     setGuardando(true)
     try {
-      const { data, error: err } = await supabase
+      const { data, error: err } = await django
         .from('cotizaciones')
         .insert({
           nombre: form.nombre.trim(),
@@ -312,7 +313,7 @@ export default function CotizadorPage() {
 
   const convertir = async (cot) => {
     try {
-      const { data, error: err } = await supabase.rpc('convertir_cotizacion_en_prospecto', {
+      const { data, error: err } = await django.rpc('convertir_cotizacion_en_prospecto', {
         p_cotizacion: cot.id,
       })
       if (err) throw new Error(err.message.replace(/^.*?:\s*/, ''))
@@ -342,7 +343,7 @@ export default function CotizadorPage() {
             Cotizador
           </h1>
           <p className="campo-suave text-sm">
-            Armá el precio para alguien que está preguntando. Si se interesa, se convierte en
+            Arma el precio para alguien que está preguntando. Si se interesa, se convierte en
             prospecto con la cotización adentro.
           </p>
         </div>
@@ -356,29 +357,29 @@ export default function CotizadorPage() {
         <Card title="Nueva cotización" className="lg:col-span-2">
           <div className="space-y-3">
             <div className="grid gap-3 md:grid-cols-3">
-              <Field label="¿Quién pregunta?">
+              <Field campo="nombre" label="¿Quién pregunta?">
                 <Input
                   value={form.nombre}
                   onChange={(e) => setForm({ ...form, nombre: e.target.value })}
                   placeholder="Nombre y apellido"
                 />
               </Field>
-              <Field label="Teléfono" hint="Para poder mandarle la cotización.">
-                <Input
+              <Field campo="telefono" label="Teléfono" hint="Para poder mandarle la cotización.">
+                <Input placeholder="Ej.: 0991234567"
                   value={form.telefono}
                   onChange={(e) => setForm({ ...form, telefono: e.target.value })}
                   inputMode="tel"
                 />
               </Field>
-              <Field label="Sector o barrio">
-                <Input
+              <Field campo="sector" label="Sector o barrio">
+                <Input placeholder="Ej.: Urdesa Central"
                   value={form.sector}
                   onChange={(e) => setForm({ ...form, sector: e.target.value })}
                 />
               </Field>
             </div>
 
-            <Field
+            <Field campo="plan_id"
               label="Plan"
               hint="Los precios ya incluyen IVA: es lo que el cliente va a pagar. El valor se copia y queda congelado."
             >
@@ -401,7 +402,7 @@ export default function CotizadorPage() {
                   })
                 }}
               >
-                <option value="">— elegí el plan —</option>
+                <option value="">— elige el plan —</option>
                 {planes.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nombre} — {dinero(p.precio)}
@@ -448,32 +449,32 @@ export default function CotizadorPage() {
             )}
 
             <div className="grid gap-3 md:grid-cols-4">
-              <Field label="Mensualidad (con IVA)">
-                <Input
+              <Field campo="precio_mensual" label="Mensualidad (con IVA)">
+                <Input placeholder="Ej.: 28.75"
                   type="number"
                   step="0.01"
                   value={form.precio_mensual}
                   onChange={(e) => setForm({ ...form, precio_mensual: e.target.value })}
                 />
               </Field>
-              <Field label="Instalación">
-                <Input
+              <Field campo="costo_instalacion" label="Instalación">
+                <Input placeholder="Ej.: 30.00"
                   type="number"
                   step="0.01"
                   value={form.costo_instalacion}
                   onChange={(e) => setForm({ ...form, costo_instalacion: e.target.value })}
                 />
               </Field>
-              <Field label="Equipo">
-                <Input
+              <Field campo="costo_equipo" label="Equipo">
+                <Input placeholder="Ej.: ONT Huawei HG8145V5"
                   type="number"
                   step="0.01"
                   value={form.costo_equipo}
                   onChange={(e) => setForm({ ...form, costo_equipo: e.target.value })}
                 />
               </Field>
-              <Field label="Descuento">
-                <Input
+              <Field campo="descuento" label="Descuento">
+                <Input placeholder="Ej.: 5.00"
                   type="number"
                   step="0.01"
                   value={form.descuento}
@@ -483,7 +484,7 @@ export default function CotizadorPage() {
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Permanencia (meses)">
+              <Field campo="meses_contrato" label="Permanencia (meses)">
                 <Input
                   type="number"
                   value={form.meses_contrato}
@@ -491,8 +492,8 @@ export default function CotizadorPage() {
                   placeholder="sin permanencia"
                 />
               </Field>
-              <Field label="Válida por (días)">
-                <Input
+              <Field campo="validez_dias" label="Válida por (días)">
+                <Input placeholder="Ej.: 15"
                   type="number"
                   value={form.validez_dias}
                   onChange={(e) => setForm({ ...form, validez_dias: e.target.value })}
@@ -500,8 +501,8 @@ export default function CotizadorPage() {
               </Field>
             </div>
 
-            <Field label="Notas internas" hint="No salen en el mensaje al cliente.">
-              <Textarea
+            <Field campo="notas" label="Notas internas" hint="No salen en el mensaje al cliente.">
+              <Textarea placeholder="Ej.: Pidió visita en la tarde"
                 rows={2}
                 value={form.notas}
                 onChange={(e) => setForm({ ...form, notas: e.target.value })}
@@ -514,7 +515,7 @@ export default function CotizadorPage() {
         <div className="space-y-3">
           <Card title="Lo que paga">
             {!plan ? (
-              <p className="campo-tenue py-8 text-center text-[13px]">Elegí un plan para ver el total.</p>
+              <p className="campo-tenue py-8 text-center text-[13px]">Elige un plan para ver el total.</p>
             ) : (
               <>
                 <div
@@ -543,7 +544,7 @@ export default function CotizadorPage() {
 
                 {/* El ahorro es el argumento de venta, así que se muestra
                     calculado. Que el vendedor lo estime de cabeza es cómo un
-                    "ahorrás como cuarenta" termina siendo veinticinco. */}
+                    "ahorras como cuarenta" termina siendo veinticinco. */}
                 {promo && (
                   <div
                     className="mt-2 flex items-start gap-2 rounded-xl border p-2.5"
@@ -635,7 +636,7 @@ export default function CotizadorPage() {
                   {/* Decir exactamente qué hace el botón. Un vendedor que cree
                       que el sistema envía por él no revisa que haya salido. */}
                   <p className="campo-tenue text-[11px]">
-                    Abre tu WhatsApp con el texto escrito — lo enviás vos. Queda anotado a quién y
+                    Abre tu WhatsApp con el texto escrito — lo envías tú. Queda anotado a quién y
                     qué se le dijo.
                   </p>
                 </div>
@@ -646,7 +647,7 @@ export default function CotizadorPage() {
           {ultima && (
             <Aviso>
               Cotización N° <b>{String(ultima.numero).padStart(5, '0')}</b> guardada. Está abajo en
-              el historial — desde ahí la podés convertir en prospecto.
+              el historial — desde ahí la puedes convertir en prospecto.
             </Aviso>
           )}
 
@@ -661,7 +662,7 @@ export default function CotizadorPage() {
               {!perfil?.celular && (
                 <p className="campo-tenue mt-2 text-[11px]">
                   Tu celular no está cargado en tu ficha, así que el mensaje va sin número de
-                  contacto. Pedile a administración que lo cargue en Ajustes → Personal.
+                  contacto. Pídele a administración que lo cargue en Ajustes → Personal.
                 </p>
               )}
             </Card>
@@ -762,7 +763,7 @@ export default function CotizadorPage() {
                   </span>
                 )}
                 <span className="campo-tenue ml-auto text-[11px]">
-                  {m.vendedor ?? '—'} · {new Date(m.creado_en).toLocaleString('es-EC')}
+                  {m.vendedor ?? '—'} · {fmtFechaHora(m.creado_en)}
                 </span>
                 <Badge color={m.estado === 'enviado' ? 'verde' : 'gris'}>
                   {m.estado === 'enviado' ? 'Enviado' : 'Preparado'}

@@ -190,14 +190,14 @@ export async function cargarPreautorizada(olt, datos) {
   const resuelto = await resolverPreset(olt, preset)
   if (resuelto.problemas.length) {
     throw badRequest(resuelto.problemas.join('. '), {
-      hint: 'Elegí una plantilla de esta OLT, o cargá los perfiles a mano.',
+      hint: 'Elige una plantilla de esta OLT, o carga los perfiles a mano.',
     })
   }
 
   const vlan = numeroONada(datos.vlan) ?? preset?.vlan ?? null
   if (vlan == null) {
     throw badRequest('Falta la VLAN', {
-      hint: 'Sin VLAN la ONT se registraría sin service-port y no pasaría tráfico. Elegí una plantilla que la traiga o escribila.',
+      hint: 'Sin VLAN la ONT se registraría sin service-port y no pasaría tráfico. Elige una plantilla que la traiga o escríbela.',
     })
   }
 

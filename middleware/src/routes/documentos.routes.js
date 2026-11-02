@@ -274,7 +274,7 @@ router.get(
       plantilla: datos.plantilla,
       empresa: datos.empresa,
       logo: logoDe(datos.empresa),
-      firmas: [{ nombre: datos.variables.nombre, pie: 'Recibí conforme' }],
+      firmas: [{ nombre: datos.variables.nombre, pie: 'Recibe conforme' }],
       pie: datos.variables.numero ? `Recibo N° ${datos.variables.numero}` : '',
     })
 

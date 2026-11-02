@@ -18,7 +18,7 @@ import {
   Undo2,
   User,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { dbm, nivel } from '../../lib/optica'
 import { hace } from '../../lib/olts'
@@ -37,7 +37,9 @@ import {
   ErrorBanner,
   Modal,
   Table,
+  MenuAcciones,
 } from '../../components/ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * La ficha de una ONU.
@@ -78,7 +80,7 @@ export default function OnuDetallePage() {
   const [wan, setWan] = useState(null)
 
   const cargarBase = useCallback(async () => {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('v_onus_clientes')
       .select('*')
       .eq('onu_id', id)
@@ -98,7 +100,7 @@ export default function OnuDetallePage() {
      * clientes— porque es una consulta más contra tres campos, y recrear una
      * vista de casi cincuenta columnas para sumar dos es mucho más riesgoso.
      */
-    const { data: extra } = await supabase
+    const { data: extra } = await django
       .from('onus')
       .select('olt_rx_power_dbm, temperatura_c, distancia_m')
       .eq('id', id)
@@ -107,7 +109,7 @@ export default function OnuDetallePage() {
     setFila(extra ? { ...data, ...extra } : data)
 
     // Falla en silencio: no saber el modelo no tiene por qué romper la ficha.
-    supabase
+    django
       .from('v_onu_tipo')
       .select('*')
       .eq('onu_id', id)
@@ -117,7 +119,7 @@ export default function OnuDetallePage() {
 
   useEffect(() => {
     cargarBase()
-    supabase
+    django
       .from('planes_velocidad')
       .select('*')
       .order('bajada_kbps')
@@ -364,11 +366,15 @@ export default function OnuDetallePage() {
         >
           Reiniciar
         </Button>
-        <Button
-          variante="peligro"
-          icon={Undo2}
-          cargando={trabajando === 'fabrica'}
-          onClick={async () => {
+        {/* Lo que borra la configuración del abonado, en un menú: no al lado
+            de "Reiniciar", que se usa todos los días. */}
+        <MenuAcciones
+          texto={trabajando === 'fabrica' ? 'Restaurando…' : 'Más'}
+          acciones={[{
+            label: 'Restaurar de fábrica',
+            icon: Undo2,
+            peligro: true,
+            onClick: async () => {
             if (
               !(await confirmar(
                 `Restaurar de fábrica la ONT de ${fila.cliente ?? fila.sn}.\n\n` +
@@ -382,10 +388,9 @@ export default function OnuDetallePage() {
               return
             }
             correr('fabrica', () => api.olt.restaurarFabricaOnu(fila.olt_id, id))
-          }}
-        >
-          Restaurar de fábrica
-        </Button>
+            },
+          }]}
+        />
         <p className="w-full text-[11px] leading-snug text-amber-300/60">
           Las tres cortan el servicio. Restaurar de fábrica además deja al abonado sin su wifi:
           el internet vuelve, su red de la casa no.
@@ -465,7 +470,7 @@ export default function OnuDetallePage() {
             </D>
             <D k="Nombre en la OLT">{fila.nombre_en_la_olt}</D>
             <D k="Dirección">{fila.direccion}</D>
-            <D k="Autorizada">{fila.autorizada_at}</D>
+            <D k="Autorizada">{fmtFechaHora(fila.autorizada_at)}</D>
           </dl>
 
           <div className="space-y-1">
@@ -688,7 +693,7 @@ export default function OnuDetallePage() {
                   ? `línea ${fila.line_profile_olt ?? '—'} · servicio ${fila.srv_profile_olt ?? '—'}${fila.srv_profile_nombre ? ` (${fila.srv_profile_nombre})` : ''}`
                   : null}
               </D>
-              <D k="Fecha de alta">{fila.autorizada_at}</D>
+              <D k="Fecha de alta">{fmtFechaHora(fila.autorizada_at)}</D>
               <D k="Descripción en la OLT">
                 {fila.descripcion_olt && (
                   <span className="break-all font-mono text-xs">{fila.descripcion_olt}</span>
@@ -697,14 +702,14 @@ export default function OnuDetallePage() {
               <D k="Ficha leída">
                 {fila.ficha_leida_at ? (
                   <span>
-                    {new Date(fila.ficha_leida_at).toLocaleString('es-EC')}
+                    {fmtFechaHora(fila.ficha_leida_at)}
                     <span className="ml-2 text-[11px] text-slate-600">
                       hace {hace(Math.round((Date.now() - new Date(fila.ficha_leida_at)) / 1000))}
                     </span>
                   </span>
                 ) : (
                   <span className="text-amber-400">
-                    nunca — resincronizá para traer modelo, VLAN y perfiles del equipo
+                    nunca — resincroniza para traer modelo, VLAN y perfiles del equipo
                   </span>
                 )}
               </D>
@@ -837,7 +842,7 @@ export default function OnuDetallePage() {
             </div>
             <p className="mt-1 text-[11px] text-slate-500">
               {fila.ultima_lectura
-                ? `Última lectura ${new Date(fila.ultima_lectura).toLocaleString('es-EC')}`
+                ? `Última lectura ${fmtFechaHora(fila.ultima_lectura)}`
                 : 'Nunca se le leyó la potencia'}
             </p>
             {fila.rx_power_dbm != null && (

@@ -137,7 +137,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { nombre, url, usuario, clave, olts: pedidas } = req.body ?? {}
     if (!Array.isArray(pedidas) || pedidas.length === 0) {
-      throw badRequest('Elegí al menos una OLT donde crear el perfil')
+      throw badRequest('Elige al menos una OLT donde crear el perfil')
     }
 
     const resultados = await Promise.all(

@@ -1,4 +1,5 @@
-import { Router } from 'express'
+import { Router } from 'express'
+
 import { nombreDeCola, nombreDeColaAlterno } from '../lib/servicios.js'
 import { asyncHandler, notFound, badRequest, AppError } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
@@ -118,20 +119,20 @@ async function revisarPerfiles(plan, clientesPppoe) {
         revisiones.push({
           ...base,
           estado: 'no_existe',
-          mensaje: `El router no tiene un perfil llamado "${nombrePerfil}": esos ${clientes.length} abonados están conectando con el de por defecto. Aprovisionalo desde Servicios → Planes.`,
+          mensaje: `El router no tiene un perfil llamado "${nombrePerfil}": esos ${clientes.length} abonados están conectando con el de por defecto. Aprovisiónalo desde Servicios → Planes.`,
         })
       } else if (revision.motivo === 'no_deberia_limitar') {
         revisiones.push({
           ...base,
           estado: 'no_deberia_limitar',
           aplica: legible,
-          mensaje: `El perfil "${nombrePerfil}" tiene un rate-limit propio (${revision.limite}) pero este plan lo controla la OLT. Los dos límites compiten y gana el menor: revisalo.`,
+          mensaje: `El perfil "${nombrePerfil}" tiene un rate-limit propio (${revision.limite}) pero este plan lo controla la OLT. Los dos límites compiten y gana el menor: revísalo.`,
         })
       } else if (revision.motivo === 'sin_limite') {
         revisiones.push({
           ...base,
           estado: 'sin_limite',
-          mensaje: `Este plan se controla en el router pero el perfil "${nombrePerfil}" no tiene rate-limit: esos ${clientes.length} abonados navegan sin tope. Volvé a aprovisionar.`,
+          mensaje: `Este plan se controla en el router pero el perfil "${nombrePerfil}" no tiene rate-limit: esos ${clientes.length} abonados navegan sin tope. Vuelve a aprovisionar.`,
         })
       } else {
         revisiones.push({
@@ -139,7 +140,7 @@ async function revisarPerfiles(plan, clientesPppoe) {
           estado: 'difiere',
           aplica: legible,
           deberia: `${enMbps(plan.bajada_kbps)} de bajada / ${enMbps(plan.subida_kbps)} de subida`,
-          mensaje: `El perfil limita a ${legible} y el plan dice ${enMbps(plan.bajada_kbps)}. Lo comparten los ${clientes.length} abonados: volvé a aprovisionar.`,
+          mensaje: `El perfil limita a ${legible} y el plan dice ${enMbps(plan.bajada_kbps)}. Lo comparten los ${clientes.length} abonados: vuelve a aprovisionar.`,
         })
       }
     } catch (err) {
@@ -333,7 +334,7 @@ router.post(
     }
     if (!asignados?.length) {
       throw badRequest(`El plan ${plan.nombre} no está asignado a ningún router`, {
-        hint: 'Elegí en qué equipos se vende antes de aprovisionar su perfil.',
+        hint: 'Elige en qué equipos se vende antes de aprovisionar su perfil.',
       })
     }
 

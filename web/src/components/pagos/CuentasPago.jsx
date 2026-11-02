@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
 import { Landmark, Plus, Trash2 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { useTabla } from '../../lib/useTabla'
 import { Aviso, Badge, Button, Card, Cargando, ErrorBanner, Field, Input, Select, Table } from '../ui'
 
@@ -35,7 +35,7 @@ export default function CuentasPago() {
    */
   const [personas, setPersonas] = useState([])
   useEffect(() => {
-    supabase
+    django
       .from('usuarios_sistema')
       .select('id, nombre, apellido, rol')
       .eq('activo', true)
@@ -77,7 +77,7 @@ export default function CuentasPago() {
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
         <form onSubmit={agregar} className="grid items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <Field label="Nombre" className="lg:col-span-2">
+          <Field campo="nombre" label="Nombre" className="lg:col-span-2">
             <Input
               value={form.nombre}
               onChange={set('nombre')}
@@ -85,7 +85,7 @@ export default function CuentasPago() {
               required
             />
           </Field>
-          <Field label="Tipo">
+          <Field campo="tipo" label="Tipo">
             <Select value={form.tipo} onChange={set('tipo')}>
               <option value="banco">Banco</option>
               <option value="efectivo">Efectivo</option>
@@ -93,13 +93,13 @@ export default function CuentasPago() {
               <option value="otro">Otro</option>
             </Select>
           </Field>
-          <Field label="Banco">
-            <Input value={form.banco} onChange={set('banco')} />
+          <Field campo="banco" label="Banco">
+            <Input placeholder="Ej.: Banco Pichincha" value={form.banco} onChange={set('banco')} />
           </Field>
           {/* El dueño solo tiene sentido en una caja: una cuenta del banco es del
               ISP, no de quien registra la transferencia. */}
           {form.tipo === 'efectivo' ? (
-            <Field label="De quién es" hint="Cada cobrador con su caja">
+            <Field campo="usuario_id" label="De quién es" hint="Cada cobrador con su caja">
               <Select value={form.usuario_id} onChange={set('usuario_id')}>
                 <option value="">De la oficina</option>
                 {personas.map((p) => (
@@ -110,8 +110,8 @@ export default function CuentasPago() {
               </Select>
             </Field>
           ) : (
-            <Field label="Número de cuenta">
-              <Input value={form.numero} onChange={set('numero')} />
+            <Field campo="numero" label="Número de cuenta">
+              <Input placeholder="Ej.: 2201234567" value={form.numero} onChange={set('numero')} />
             </Field>
           )}
           <div className="pb-2">
@@ -125,7 +125,7 @@ export default function CuentasPago() {
           <Cargando />
         ) : filas.length === 0 ? (
           <Aviso>
-            Todavía no hay cuentas. Cargá al menos una —la caja de la oficina alcanza— para poder
+            Todavía no hay cuentas. Carga al menos una —la caja de la oficina alcanza— para poder
             registrar cobros.
           </Aviso>
         ) : (

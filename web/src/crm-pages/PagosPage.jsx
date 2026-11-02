@@ -4,6 +4,7 @@ import { dineroCero as dinero } from '../lib/formato'
 import {
   Ban,
   CalendarClock,
+  ExternalLink,
   CreditCard,
   Inbox,
   Landmark,
@@ -14,21 +15,24 @@ import {
   Undo2,
   X,
 } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { api } from '../lib/apiNetwork'
 import BuscadorCliente, { COLOR_ESTADO } from '../components/pagos/BuscadorCliente'
 import FormPago from '../components/pagos/FormPago'
 import PromesasPago from '../components/pagos/PromesasPago'
 import PagosReportados from '../components/pagos/PagosReportados'
 import { usePermisos } from '../lib/AuthContext'
+import { puedeEntrar } from '../lib/rutasPermisos'
 import ConPermiso from '../components/layout/ConPermiso'
 import { MOTIVOS_ANULACION } from '../lib/motivos'
-import { Aviso, Badge, Button, Card, Cargando, ErrorBanner, PedirMotivo, Stat, Table } from '../components/ui'
+import { Aviso, Badge, Button, Card, Cargando, ErrorBanner, MenuAcciones, PedirMotivo, Stat, Table } from '../components/ui'
+import { fecha as fmtFecha } from '@/lib/formato'
+import { conDeshacer } from '../lib/notificaciones'
 
 /**
  * Abre un PDF que llega como blob.
  *
- * El pedido lleva el token de Supabase en la cabecera, así que no se puede
+ * El pedido lleva el token de Django en la cabecera, así que no se puede
  * resolver con un enlace común. La URL temporal se libera después: revocarla
  * enseguida deja la pestaña nueva sin nada que mostrar.
  */
@@ -116,8 +120,29 @@ export default function PagosPage() {
 // ---------------------------------------------------------------------------
 
 function Registrar({ onError }) {
+  const { puede } = usePermisos()
   const [cliente, setCliente] = useState(null)
   const [resultado, setResultado] = useState(null)
+  const verFicha = cliente && puedeEntrar(puede, `/clientes/${cliente.id}`)
+
+  /**
+   * Al volver a esta pestaña, los datos del cliente se leen de nuevo.
+   *
+   * La ficha se abre en otra pestaña para revisar o corregir algo —un teléfono,
+   * la dirección— sin perder el cobro a medio llenar. Al volver, el formulario
+   * tiene que mostrar lo que se acaba de guardar allá, no lo de hace un rato.
+   */
+  const idCliente = cliente?.id
+  useEffect(() => {
+    if (!idCliente) return undefined
+    const refrescar = async () => {
+      if (document.visibilityState !== 'visible') return
+      const { data } = await django.from('clientes').select('*').eq('id', idCliente).maybeSingle()
+      if (data) setCliente((c) => (c?.id === data.id ? { ...c, ...data } : c))
+    }
+    document.addEventListener('visibilitychange', refrescar)
+    return () => document.removeEventListener('visibilitychange', refrescar)
+  }, [idCliente])
 
   function registrado({ pago, promesa, pasos }) {
     setResultado({ pago, promesa, pasos, cliente })
@@ -167,7 +192,7 @@ function Registrar({ onError }) {
                 <>
                   <b>{resultado.cliente?.nombre}</b> se comprometió a pagar el{' '}
                   <b>
-                    {new Date(`${resultado.promesa.fecha_promesa}T12:00:00`).toLocaleDateString()}
+                    {fmtFecha(`${resultado.promesa.fecha_promesa}T12:00:00`)}
                   </b>
                   .
                 </>
@@ -193,15 +218,28 @@ function Registrar({ onError }) {
               entrada si el cliente está cortado. */}
           <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F6F8FB] px-4 py-3">
             <div className="flex items-center gap-3">
-              <span className="font-semibold uppercase tracking-wide text-slate-100">
-                {cliente.nombre}
-              </span>
+              {/* El nombre abre la ficha en otra pestaña: revisar o corregir un
+                  dato antes de cobrar, sin perder lo que se lleva cargado. */}
+              {verFicha ? (
+                <a
+                  href={`/clientes/${cliente.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Abrir la ficha del cliente en otra pestaña"
+                  className="flex items-center gap-1.5 font-semibold uppercase tracking-wide text-slate-100 hover:text-sky-400 hover:underline"
+                >
+                  {cliente.nombre}
+                  <ExternalLink size={14} className="shrink-0 text-slate-500" />
+                </a>
+              ) : (
+                <span className="font-semibold uppercase tracking-wide text-slate-100">
+                  {cliente.nombre}
+                </span>
+              )}
               <Badge color={COLOR_ESTADO[cliente.estado] ?? 'gris'}>{cliente.estado}</Badge>
               {cliente.ip && <span className="font-mono text-xs text-slate-500">{cliente.ip}</span>}
             </div>
-            <Button variante="fantasma" icon={X} onClick={() => setCliente(null)}>
-              Cerrar
-            </Button>
+            <Button variante="fantasma" icon={X} onClick={() => setCliente(null)} title="Cerrar" />
           </div>
 
           <div className="p-4">
@@ -218,7 +256,7 @@ function Registrar({ onError }) {
 
       {!cliente && !resultado && (
         <Aviso>
-          Buscá al abonado por nombre, cédula/RUC, IP o por el número de la factura que trae.
+          Busca al abonado por nombre, cédula/RUC, IP o por el número de la factura que trae.
         </Aviso>
       )}
     </div>
@@ -244,7 +282,7 @@ function PagosDelDia({ onError }) {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_pagos')
       .select('*')
       .eq('fecha_pago', fecha)
@@ -281,14 +319,14 @@ function PagosDelDia({ onError }) {
           (fiscalPendiente
             ? `\nEl comprobante ${pago.numero_comprobante} todavía no se envió al SRI: se va a anular y su número volverá a la bolsa.\n`
             : '') +
-          '\nSi la plata entró de verdad y solo querés dejar constancia, usá Anular.',
+          '\nSi la plata entró de verdad y solo quieres dejar constancia, usa Anular.',
       )
     )
       return
 
     onError?.(null)
 
-    const { error } = await supabase.from('pagos').delete().eq('id', pago.id)
+    const { error } = await django.from('pagos').delete().eq('id', pago.id)
     if (error) return onError?.(error)
 
     if (fiscalPendiente) {
@@ -297,7 +335,7 @@ function PagosDelDia({ onError }) {
           motivo: 'Anulado al borrar el cobro que lo originó',
         })
         if (pago.factura_id) {
-          await supabase.from('facturas').update({ document_id: null }).eq('id', pago.factura_id)
+          await django.from('facturas').update({ document_id: null }).eq('id', pago.factura_id)
         }
       } catch (err) {
         onError?.(
@@ -311,23 +349,25 @@ function PagosDelDia({ onError }) {
 
   async function anular(motivo) {
     const pago = aAnular
-    setAnulando(true)
-    const { error } = await supabase
-      .from('pagos')
-      .update({
-        anulado: true,
-        motivo_anulacion: motivo.trim() || 'Sin motivo indicado',
-        anulado_at: new Date().toISOString(),
-      })
-      .eq('id', pago.id)
-
-    setAnulando(false)
-    if (error) onError?.(error)
-    else {
-      setAAnular(null)
-      await recargar()
-    }
+    // La ventana se cierra ya y el cobro se anula a los segundos, con
+    // "Deshacer" en el aviso (lib/notificaciones): anular el que no era es fácil.
+    setAAnular(null)
+    await conDeshacer(`Cobro anulado${pago.numero ? ` · recibo N° ${String(pago.numero).padStart(6, '0')}` : ''}`, async () => {
+      setAnulando(true)
+      const { error } = await django
+        .from('pagos')
+        .update({
+          anulado: true,
+          motivo_anulacion: motivo.trim() || 'Sin motivo indicado',
+          anulado_at: new Date().toISOString(),
+        })
+        .eq('id', pago.id)
+      setAnulando(false)
+      if (error) onError?.(error)
+      else await recargar()
+    }).catch(() => {})
   }
+
 
   const validos = filas.filter((p) => !p.anulado)
   const total = validos.reduce((s, p) => s + Number(p.monto), 0)
@@ -341,11 +381,11 @@ function PagosDelDia({ onError }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Stat label="Cobros" valor={validos.length} icon={Receipt} />
-        <Stat label="Total cobrado" valor={dinero(total)} color="text-emerald-400" />
-        <Stat label="Neto (menos comisiones)" valor={dinero(neto)} />
-        <Stat label="Anulados" valor={filas.length - validos.length} color="text-red-400" />
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Cobros" valor={validos.length} icon={Receipt} />
+        <Stat cargando={cargando} label="Total cobrado" valor={dinero(total)} color="text-emerald-400" />
+        <Stat cargando={cargando} label="Neto (menos comisiones)" valor={dinero(neto)} />
+        <Stat cargando={cargando} label="Anulados" valor={filas.length - validos.length} color="text-red-400" />
       </div>
 
       {Object.keys(porCuenta).length > 0 && (
@@ -430,14 +470,11 @@ function PagosDelDia({ onError }) {
                       // Anular y borrar deshacen plata cobrada: el cajero
                       // registra, pero revertir es otra decisión y otro permiso.
                       <ConPermiso permiso="pagos.anular" envezDe={null}>
-                        <Button variante="fantasma" icon={Ban} onClick={() => setAAnular(p)}>
-                          Anular
-                        </Button>
-                        <Button
-                          variante="fantasma"
-                          icon={Trash2}
-                          title="Se cargó mal: borrarlo del todo"
-                          onClick={() => borrar(p)}
+                        <MenuAcciones
+                          acciones={[
+                            { label: 'Anular el cobro', icon: Ban, peligro: true, onClick: () => setAAnular(p) },
+                            { label: 'Borrar (se cargó mal)', icon: Trash2, peligro: true, onClick: () => borrar(p) },
+                          ]}
                         />
                       </ConPermiso>
                     )}
@@ -461,7 +498,7 @@ function PagosDelDia({ onError }) {
             ? [
                 ['Abonado', aAnular.cliente],
                 ['Monto', dinero(aAnular.monto)],
-                ['Fecha', aAnular.fecha ? new Date(`${String(aAnular.fecha).slice(0, 10)}T12:00:00`).toLocaleDateString('es-EC') : '—'],
+                ['Fecha', aAnular.fecha ? fmtFecha(`${String(aAnular.fecha).slice(0, 10)}T12:00:00`) : '—'],
                 ['Forma de pago', aAnular.forma_pago ?? '—'],
               ]
             : []

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { Truck, MapPin, ArrowRight, AlertTriangle } from 'lucide-react'
 import { Button, Field, Input, Textarea, Select, Modal, Aviso } from '../ui'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { trasladosApi } from '../../lib/traslados'
 import { hoyISO } from '../../lib/campo'
 
@@ -50,7 +50,7 @@ export default function Trasladar({ cliente, onError, onGuardado }) {
     try {
       const [t, tec] = await Promise.all([
         trasladosApi.abierto(cliente.id),
-        supabase.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre'),
+        django.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre'),
       ])
       setEnCurso(t)
       setTecnicos(tec.data ?? [])
@@ -172,7 +172,7 @@ export default function Trasladar({ cliente, onError, onGuardado }) {
               hasta que se haga la mudanza.
             </p>
 
-            <Field label="Dirección nueva" hint="A dónde va el técnico.">
+            <Field campo="direccion" label="Dirección nueva" hint="A dónde va el técnico.">
               <Input
                 value={form.direccion}
                 onChange={set('direccion')}
@@ -180,7 +180,7 @@ export default function Trasladar({ cliente, onError, onGuardado }) {
               />
             </Field>
 
-            <Field label="Referencia" hint="Opcional. Lo que evita la llamada de '¿dónde es?'.">
+            <Field campo="referencia" label="Referencia" hint="Opcional. Lo que evita la llamada de '¿dónde es?'.">
               <Input
                 value={form.referencia}
                 onChange={set('referencia')}
@@ -189,10 +189,10 @@ export default function Trasladar({ cliente, onError, onGuardado }) {
             </Field>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Latitud">
+              <Field campo="latitud" label="Latitud">
                 <Input value={form.latitud} onChange={set('latitud')} placeholder="-0.9345" />
               </Field>
-              <Field label="Longitud">
+              <Field campo="longitud" label="Longitud">
                 <Input value={form.longitud} onChange={set('longitud')} placeholder="-79.2210" />
               </Field>
             </div>
@@ -201,7 +201,7 @@ export default function Trasladar({ cliente, onError, onGuardado }) {
             </Button>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Fecha de la visita">
+              <Field campo="fecha" hint="Cuándo va el técnico." label="Fecha de la visita">
                 <Input type="date" value={form.fecha} onChange={set('fecha')} />
               </Field>
               <Field label="Técnico" hint="Se puede asignar después.">
@@ -216,7 +216,7 @@ export default function Trasladar({ cliente, onError, onGuardado }) {
               </Field>
             </div>
 
-            <Field label="Motivo" hint="Opcional.">
+            <Field campo="motivo" label="Motivo" hint="Opcional.">
               <Textarea
                 rows={2}
                 value={form.motivo}

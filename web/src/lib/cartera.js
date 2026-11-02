@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 
 /**
  * La cartera que se cae: quién dejó de renovar, qué equipo hay que ir a buscar
@@ -60,7 +60,7 @@ export const RESULTADOS_INTENTO = [
 export const carteraApi = {
   /** Los clientes propios que dejaron de renovar. */
   async enRiesgo({ vendedor } = {}) {
-    let q = supabase
+    let q = django
       .from('v_cartera_en_riesgo')
       .select('*')
       .order('meses_sin_pago', { ascending: false })
@@ -78,7 +78,7 @@ export const carteraApi = {
    * cobranza, que trabaja sobre la asignación y no sobre el cliente.
    */
   async abrirGestion(clienteId, dias = 30) {
-    const { data, error } = await supabase.rpc('abrir_gestion_recuperacion', {
+    const { data, error } = await django.rpc('abrir_gestion_recuperacion', {
       p_cliente: clienteId,
       p_dias: dias,
     })
@@ -89,7 +89,7 @@ export const carteraApi = {
   // ── Retiros de equipo ──────────────────────────────────────────────────────
 
   async retiros({ estados, tecnico } = {}) {
-    let q = supabase.from('v_retiros_equipo').select('*').order('creado_en', { ascending: false })
+    let q = django.from('v_retiros_equipo').select('*').order('creado_en', { ascending: false })
     if (estados?.length) q = q.in('estado', estados)
     if (tecnico) q = q.eq('tecnico_id', tecnico)
 
@@ -106,7 +106,7 @@ export const carteraApi = {
    * decir quién fue y qué encontró, no solo qué día.
    */
   async intentos(retiroId) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('retiro_intentos')
       .select('*, tecnicos(nombre), usuarios_sistema(nombre, apellido)')
       .eq('retiro_id', retiroId)
@@ -117,7 +117,7 @@ export const carteraApi = {
 
   /** Los números del punto 13. La fila sin vendedor es el total. */
   async resumen() {
-    const { data, error } = await supabase.from('v_retiros_resumen').select('*')
+    const { data, error } = await django.from('v_retiros_resumen').select('*')
     if (error) throw error
     return data ?? []
   },
@@ -130,7 +130,7 @@ export const carteraApi = {
    * repetir la seguridad en el lugar equivocado.
    */
   async misRetiros() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_retiros_equipo')
       .select('*')
       .in('estado', ['pendiente', 'asignado'])
@@ -144,7 +144,7 @@ export const carteraApi = {
 
   /** Asigna una orden a una persona del sistema, sea técnico o no. */
   async asignar(retiroId, usuarioId) {
-    const { error } = await supabase.rpc('asignar_retiro_a', {
+    const { error } = await django.rpc('asignar_retiro_a', {
       p_retiro: retiroId,
       p_usuario: usuarioId,
     })
@@ -153,7 +153,7 @@ export const carteraApi = {
 
   /** Lo mismo para un recorrido entero. Devuelve cuántas entraron y cuántas no. */
   async asignarLote(retiroIds, usuarioId) {
-    const { data, error } = await supabase.rpc('asignar_retiros_equipo', {
+    const { data, error } = await django.rpc('asignar_retiros_equipo', {
       p_retiros: retiroIds,
       p_usuario: usuarioId,
     })
@@ -169,7 +169,7 @@ export const carteraApi = {
    * antes de venir".
    */
   async agendar(retiroId, { cuando, nota } = {}) {
-    const { error } = await supabase.rpc('agendar_retiro_equipo', {
+    const { error } = await django.rpc('agendar_retiro_equipo', {
       p_retiro: retiroId,
       p_cuando: cuando,
       p_nota: nota || null,
@@ -185,7 +185,7 @@ export const carteraApi = {
    * porque es plata: alguien decidió borrar una deuda.
    */
   async saldarDeudaEquipo(clienteId, nota) {
-    const { data, error } = await supabase.rpc('saldar_deuda_equipo', {
+    const { data, error } = await django.rpc('saldar_deuda_equipo', {
       p_cliente: clienteId,
       p_nota: nota || null,
     })
@@ -195,7 +195,7 @@ export const carteraApi = {
 
   /** Cada contacto con el abonado y lo que dijo. Es lo que se baja al archivo. */
   async gestiones({ estados } = {}) {
-    let q = supabase
+    let q = django
       .from('v_retiro_gestiones')
       .select('*')
       .order('contacto_en', { ascending: false, nullsFirst: false })
@@ -207,7 +207,7 @@ export const carteraApi = {
   },
 
   async registrarIntento(retiroId, { resultado, observacion, foto }) {
-    const { error } = await supabase.rpc('registrar_intento_retiro', {
+    const { error } = await django.rpc('registrar_intento_retiro', {
       p_retiro: retiroId,
       p_resultado: resultado,
       p_observacion: observacion || null,
@@ -224,7 +224,7 @@ export const carteraApi = {
    * equipo que resultó ser otro distinto al que decía la ficha.
    */
   async cerrar(retiroId, { recuperado, motivo, observacion, serie, almacen, firma, firmante } = {}) {
-    const { error } = await supabase.rpc('cerrar_retiro_equipo', {
+    const { error } = await django.rpc('cerrar_retiro_equipo', {
       p_retiro: retiroId,
       p_recuperado: Boolean(recuperado),
       p_motivo: motivo || null,
@@ -245,7 +245,7 @@ export const carteraApi = {
    * caso nuevo se agrega una fila, no una versión de la app.
    */
   async categorias() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('retiro_categorias')
       .select('*')
       .eq('activa', true)
@@ -258,7 +258,7 @@ export const carteraApi = {
 
   /** Abonados sin equipo que siguen figurando como activos. */
   async fichasPorCerrar() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_fichas_por_cerrar')
       .select('*')
       .order('cerrado_en', { ascending: false })
@@ -267,7 +267,7 @@ export const carteraApi = {
   },
 
   async motivosBaja() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('motivos_baja')
       .select('id, nombre, afecta_calidad')
       .eq('activo', true)
@@ -283,7 +283,7 @@ export const carteraApi = {
    * apuntan a ella, y el que se fue vuelve. Se marca y se guarda por qué.
    */
   async cerrarFicha(clienteId, { motivo, nota } = {}) {
-    const { data, error } = await supabase.rpc('cerrar_ficha_por_retiro', {
+    const { data, error } = await django.rpc('cerrar_ficha_por_retiro', {
       p_cliente: clienteId,
       p_motivo: motivo || null,
       p_nota: nota || null,
@@ -301,7 +301,7 @@ export const carteraApi = {
    * para el día que exista el incentivo de recuperación.
    */
   async reactivaciones({ desde, vendedor } = {}) {
-    let q = supabase
+    let q = django
       .from('v_reactivaciones')
       .select('*')
       .order('reactivado_el', { ascending: false })

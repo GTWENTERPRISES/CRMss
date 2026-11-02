@@ -2,6 +2,10 @@ import { Router } from 'express'
 import { asyncHandler, badRequest, AppError } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
 import { db } from '../lib/db.js'
+import { aplicarZona, esZonaValida, relojDelServidor, ZONA_POR_DEFECTO } from '../lib/zonaHoraria.js'
+import { rearrancar as rearrancarTareas } from '../services/tareas.js'
+import { codigoDeTarifa, ivaGeneral, ivaValido, TARIFAS_GENERALES } from '../lib/iva.js'
+import { PAISES, PAIS_POR_DEFECTO, perfilDe } from '../lib/paises.js'
 
 /**
  * La marca del sistema: lo que se ve en pantalla.
@@ -33,7 +37,7 @@ router.get(
     // valores por defecto, que es exactamente lo que había antes.
     if (error) {
       console.warn('[general] no se pudo leer la configuración:', error.message)
-      return res.json(POR_DEFECTO)
+      return res.json({ ...POR_DEFECTO, pais: perfilDe(PAIS_POR_DEFECTO) })
     }
 
     res.json({
@@ -42,6 +46,231 @@ router.get(
       logo_b64: data?.logo_b64 ?? null,
       moneda_simbolo: data?.moneda_simbolo || POR_DEFECTO.moneda_simbolo,
       moneda_codigo: data?.moneda_codigo || POR_DEFECTO.moneda_codigo,
+      // El perfil completo y no solo el código: la pantalla lo necesita para
+      // nombrar las cosas —el impuesto, el ente, los documentos— y saber qué
+      // módulos mostrar. No hay nada secreto en él.
+      pais: perfilDe(data?.pais ?? PAIS_POR_DEFECTO),
+    })
+  }),
+)
+
+/** Los países que se pueden elegir. */
+router.get(
+  '/paises',
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    res.json(PAISES)
+  }),
+)
+
+/**
+ * Cambiar el país del ISP.
+ *
+ * Guarda el país y, si se pide, aplica lo que el país trae por defecto: el
+ * impuesto (arrastrando a los planes, como el cambio de IVA), la moneda y la
+ * zona horaria. Se pide por separado porque un ISP puede querer el país pero
+ * no su moneda —en Ecuador y Panamá se usa el dólar, en otros también—.
+ */
+router.put(
+  '/pais',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const codigo = String(req.body?.pais ?? '').toUpperCase()
+    const perfil = PAISES.find((p) => p.codigo === codigo)
+    if (!perfil) throw badRequest(`"${codigo}" no es un país de la lista.`)
+
+    const aplicar = req.body?.aplicar ?? {}
+    const hecho = { pais: perfil.nombre }
+
+    const { error } = await db()
+      .from('config_general')
+      .update({ pais: codigo, actualizado_en: new Date().toISOString() })
+      .eq('id', 1)
+    if (error) {
+      throw new AppError(`No se pudo guardar el país: ${error.message}`, {
+        status: 502,
+        hint: 'Si dice que no existe la columna pais, falta correr la migración 199.',
+      })
+    }
+
+    if (aplicar.impuesto) {
+      const r = await cambiarIva(perfil.impuesto.tarifa)
+      hecho.impuesto = { tarifa: perfil.impuesto.tarifa, planes: r.planes }
+    }
+
+    if (aplicar.moneda) {
+      const { error: errMoneda } = await db()
+        .from('config_general')
+        .update({ moneda_simbolo: perfil.moneda.simbolo, moneda_codigo: perfil.moneda.codigo })
+        .eq('id', 1)
+      if (errMoneda) throw new AppError(`No se pudo cambiar la moneda: ${errMoneda.message}`, { status: 502 })
+      hecho.moneda = perfil.moneda
+    }
+
+    if (aplicar.zona && esZonaValida(perfil.zona)) {
+      const { error: errZona } = await db()
+        .from('config_general')
+        .update({ zona_horaria: perfil.zona })
+        .eq('id', 1)
+      if (errZona) {
+        throw new AppError(`No se pudo cambiar la zona horaria: ${errZona.message}`, {
+          status: 502,
+          hint: 'Si dice que no existe la columna zona_horaria, falta la migración 196.',
+        })
+      }
+      // Igual que desde Ajustes → Sistema: se aplica en el acto y se rearman
+      // las tareas para que corran a la hora del país nuevo.
+      const antes = process.env.TZ
+      if (aplicarZona(perfil.zona) !== antes) {
+        await rearrancarTareas().catch((err) =>
+          console.error(`[país] no se pudieron rearmar las tareas: ${err.message}`),
+        )
+      }
+      hecho.zona = perfil.zona
+    }
+
+    res.json({ perfil, hecho })
+  }),
+)
+
+/**
+ * Qué hora cree el servidor que es.
+ *
+ * Es la pregunta que hay que poder contestar sin entrar por SSH: si la
+ * facturación salió a las 20:00 en vez de a la 01:00, acá se ve por qué.
+ */
+router.get(
+  '/reloj',
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    res.json(relojDelServidor())
+  }),
+)
+
+/**
+ * Cambiar la zona.
+ *
+ * Va aparte del PUT de la marca a propósito: la pantalla General manda el
+ * formulario entero, y si la zona viajara ahí, guardar el logo sin la
+ * migración 196 corrida fallaría por una columna que esa pantalla ni muestra.
+ */
+router.put(
+  '/reloj',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const zona = String(req.body?.zona_horaria ?? '').trim()
+
+    // Una zona mal escrita no da error en Node: da UTC en silencio, que es
+    // justamente lo que se quiere evitar.
+    if (!esZonaValida(zona)) {
+      throw badRequest(`"${zona}" no es una zona horaria. Elegila de la lista: por ejemplo, ${ZONA_POR_DEFECTO}.`)
+    }
+
+    const { error } = await db()
+      .from('config_general')
+      .update({ zona_horaria: zona, actualizado_en: new Date().toISOString() })
+      .eq('id', 1)
+    if (error) {
+      throw new AppError(`No se pudo guardar: ${error.message}`, {
+        status: 502,
+        hint: 'Si dice que no existe la columna zona_horaria, falta correr la migración 196.',
+      })
+    }
+
+    /**
+     * Se aplica en el acto y se rearman las tareas.
+     *
+     * Los temporizadores preguntan "¿ya es la hora?" cada pocos minutos, así
+     * que con la zona nueva la próxima pregunta ya se contesta bien. Se rearman
+     * igual para que la corrida de recuperación que hace cada tarea al armarse
+     * use la hora nueva y no espere a la siguiente vuelta.
+     */
+    const antes = process.env.TZ
+    const ahora = aplicarZona(zona)
+    if (ahora !== antes) {
+      console.log(`[zona horaria] ${antes} → ${ahora}`)
+      await rearrancarTareas().catch((err) =>
+        console.error(`[zona horaria] no se pudieron rearmar las tareas: ${err.message}`),
+      )
+    }
+
+    res.json(relojDelServidor())
+  }),
+)
+
+/** El IVA general, y las tarifas que se pueden elegir. */
+router.get(
+  '/iva',
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    const iva = await ivaGeneral()
+    res.json({ iva_porcentaje: iva, tarifas: TARIFAS_GENERALES, emitible_sri: Boolean(codigoDeTarifa(iva)) })
+  }),
+)
+
+/**
+ * Guarda el IVA general y arrastra a los planes que tenían el anterior.
+ *
+ * La usan el PUT de /iva y el cambio de país, que propone el impuesto del país
+ * nuevo: tienen que hacer exactamente lo mismo.
+ */
+async function cambiarIva(nuevo) {
+  const anterior = await ivaGeneral()
+
+  const { error } = await db()
+    .from('config_general')
+    .update({ iva_porcentaje: nuevo, actualizado_en: new Date().toISOString() })
+    .eq('id', 1)
+  if (error) {
+    throw new AppError(`No se pudo guardar el impuesto: ${error.message}`, {
+      status: 502,
+      hint:
+        'Si dice que no existe la columna iva_porcentaje, falta la migración 197; si dice "violates check constraint", la 198.',
+    })
+  }
+
+  let planes = 0
+  if (anterior !== nuevo) {
+    const { data, error: errPlanes } = await db()
+      .from('planes_velocidad')
+      .update({ iva_porcentaje: nuevo })
+      .eq('iva_porcentaje', anterior)
+      .select('id')
+    if (errPlanes) {
+      throw new AppError(
+        `El impuesto general quedó en ${nuevo} %, pero no se pudieron actualizar los planes: ${errPlanes.message}`,
+        { status: 502 },
+      )
+    }
+    planes = data?.length ?? 0
+  }
+  return { anterior, planes }
+}
+
+/**
+ * Cambiar el IVA general.
+ *
+ * Arrastra a los planes que tenían el anterior: es lo que hace que cambiar en un
+ * lugar cambie todo. Un plan con otro porcentaje —puesto a propósito— no se
+ * toca. Las facturas ya hechas tampoco: llevan el impuesto con que se emitieron.
+ */
+router.put(
+  '/iva',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const nuevo = Number(req.body?.iva_porcentaje)
+    if (!ivaValido(req.body?.iva_porcentaje) || req.body?.iva_porcentaje === '') {
+      throw badRequest('El IVA tiene que ser un número de 0 a 100, con hasta dos decimales. Ej: 15 o 16.5')
+    }
+
+    const { anterior, planes } = await cambiarIva(nuevo)
+
+    res.json({
+      iva_porcentaje: nuevo,
+      anterior,
+      planes_actualizados: planes,
+      tarifas: TARIFAS_GENERALES,
+      emitible_sri: Boolean(codigoDeTarifa(nuevo)),
     })
   }),
 )
@@ -67,7 +296,7 @@ router.put(
     // Un logo grande viaja en cada carga del login, y el login lo abre gente
     // desde el celular en la calle.
     if (fila.logo_b64 && fila.logo_b64.length > 550_000) {
-      throw badRequest('El logo pesa demasiado. Usá una versión más chica: con 400×200 alcanza.')
+      throw badRequest('El logo pesa demasiado. Usa una versión más chica: con 400×200 alcanza.')
     }
 
     if (Object.keys(fila).length) {

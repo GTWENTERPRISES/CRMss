@@ -11,9 +11,10 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Button, Card, Field, Input, Modal, Select, Textarea } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Todo lo que se le dijo al abonado, por el canal que sea.
@@ -45,7 +46,7 @@ const ESTADOS = {
 }
 
 const fechaHora = (f) =>
-  f ? new Date(f).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '—'
+  f ? fmtFechaHora(f) : '—'
 
 export default function FichaComunicaciones({ cliente, onError }) {
   const [mensajes, setMensajes] = useState([])
@@ -61,13 +62,20 @@ export default function FichaComunicaciones({ cliente, onError }) {
     setCargando(true)
 
     const [m, p] = await Promise.all([
-      supabase
+      django
         .from('comunicaciones')
         .select('*')
         .eq('client_id', cliente.id)
         .order('created_at', { ascending: false })
         .limit(100),
-      supabase.from('plantillas_mensaje').select('*').eq('activa', true).order('nombre'),
+      // Solo las que se mandan por un canal: las 'web' (la pantalla de aviso
+      // antes del corte) y las 'documento' (contrato, actas) no son mensajes.
+      django
+        .from('plantillas_mensaje')
+        .select('*')
+        .eq('activa', true)
+        .in('canal', [...Object.keys(CANALES), 'cualquiera'])
+        .order('nombre'),
     ])
 
     if (m.error) onError?.(m.error)
@@ -121,7 +129,7 @@ export default function FichaComunicaciones({ cliente, onError }) {
       if (r.enlace) {
         window.open(r.enlace, '_blank', 'noopener')
         setAviso(
-          'Se abrió WhatsApp con el mensaje listo. Cuando lo mandes, marcalo como enviado en el historial.',
+          'Se abrió WhatsApp con el mensaje listo. Cuando lo mandes, márcalo como enviado en el historial.',
         )
       } else {
         setAviso('Mensaje enviado.')
@@ -298,7 +306,7 @@ export default function FichaComunicaciones({ cliente, onError }) {
         {redactando && (
           <form onSubmit={enviar} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Canal">
+              <Field hint="Por dónde se le manda el mensaje." label="Canal">
                 <Select
                   value={redactando.canal}
                   onChange={(e) => setRedactando((r) => ({ ...r, canal: e.target.value }))}
@@ -311,7 +319,7 @@ export default function FichaComunicaciones({ cliente, onError }) {
                 </Select>
               </Field>
 
-              <Field label="Plantilla">
+              <Field hint="Un texto ya armado para no escribirlo cada vez." label="Plantilla">
                 <Select
                   value={redactando.plantilla_id}
                   onChange={(e) => usarPlantilla(e.target.value)}
@@ -332,7 +340,7 @@ export default function FichaComunicaciones({ cliente, onError }) {
 
             {redactando.canal === 'email' && (
               <Field label="Asunto">
-                <Input
+                <Input placeholder="Ej.: Tu factura de octubre"
                   value={redactando.asunto}
                   onChange={(e) => setRedactando((r) => ({ ...r, asunto: e.target.value }))}
                 />
@@ -343,7 +351,7 @@ export default function FichaComunicaciones({ cliente, onError }) {
               label="Mensaje"
               hint="Acepta {{nombre}}, {{primer_nombre}}, {{saldo}}, {{plan}}, {{fecha}}"
             >
-              <Textarea
+              <Textarea placeholder="Ej.: Hola {{primer_nombre}}, tu factura vence el {{fecha}}"
                 rows={6}
                 value={redactando.cuerpo}
                 onChange={(e) => setRedactando((r) => ({ ...r, cuerpo: e.target.value }))}

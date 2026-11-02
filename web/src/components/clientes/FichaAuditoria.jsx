@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { History, Terminal } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Card, Select, Field } from '../ui'
+import { fecha as fmtFecha, fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Qué se le hizo a este abonado y quién lo hizo.
@@ -59,17 +60,92 @@ const CAMPOS = {
   monto: 'Monto',
   anulada: 'Anulada',
   anulado: 'Anulado',
+  nombre: 'Nombre',
+  identificacion: 'Cédula o RUC',
+  tipo_identificacion: 'Tipo de identificación',
+  telefono: 'Teléfono fijo',
+  telefono_movil: 'Celular',
+  email: 'Correo',
+  direccion: 'Dirección',
+  referencia_servicio: 'Referencia del servicio',
+  zona: 'Zona',
+  notas: 'Notas',
+  latitud: 'Latitud',
+  longitud: 'Longitud',
+  router_id: 'Router',
+  onu_id: 'ONU',
+  mac_address: 'MAC',
+  ip_administracion: 'IP de administración',
+  ipv6: 'IPv6',
+  ipv6_prefijo: 'Prefijo IPv6',
+  ipv6_duid: 'DUID IPv6',
+  red_ipv4: 'Red IPv4',
+  red_acceso: 'Red de acceso',
+  tipo_antena: 'Tipo de antena',
+  fecha_instalacion: 'Fecha de instalación',
+  estado_desde: 'Estado desde',
+  suspendido_hasta: 'Suspendido hasta',
+  suspendido_motivo: 'Motivo de la pausa',
+  dias_gracia: 'Días de gracia',
+  cortar_tras_meses: 'Cortar tras meses',
+  dia_generar_factura: 'Día de crear la factura',
+  tipo_impuesto: 'Tipo de impuesto',
+  descuento_documento: 'Documento del descuento',
+  descuento_fijo: 'Descuento fijo',
+  descuento_fijo_motivo: 'Motivo del descuento',
+  promo_desde: 'Promoción desde',
+  permanencia_meses: 'Permanencia (meses)',
+  valor_instalacion: 'Valor de instalación',
+  pasarela: 'Pasarela de cobro',
+  codigo_pago: 'Código de pago',
+  aviso_dias_1: 'Primer aviso',
+  aviso_dias_2: 'Segundo aviso',
+  aviso_dias_3: 'Tercer aviso',
+  aviso_dias_4: 'Cuarto aviso',
+  avisos_canales: 'Canales de aviso',
+  canal_preferido: 'Canal preferido',
+  telegram_chat_id: 'Chat de Telegram',
+  motivo_baja_id: 'Motivo de baja',
+  prestador_id: 'Prestador',
+  numero_orden: 'Número de orden',
+  provincia: 'Provincia',
+  canton: 'Cantón',
+  parroquia: 'Parroquia',
+  ciudad: 'Ciudad',
+  portal_clave: 'Contraseña del portal',
+  portal_clave_puesta: 'Contraseña del portal puesta el',
+  tarifa_preferencial: 'Tarifa preferencial',
+  tipo_cuenta: 'Tipo de cuenta',
+  velocidad_cruda: 'Velocidad',
+  rutas: 'Rutas',
 }
 
+// Lo que no le dice nada a quien mira la historia (marcas internas).
+const OCULTOS = new Set(['updated_at', 'created_at', 'portal_clave_hash', 'importado_at', 'sistema_origen', 'ultimo_pago_externo'])
+
+// Se dice que cambió, nunca el valor: el historial lo ve más gente que la que
+// puede ver una contraseña.
+const SECRETOS = new Set(['clave_ppp', 'portal_clave', 'password', 'password_encrypted'])
+
+/** "fecha_instalacion" → "Fecha instalacion" para los campos que no están en la lista. */
+const etiquetaCampo = (c) =>
+  CAMPOS[c] ?? (c.replace(/_id$/, '').replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase()))
+
 const fechaHora = (f) =>
-  f ? new Date(f).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }) : '—'
+  f ? fmtFechaHora(f) : '—'
 
 /** Un valor como se lee en el mostrador, no como lo guarda la base. */
-function valor(v) {
-  if (v === null || v === undefined) return '—'
+function valor(v, campo) {
+  if (v === null || v === undefined || v === '') return '—'
+  if (SECRETOS.has(campo) || String(campo).endsWith('_encrypted')) return '•••'
   if (v === true) return 'sí'
   if (v === false) return 'no'
+  if (Array.isArray(v)) return v.length ? v.join(', ') : '—'
   const s = String(v)
+  // Correo y dirección se guardan cifrados: mostrar el texto cifrado no sirve.
+  if (s.startsWith('enc::')) return '(dato protegido)'
+  if (/^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2})/.test(s)) return fmtFechaHora(s)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return fmtFecha(s)
   return s.length > 40 ? `${s.slice(0, 40)}…` : s
 }
 
@@ -98,19 +174,19 @@ export default function FichaAuditoria({ cliente, onError }) {
      * responderle a un vendedor que pregunta por SU cliente.
      */
     const [a, c, sis] = await Promise.all([
-      supabase
+      django
         .from('v_audit_logs')
         .select('*')
         .eq('client_id', cliente.id)
         .order('created_at', { ascending: false })
         .limit(200),
-      supabase
+      django
         .from('comandos_ejecutados')
         .select('*')
         .eq('client_id', cliente.id)
         .order('created_at', { ascending: false })
         .limit(100),
-      supabase
+      django
         .from('auditoria_sistema')
         .select('*')
         .eq('entidad', 'cliente')
@@ -186,7 +262,15 @@ export default function FichaAuditoria({ cliente, onError }) {
           <ol className="space-y-2">
             {visibles.map((l) => {
               const accion = ACCIONES[l.accion] ?? ACCIONES.modificar
-              const campos = l.campos ?? []
+              // Sin los que no cambiaron de verdad: los registros anteriores al
+              // arreglo de la auditoría anotaban campos vacíos como "— → —".
+              const campos = (l.campos ?? []).filter(
+                (c) =>
+                  !OCULTOS.has(c) &&
+                  (SECRETOS.has(c)
+                    ? (l.antes?.[c] ?? null) !== (l.despues?.[c] ?? null)
+                    : valor(l.antes?.[c], c) !== valor(l.despues?.[c], c)),
+              )
 
               return (
                 <li key={l.id} className="t-card-sm p-3">
@@ -212,14 +296,20 @@ export default function FichaAuditoria({ cliente, onError }) {
                     <ul className="mt-2 space-y-1">
                       {campos.map((c) => (
                         <li key={c} className="flex flex-wrap items-baseline gap-2 text-xs">
-                          <span className="text-slate-500">{CAMPOS[c] ?? c}:</span>
-                          <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-rose-300 line-through">
-                            {valor(l.antes?.[c])}
-                          </span>
-                          <span className="text-slate-600">→</span>
-                          <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-emerald-300">
-                            {valor(l.despues?.[c])}
-                          </span>
+                          <span className="text-slate-500">{etiquetaCampo(c)}:</span>
+                          {SECRETOS.has(c) ? (
+                            <span className="text-slate-400">cambió</span>
+                          ) : (
+                            <>
+                              <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-rose-300 line-through">
+                                {valor(l.antes?.[c], c)}
+                              </span>
+                              <span className="text-slate-600">→</span>
+                              <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-emerald-300">
+                                {valor(l.despues?.[c], c)}
+                              </span>
+                            </>
+                          )}
                         </li>
                       ))}
                     </ul>

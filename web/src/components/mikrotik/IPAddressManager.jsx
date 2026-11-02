@@ -73,21 +73,19 @@ export default function IPAddressManager({ router }) {
       subtitle="Direcciones e interfaces del router (gateways de las ONUs)"
       icon={Network}
       actions={
-        <Button icon={RefreshCw} onClick={cargar} cargando={cargando} disabled={!router}>
-          Refrescar
-        </Button>
+        <Button icon={RefreshCw} onClick={cargar} cargando={cargando} disabled={!router} title="Refrescar" />
       }
     >
       <div className="space-y-4">
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
         <form onSubmit={crear} className="grid items-end gap-3 sm:grid-cols-4">
-          <Field label="Dirección" hint="Con máscara: 10.0.0.1/24">
+          <Field campo="address" label="Dirección" hint="Con máscara: 10.0.0.1/24">
             <Input value={form.address} onChange={set('address')} placeholder="10.0.0.1/24" required />
           </Field>
-          <Field label="Interfaz">
+          <Field campo="interfaz" hint="Por dónde sale el tráfico en el router." label="Interfaz">
             <Select value={form.interfaz} onChange={set('interfaz')} required>
-              <option value="">— elegí —</option>
+              <option value="">— elige —</option>
               {interfaces.map((i) => (
                 <option key={i.id} value={i.nombre}>
                   {i.nombre} ({i.tipo})
@@ -95,8 +93,8 @@ export default function IPAddressManager({ router }) {
               ))}
             </Select>
           </Field>
-          <Field label="Comentario">
-            <Input value={form.comment} onChange={set('comment')} />
+          <Field campo="comment" label="Comentario">
+            <Input placeholder="Ej.: Se reinició la ONT" value={form.comment} onChange={set('comment')} />
           </Field>
           <div className="pb-2">
             <Button
@@ -116,7 +114,7 @@ export default function IPAddressManager({ router }) {
           <Cargando texto="Consultando el router…" />
         ) : addresses === null ? (
           <p className="py-6 text-center text-sm text-slate-500">
-            Elegí un router para ver sus direcciones.
+            Elige un router para ver sus direcciones.
           </p>
         ) : (
           <Table

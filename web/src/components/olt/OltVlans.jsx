@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Download, ListPlus, Minus, Network, Plus, RefreshCw, Trash2, Undo2, Wand2 } from 'lucide-react'
 import { api } from '../../lib/apiNetwork'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { hace } from '../../lib/olts'
 import {
   Aviso,
@@ -13,6 +13,7 @@ import {
   Select,
   SkeletonTabla,
   Table,
+  MenuAcciones,
 } from '../ui'
 
 /**
@@ -144,12 +145,13 @@ export default function OltVlans({ olt }) {
         {/* Crear son TRES cosas —la VLAN en la OLT, el bloque y la asignación
             del puerto— y deshacerlas eran tres pantallas distintas. Quien iba a
             dos quedaba con el generador bloqueado sin entender por qué. */}
-        <Button variante="peligro" icon={Undo2} onClick={() => abrir('deshacer')}>
-          Deshacer un esquema
-        </Button>
-        <Button variante="peligro" icon={Minus} onClick={() => abrir('borrar')}>
-          Borrar varias
-        </Button>
+        <MenuAcciones
+          texto="Más"
+          acciones={[
+            { label: 'Deshacer un esquema', icon: Undo2, peligro: true, onClick: () => abrir('deshacer') },
+            { label: 'Borrar varias', icon: Minus, peligro: true, onClick: () => abrir('borrar') },
+          ]}
+        />
         <span className="flex-1" />
         <Button variante="fantasma" icon={RefreshCw} cargando={cargando} onClick={leer}>
           Releer del equipo
@@ -165,14 +167,14 @@ export default function OltVlans({ olt }) {
       {panel === 'crear' && (
         <div className="space-y-3 rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
           <div className="grid gap-2 sm:grid-cols-3">
-            <Field label="VLANs" hint="una, varias o un rango: 201-215, 300">
+            <Field campo="vlans" label="VLANs" hint="una, varias o un rango: 201-215, 300">
               <Input
                 value={form.vlans}
                 onChange={(e) => setForm({ ...form, vlans: e.target.value })}
                 placeholder="201-215"
               />
             </Field>
-            <Field label="Para qué">
+            <Field campo="uso" hint="Qué tráfico lleva esta VLAN." label="Para qué">
               <Select value={form.uso} onChange={(e) => setForm({ ...form, uso: e.target.value })}>
                 {Object.entries(USOS).map(([k, v]) => (
                   <option key={k} value={k}>
@@ -181,8 +183,8 @@ export default function OltVlans({ olt }) {
                 ))}
               </Select>
             </Field>
-            <Field label="Descripción">
-              <Input
+            <Field campo="descripcion" label="Descripción">
+              <Input placeholder="Ej.: Plan para hogares de hasta 5 dispositivos"
                 value={form.descripcion}
                 onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
               />
@@ -234,7 +236,7 @@ export default function OltVlans({ olt }) {
       {/* --- Borrar --- */}
       {panel === 'borrar' && (
         <div className="space-y-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-3">
-          <Field label="VLANs a borrar" hint="una, varias o un rango">
+          <Field campo="vlans" label="VLANs a borrar" hint="una, varias o un rango">
             <Input
               value={form.vlans}
               onChange={(e) => setForm({ ...form, vlans: e.target.value })}
@@ -415,7 +417,7 @@ export default function OltVlans({ olt }) {
         <div className="space-y-3 t-panel p-3">
           <p className="text-sm font-semibold text-slate-100">VLAN {editando.vlan}</p>
           <div className="grid gap-2 sm:grid-cols-4">
-            <Field label="Para qué">
+            <Field campo="uso" hint="Qué tráfico lleva esta VLAN." label="Para qué">
               <Select
                 value={editando.uso}
                 onChange={(e) => setEditando({ ...editando, uso: e.target.value })}
@@ -427,8 +429,8 @@ export default function OltVlans({ olt }) {
                 ))}
               </Select>
             </Field>
-            <Field label="Descripción" className="sm:col-span-3">
-              <Input
+            <Field campo="descripcion" label="Descripción" className="sm:col-span-3">
+              <Input placeholder="Ej.: Plan para hogares de hasta 5 dispositivos"
                 value={editando.descripcion}
                 onChange={(e) => setEditando({ ...editando, descripcion: e.target.value })}
               />
@@ -626,7 +628,7 @@ function PuertosPon({ olt, vlansDisponibles }) {
           {importacion.resumen.distintas > 0 && (
             <Aviso tipo="alerta">
               Hay {importacion.resumen.distintas} puerto(s) donde el sistema tiene una VLAN y el
-              equipo usa otra. No se pisan solos: marcá <b>Reemplazar las distintas</b> si querés que
+              equipo usa otra. No se pisan solos: marca <b>Reemplazar las distintas</b> si quieres que
               gane lo del equipo.
             </Aviso>
           )}
@@ -878,7 +880,7 @@ function EsquemaPorPuerto({ olt, form, setForm, onListo, onCancelar }) {
   const [hecho, setHecho] = useState(null)
 
   useEffect(() => {
-    supabase
+    django
       .from('routers_mikrotik')
       .select('id, nombre')
       .eq('activo', true)
@@ -968,22 +970,22 @@ function EsquemaPorPuerto({ olt, form, setForm, onListo, onCancelar }) {
       )}
 
       <div className="grid gap-2 sm:grid-cols-4">
-        <Field label="Placa">
-          <Input type="number" value={form.slot} onChange={set('slot')} />
+        <Field campo="slot" label="Placa">
+          <Input placeholder="Ej.: GBA-1234" type="number" value={form.slot} onChange={set('slot')} />
         </Field>
         <Field label="Desde el puerto">
-          <Input type="number" value={form.desdePuerto} onChange={set('desdePuerto')} />
+          <Input placeholder="Ej.: 1" type="number" value={form.desdePuerto} onChange={set('desdePuerto')} />
         </Field>
         <Field label="Hasta el puerto">
-          <Input type="number" value={form.hastaPuerto} onChange={set('hastaPuerto')} />
+          <Input placeholder="Ej.: 16" type="number" value={form.hastaPuerto} onChange={set('hastaPuerto')} />
         </Field>
         <Field label="VLAN inicial">
-          <Input type="number" value={form.desdeVlan} onChange={set('desdeVlan')} />
+          <Input placeholder="Ej.: 100" type="number" value={form.desdeVlan} onChange={set('desdeVlan')} />
         </Field>
 
         {/* Sin esto el nombre toma el de la OLT entero —"OLT X7 LA MANA"— con
             espacios y todo. En la MA5608T los pools se llaman "…_MA5608T". */}
-        <Field label="Sufijo del nombre" hint="va al final: BOARD6_PON0_VLAN202_X7">
+        <Field campo="olt" label="Sufijo del nombre" hint="va al final: BOARD6_PON0_VLAN202_X7">
           <Input value={form.olt} onChange={set('olt')} placeholder="X7" spellCheck={false} />
         </Field>
 
@@ -995,7 +997,7 @@ function EsquemaPorPuerto({ olt, form, setForm, onListo, onCancelar }) {
             spellCheck={false}
           />
         </Field>
-        <Field label="Tamaño" hint="/25 son 128 direcciones">
+        <Field campo="prefijo" label="Tamaño" hint="/25 son 128 direcciones">
           <Select value={form.prefijo} onChange={set('prefijo')}>
             <option value={24}>/24 — 256</option>
             <option value={25}>/25 — 128</option>
@@ -1005,14 +1007,14 @@ function EsquemaPorPuerto({ olt, form, setForm, onListo, onCancelar }) {
         </Field>
         {/* Dos decisiones independientes. Estaban en un solo campo y por eso
             no se podía pedir "PPPoE con un gateway por VLAN". */}
-        <Field label="Cómo se reparte">
+        <Field campo="pppoe" hint="PPPoE pide usuario y clave; IP fija se configura en la interfaz." label="Cómo se reparte">
           <Select value={form.pppoe} onChange={set('pppoe')}>
             <option value="si">PPPoE</option>
             <option value="no">IP fija en la interfaz</option>
           </Select>
         </Field>
 
-        <Field
+        <Field campo="gateway"
           label="Gateway"
           hint={
             form.gateway === 'compartido'
@@ -1060,7 +1062,7 @@ function EsquemaPorPuerto({ olt, form, setForm, onListo, onCancelar }) {
           </Select>
         </Field>
         {form.pppoe === 'no' && (
-          <Field
+          <Field campo="interfaz"
             label="Interfaz de la VLAN"
             hint="vacío = no poner el gateway; tiene que existir ya"
             className="sm:col-span-2"
@@ -1154,7 +1156,7 @@ function EsquemaPorPuerto({ olt, form, setForm, onListo, onCancelar }) {
           {plan.con_problemas > 0 && (
             <Aviso tipo="alerta">
               {plan.con_problemas} {plan.con_problemas === 1 ? 'fila choca' : 'filas chocan'} con algo
-              que ya existe y <b>no se van a crear</b>. Corregí el bloque o la VLAN inicial, o creá
+              que ya existe y <b>no se van a crear</b>. Corrige el bloque o la VLAN inicial, o crea
               el resto y esas a mano.
             </Aviso>
           )}
@@ -1260,14 +1262,14 @@ function DeshacerEsquema({ olt, onListo, onCancelar }) {
       </p>
 
       <div className="grid gap-2 sm:grid-cols-3">
-        <Field label="Placa">
-          <Input type="number" value={form.slot} onChange={set('slot')} />
+        <Field campo="slot" label="Placa">
+          <Input placeholder="Ej.: GBA-1234" type="number" value={form.slot} onChange={set('slot')} />
         </Field>
         <Field label="Desde el puerto">
-          <Input type="number" value={form.desdePuerto} onChange={set('desdePuerto')} />
+          <Input placeholder="Ej.: 1" type="number" value={form.desdePuerto} onChange={set('desdePuerto')} />
         </Field>
         <Field label="Hasta el puerto">
-          <Input type="number" value={form.hastaPuerto} onChange={set('hastaPuerto')} />
+          <Input placeholder="Ej.: 16" type="number" value={form.hastaPuerto} onChange={set('hastaPuerto')} />
         </Field>
       </div>
 

@@ -268,18 +268,18 @@
       <thead><tr><th>Sistema</th><th>Hoy</th><th>¿Al VPS?</th></tr></thead>
       <tbody>
         <tr>
-          <td><b>Sistema ISP</b><br><small style="color:var(--muted)">middleware :4000 + web</small></td>
+          <td><b>Sistema ISP</b><br><small style="color:var(--muted)">Django :8000 + middleware :4000 + web</small></td>
           <td>Tu PC, con túnel</td>
           <td style="color:var(--pass)"><b>Sí.</b> Es el que más gana: deja de depender de que tu máquina esté prendida.</td>
         </tr>
         <tr>
-          <td><b>Base de datos</b><br><small style="color:var(--muted)">Supabase</small></td>
-          <td>Nube</td>
-          <td style="color:var(--muted)"><b>No.</b> Ya está afuera y administrada. Moverla a mano es cambiar un problema resuelto por uno tuyo.</td>
+          <td><b>Base de datos</b><br><small style="color:var(--muted)">la de Django (SQLite o PostgreSQL)</small></td>
+          <td>Junto a Django</td>
+          <td style="color:var(--pass)"><b>Sí, con el sistema.</b> Vive al lado de Django; lo que hay que cuidar es su respaldo (y la <code>FIELD_ENCRYPTION_KEY</code>, sin la que no se lee).</td>
         </tr>
         <tr>
           <td><b>CRM / bot de WhatsApp</b></td>
-          <td>Supabase Edge Functions</td>
+          <td>El proveedor del CRM</td>
           <td><b>Solo si querés.</b> Ya corre en la nube. Se mueve si te conviene tenerlo bajo tu control o si el proveedor lo entrega como código.</td>
         </tr>
         <tr>
@@ -758,15 +758,16 @@ certbot --nginx -d gestion.smartbotai.net -d api.smartbotai.net -d crm.smartbota
   <h3>Cómo se arma</h3>
 
   <p>
-    <strong>1 · Un proyecto Supabase aparte.</strong> Gratis. Le corrés las mismas
-    migraciones en orden, desde la 01 hasta la última:
+    <strong>1 · Una base aparte.</strong> Una copia de la de producción (o una
+    vacía), con las mismas migraciones de Django:
   </p>
 
-<pre class="plain">npm run check:migraciones</pre>
+<pre class="plain">python manage.py migrate
+python manage.py showmigrations | grep "\[ \]"</pre>
 
   <p>
-    Lee la base y dice cuál falta, columna por columna, sin modificar nada. Es la
-    forma de saber que el ambiente de prueba es igual al de producción.
+    Si la segunda línea no muestra nada, no falta ninguna migración: el ambiente
+    de prueba tiene el mismo esquema que producción.
   </p>
 
   <p>
@@ -775,8 +776,8 @@ certbot --nginx -d gestion.smartbotai.net -d api.smartbotai.net -d crm.smartbota
   </p>
 
 <pre class="plain">/opt/smartolt-test           puerto 4900   usuario smartolt-test
-    SUPABASE_URL=https://EL-PROYECTO-DE-PRUEBA.supabase.co
-    PORT=4900</pre>
+    SQLITE_PATH=/opt/smartolt-test/db.sqlite3     (Django)
+    PORT=4900                                    (middleware)</pre>
 
   <p>
     <strong>3 · Datos que se noten.</strong> Abonados llamados
@@ -869,11 +870,11 @@ certbot --nginx -d gestion.smartbotai.net -d api.smartbotai.net -d crm.smartbota
       <thead><tr><th></th><th>Paso</th><th>Se puede volver atrás</th></tr></thead>
       <tbody>
         <tr><td class="nums"><b>1</b></td><td>Contratar el VPS y dejarlo seguro (sección 5)</td><td style="color:var(--pass)">Sí</td></tr>
-        <tr><td class="nums"><b>2</b></td><td>Montar el ambiente de <b>prueba</b>, con su Supabase aparte</td><td style="color:var(--pass)">Sí</td></tr>
+        <tr><td class="nums"><b>2</b></td><td>Montar el ambiente de <b>prueba</b>, con su base aparte</td><td style="color:var(--pass)">Sí</td></tr>
         <tr><td class="nums"><b>3</b></td><td>Correr las pruebas 1 a 4</td><td style="color:var(--pass)">Sí</td></tr>
         <tr><td class="nums"><b>4</b></td><td>Montar la VPN y sumar <b>un</b> MikroTik</td><td style="color:var(--pass)">Sí</td></tr>
         <tr><td class="nums"><b>5</b></td><td>Pruebas 5 y 6 con un abonado tuyo</td><td style="color:var(--pass)">Sí</td></tr>
-        <tr><td class="nums"><b>6</b></td><td>Montar producción en el mismo VPS, apuntando al Supabase real</td><td style="color:var(--pass)">Sí, todavía nadie la usa</td></tr>
+        <tr><td class="nums"><b>6</b></td><td>Montar producción en el mismo VPS, con la base real</td><td style="color:var(--pass)">Sí, todavía nadie la usa</td></tr>
         <tr><td class="nums"><b>7</b></td><td>Sumar el resto de los MikroTik</td><td style="color:var(--warn)">Con cuidado</td></tr>
         <tr><td class="nums"><b>8</b></td><td><b>Mover el DNS</b> de <code>api.smartbotai.net</code> al VPS</td><td style="color:var(--warn)">Sí, pero es el punto de no retorno práctico</td></tr>
         <tr><td class="nums"><b>9</b></td><td>Apagar el túnel y los servicios de la PC</td><td style="color:var(--fail)">Recién cuando el paso 8 lleve días bien</td></tr>
@@ -898,7 +899,7 @@ certbot --nginx -d gestion.smartbotai.net -d api.smartbotai.net -d crm.smartbota
     <span class="tag">Los dos ambientes contra la misma base, nunca</span>
     <p>
       Entre los pasos 6 y 9 vas a tener el sistema corriendo en dos lados. Si los
-      dos apuntan al Supabase real, <strong>las dos instancias corren las tareas
+      dos usan la base real, <strong>las dos instancias corren las tareas
       automáticas</strong>: doble facturación mensual, doble aviso de corte,
       dobles cobros aplicados.
     </p>
@@ -947,7 +948,7 @@ systemctl restart smartolt-middleware</pre>
       <tbody>
         <tr>
           <td><b>La base</b></td>
-          <td>Supabase</td>
+          <td>Django (<code>db.sqlite3</code> o PostgreSQL)</td>
           <td>Lo peor que puede pasar. Activá los respaldos automáticos <b>y bajate uno a mano cada tanto</b>: un respaldo que nunca se restauró no es un respaldo.</td>
         </tr>
         <tr>
@@ -1008,7 +1009,7 @@ systemctl restart smartolt-middleware</pre>
   <div class="note danger">
     <span class="tag">Exponer un puerto de aplicación a internet</span>
     <p>
-      El <code>4000</code>, el <code>4200</code>, o el de Supabase. Todo entra por
+      El <code>8000</code> de Django, el <code>4000</code> o el <code>4200</code>. Todo entra por
       nginx; lo demás escucha en <code>127.0.0.1</code> y nada más.
     </p>
   </div>

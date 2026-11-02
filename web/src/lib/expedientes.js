@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { comprimirImagen } from './soporte'
 import { personalApi } from './personal'
 
@@ -55,7 +55,7 @@ export function loQueFalta(e) {
 
 export const expedientesApi = {
   async listar() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_expedientes')
       .select('*')
       .order('creado_en', { ascending: false })
@@ -65,8 +65,8 @@ export const expedientesApi = {
 
   async abrir(id) {
     const [exp, docs] = await Promise.all([
-      supabase.from('v_expedientes').select('*').eq('id', id).maybeSingle(),
-      supabase.from('expediente_documentos').select('*').eq('expediente_id', id).order('subido_en'),
+      django.from('v_expedientes').select('*').eq('id', id).maybeSingle(),
+      django.from('expediente_documentos').select('*').eq('expediente_id', id).order('subido_en'),
     ])
     if (exp.error) throw exp.error
     return { expediente: exp.data, documentos: docs.data ?? [] }
@@ -74,7 +74,7 @@ export const expedientesApi = {
 
   /** El expediente de un prospecto, que es como se llega desde la lista. */
   async porProspecto(prospectoId) {
-    const { data } = await supabase
+    const { data } = await django
       .from('v_expedientes')
       .select('*')
       .eq('prospecto_id', prospectoId)
@@ -83,7 +83,7 @@ export const expedientesApi = {
   },
 
   async guardar(id, cambios) {
-    const { error } = await supabase
+    const { error } = await django
       .from('expedientes')
       .update({ ...cambios, actualizado_en: new Date().toISOString() })
       .eq('id', id)
@@ -108,7 +108,7 @@ export const expedientesApi = {
     })
 
     const ruta = `${expedienteId}/${tipo}-${Date.now()}.jpg`
-    const { error: errSubida } = await supabase.storage
+    const { error: errSubida } = await django.storage
       .from('expedientes')
       .upload(ruta, blob, { contentType: 'image/jpeg' })
     if (errSubida) throw errSubida
@@ -116,7 +116,7 @@ export const expedientesApi = {
     // Reemplazar la cédula borrosa: se marca la anterior como rechazada en vez
     // de borrarla. El índice único deja una sola vigente, y el historial queda.
     if (esCedula) {
-      await supabase
+      await django
         .from('expediente_documentos')
         .update({ estado: 'rechazado', notas: 'Reemplazada por una foto nueva' })
         .eq('expediente_id', expedienteId)
@@ -124,7 +124,7 @@ export const expedientesApi = {
         .neq('estado', 'rechazado')
     }
 
-    const { error } = await supabase.from('expediente_documentos').insert({
+    const { error } = await django.from('expediente_documentos').insert({
       expediente_id: expedienteId,
       tipo,
       ruta,
@@ -137,7 +137,7 @@ export const expedientesApi = {
 
   /** URL firmada y corta. Una cédula no puede quedar en un enlace que dura una hora. */
   async verDocumento(ruta) {
-    const { data, error } = await supabase.storage
+    const { data, error } = await django.storage
       .from('expedientes')
       .createSignedUrl(ruta, 300)
     if (error) throw error
@@ -150,8 +150,8 @@ export const expedientesApi = {
   },
 
   async borrarDocumento(doc) {
-    await supabase.storage.from('expedientes').remove([doc.ruta])
-    const { error } = await supabase.from('expediente_documentos').delete().eq('id', doc.id)
+    await django.storage.from('expedientes').remove([doc.ruta])
+    const { error } = await django.from('expediente_documentos').delete().eq('id', doc.id)
     if (error) throw error
   },
 
@@ -163,7 +163,7 @@ export const expedientesApi = {
    * manual no. Mandar 'gps' con una coordenada tipeada falla, que es el punto.
    */
   async guardarUbicacion({ expedienteId, latitud, longitud, precision, origen, perfil }) {
-    const { error } = await supabase
+    const { error } = await django
       .from('expedientes')
       .update({
         latitud,
@@ -186,7 +186,7 @@ export const expedientesApi = {
 
   /** Crea el contrato reutilizando el módulo que ya existe. */
   async generarContrato({ expediente, perfil }) {
-    const { data: contrato, error } = await supabase
+    const { data: contrato, error } = await django
       .from('contratos')
       .insert({
         client_id: null,
@@ -216,7 +216,7 @@ export const expedientesApi = {
    * de una validación del navegador que se puede saltear.
    */
   async enviar(expedienteId) {
-    const { data, error } = await supabase.rpc('enviar_expediente_a_instalaciones', {
+    const { data, error } = await django.rpc('enviar_expediente_a_instalaciones', {
       p_expediente: expedienteId,
     })
     if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { History, RefreshCw } from 'lucide-react'
 import { api } from '../../lib/apiNetwork'
 import { Badge, Button, Card, ErrorBanner, SkeletonTabla, Table } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Historial de cambios de la OLT.
@@ -75,9 +76,7 @@ export default function OltHistorial({ olt }) {
       subtitle={eventos ? `${eventos.length} eventos registrados` : ''}
       icon={History}
       actions={
-        <Button icon={RefreshCw} onClick={cargar} cargando={cargando}>
-          Actualizar
-        </Button>
+        <Button icon={RefreshCw} onClick={cargar} cargando={cargando} title="Actualizar" />
       }
     >
       <div className="space-y-4">
@@ -93,7 +92,7 @@ export default function OltHistorial({ olt }) {
             renderFila={(e) => (
               <tr key={e.id} className="text-slate-300">
                 <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">
-                  {new Date(e.created_at).toLocaleString('es-EC')}
+                  {fmtFechaHora(e.created_at)}
                 </td>
                 <td className="px-3 py-2">
                   <Badge color={e.accion === 'alta' ? 'verde' : 'gris'}>{e.accion}</Badge>

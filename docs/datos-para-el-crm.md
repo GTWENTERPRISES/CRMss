@@ -176,7 +176,7 @@ Y adjuntale `docs/api-v1-resumen.md`, que es la referencia de los endpoints.
 
 ## Lo que NO tenés que darle
 
-**Ni la clave de Supabase, ni la `service_role`, ni tu contraseña del sistema.**
+**Ni las claves del servidor, ni el usuario de servicio, ni tu contraseña del sistema.**
 La llave `sk_` es lo único que necesita, y está limitada a lo que vos le marcaste:
 no puede eliminar abonados ni anular cobros, aunque quiera.
 

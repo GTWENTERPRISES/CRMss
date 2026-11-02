@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { dineroCero as dinero } from '../../lib/formato'
 import { Accessibility, HandCoins, Save, Settings, Tag } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Aviso, Button, Card, Field, Input, Select } from '../ui'
 
 /**
@@ -76,8 +76,23 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
     setForm((f) => ({ ...f, [campo]: valor }))
   }
 
+  // Crear la factura después del día de pago es un error de configuración: la
+  // factura llegaría cuando ya tenía que estar pagada.
+  const creaTarde =
+    form.dia_generar_factura !== '' && form.dia_generar_factura != null &&
+    form.dia_facturacion !== '' && form.dia_facturacion != null &&
+    Number(form.dia_generar_factura) > Number(form.dia_facturacion)
+
   async function guardar(e) {
     e.preventDefault()
+    if (creaTarde) {
+      return onError?.(
+        new Error(
+          `El día de crear la factura (${form.dia_generar_factura}) es después del día de pago (${form.dia_facturacion}). ` +
+            'La factura tiene que crearse el día de pago o antes. Si querías cortar ese día, usa los días de gracia.',
+        ),
+      )
+    }
     setGuardando(true)
     onError?.(null)
 
@@ -107,7 +122,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
             : form.descuento_fijo_motivo?.trim() || null,
       }
 
-      const { error } = await supabase.from('clientes').update(cambios).eq('id', cliente.id)
+      const { error } = await django.from('clientes').update(cambios).eq('id', cliente.id)
       if (error) throw error
 
       setGuardado(true)
@@ -130,7 +145,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
     <Card title="Configuración de facturación" icon={Settings}>
       <form onSubmit={guardar} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field
+          <Field campo="modalidad_pago"
             label="Modalidad"
             hint={
               form.modalidad_pago === 'postpago'
@@ -144,7 +159,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
             </Select>
           </Field>
 
-          <Field label="Día de pago" hint="Vencimiento de la factura">
+          <Field campo="dia_facturacion" label="Día de pago" hint="Vencimiento de la factura">
             <Select value={form.dia_facturacion ?? ''} onChange={set('dia_facturacion')}>
               <option value="">— sin definir —</option>
               {dias.map((d) => (
@@ -155,9 +170,17 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
             </Select>
           </Field>
 
-          <Field
+          <Field campo="dia_generar_factura"
             label="Día de crear la factura"
-            hint="Antes del día de pago, para que llegue con tiempo"
+            hint={
+              creaTarde ? (
+                <span className="text-rose-400">
+                  Es después del día de pago: la factura llegaría vencida.
+                </span>
+              ) : (
+                'Antes del día de pago, para que llegue con tiempo'
+              )
+            }
           >
             <Select value={form.dia_generar_factura ?? ''} onChange={set('dia_generar_factura')}>
               <option value="">— el mismo día de pago —</option>
@@ -169,7 +192,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
             </Select>
           </Field>
 
-          <Field
+          <Field campo="tipo_impuesto"
             label="Tipo de impuesto"
             hint={
               form.tipo_impuesto === 'mas'
@@ -188,7 +211,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
 
           {/* Este es el campo que decide la fecha de corte, y por eso dice el día
               exacto: "días de gracia" solo no le dice a nadie cuándo se corta. */}
-          <Field
+          <Field campo="dias_gracia"
             label="Días de gracia"
             hint={
               form.dia_facturacion
@@ -196,7 +219,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
                 : 'Después del vencimiento, antes de cortar'
             }
           >
-            <Input
+            <Input placeholder="Ej.: 3"
               type="number"
               min={0}
               // Un año. Es donde vive el plazo del que paga cada varios meses,
@@ -246,7 +269,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
           </p>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Grupo">
+            <Field campo="descuento_tipo" hint="Grupo prioritario con descuento de ley (tercera edad, discapacidad)." label="Grupo">
               <Select
                 value={form.descuento_tipo ?? ''}
                 onChange={(e) => {
@@ -267,8 +290,8 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
               </Select>
             </Field>
 
-            <Field label="Porcentaje %" hint="Por norma, 50">
-              <Input
+            <Field campo="descuento_porcentaje" label="Porcentaje %" hint="Por norma, 50">
+              <Input placeholder="Ej.: 50"
                 type="number"
                 min={0}
                 max={100}
@@ -279,7 +302,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
               />
             </Field>
 
-            <Field label="Documento de respaldo" hint="Carnet del CONADIS, cédula">
+            <Field campo="descuento_documento" label="Documento de respaldo" hint="Carnet del CONADIS, cédula">
               <Input
                 value={form.descuento_documento ?? ''}
                 onChange={set('descuento_documento')}
@@ -310,8 +333,8 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
           </p>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Descuento %">
-              <Input
+            <Field campo="promo_porcentaje" label="Descuento %">
+              <Input placeholder="Ej.: 10"
                 type="number"
                 min={0}
                 max={100}
@@ -332,8 +355,8 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
               />
             </Field>
 
-            <Field label="Meses que dura">
-              <Input
+            <Field campo="promo_meses" label="Meses que dura">
+              <Input placeholder="Ej.: 3"
                 type="number"
                 min={1}
                 max={36}
@@ -343,7 +366,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
               />
             </Field>
 
-            <Field label="Desde">
+            <Field campo="promo_desde" label="Desde">
               <Input
                 type="date"
                 value={String(form.promo_desde ?? '').slice(0, 10)}
@@ -392,7 +415,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
           </p>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Se le baja $" hint="Del total, IVA incluido">
+            <Field campo="descuento_fijo" label="Se le baja $" hint="Del total, IVA incluido">
               <Input
                 type="number"
                 min={0}
@@ -404,7 +427,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
               />
             </Field>
 
-            <Field
+            <Field campo="descuento_fijo_motivo"
               className="sm:col-span-2"
               label="Por qué"
               hint="Dentro de seis meses es lo único que lo justifica"

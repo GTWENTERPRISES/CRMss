@@ -117,7 +117,7 @@ export function planear({ router, reglasFilter = [], reglasNat = [], addressList
   for (const [lista, cuantas] of apagadasConGente) {
     advertencias.push(
       `La lista "${lista}" tiene ${cuantas} direcciones adentro pero su regla de corte está APAGADA en el router. ` +
-        'Esa gente figura cortada en el sistema anterior y está navegando. Revisá esa regla antes de migrar nada.',
+        'Esa gente figura cortada en el sistema anterior y está navegando. Revisa esa regla antes de migrar nada.',
     )
   }
 
@@ -196,7 +196,7 @@ function opcionesDe({ coincide, principal, delRouter, aCopiar, reglasDelCorte, c
         'La lista vieja queda con sus direcciones adentro, inerte.',
       ],
       riesgo:
-        'Toca el firewall de un router con abonados conectados. Si algo sale mal en el medio, puede quedar gente cortada que pagó o gente navegando que no. Hacelo con el respaldo del router hecho y no en hora pico.',
+        'Toca el firewall de un router con abonados conectados. Si algo sale mal en el medio, puede quedar gente cortada que pagó o gente navegando que no. Hazlo con el respaldo del router hecho y no en hora pico.',
     },
   ]
 }

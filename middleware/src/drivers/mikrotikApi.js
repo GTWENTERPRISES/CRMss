@@ -185,12 +185,26 @@ function conConexion(router, fn) {
     try {
       return await fn(conn)
     } catch (err) {
-      // Ante un fallo la conexión puede haber quedado inservible: se descarta
-      // para que la próxima operación arranque con una sana.
-      await cerrarSesion(clave)
+      /**
+       * Se descarta la sesión solo si el fallo es de la CONEXIÓN.
+       *
+       * Antes se descartaba ante cualquier error. Un "no such item" —el router
+       * contestó bien que esa entrada ya no existe— cerraba la sesión, y la
+       * reconexión que lo reintentaba cada cinco segundos hacía un login nuevo
+       * en cada vuelta: el log del MikroTik se llenaba de "logged in / logged
+       * out" cada cinco segundos.
+       */
+      if (esFalloDeConexion(err) || !conn?.connected) await cerrarSesion(clave)
       throw traducirError(err, router)
     }
   })
+}
+
+/** ¿El error es de la conexión (y la sesión no sirve más) o del comando? */
+export function esFalloDeConexion(err) {
+  const msg = String(err?.message ?? err ?? '')
+  if (err?.errno || err?.code === 'ECONNRESET') return true
+  return /timed?\s*out|ECONN|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|EPIPE|socket|closed|not connected/i.test(msg)
 }
 
 function traducirError(err, router) {
@@ -202,7 +216,7 @@ function traducirError(err, router) {
   if (err?.errno === 'ECONNREFUSED' || /ECONNREFUSED/i.test(msg)) {
     return new AppError(`El router ${router.ip_host}:${puerto} rechazó la conexión`, {
       status: 502,
-      hint: `El servicio de API no está escuchando en ese puerto. Habilitalo con: /ip service enable api (8728) o api-ssl (8729).`,
+      hint: `El servicio de API no está escuchando en ese puerto. Habilítalo con: /ip service enable api (8728) o api-ssl (8729).`,
     })
   }
   // "Timed out after 10 seconds" no contiene "timeout": hay que contemplar las
@@ -214,13 +228,13 @@ function traducirError(err, router) {
         'El paquete se descarta en silencio. En RouterOS hay que habilitar el acceso en DOS lugares y suele faltar uno: ' +
         '(1) /ip service set api address=… tiene que incluir tu IP pública — ojo que "set address" reemplaza la lista entera; ' +
         '(2) /ip firewall filter necesita un accept en la cadena input para ese puerto, con place-before=0. ' +
-        'Si solo hacés uno de los dos, el síntoma es exactamente este timeout.',
+        'Si solo haces uno de los dos, el síntoma es exactamente este timeout.',
     })
   }
   if (/cannot log in|invalid user name or password|not allowed/i.test(msg)) {
     return new AppError('Usuario o contraseña incorrectos para el MikroTik', {
       status: 401,
-      hint: 'Verificá las credenciales y que el usuario tenga el permiso "api" en /user group.',
+      hint: 'Verifica las credenciales y que el usuario tenga el permiso "api" en /user group.',
     })
   }
   if (/no such command|unknown command|syntax error/i.test(msg)) {
@@ -236,7 +250,7 @@ function traducirError(err, router) {
   if (!msg || msg === 'undefined' || msg === '[object Object]') {
     return new AppError(`El puerto ${puerto} de ${router.ip_host} no responde como API de RouterOS`, {
       status: 502,
-      hint: `Suele pasar al apuntar al puerto equivocado: la API va en 8728 (o 8729 con TLS). Si el router solo expone el servicio web, elegí el modo "REST API" al cargarlo.`,
+      hint: `Suele pasar al apuntar al puerto equivocado: la API va en 8728 (o 8729 con TLS). Si el router solo expone el servicio web, elige el modo "REST API" al cargarlo.`,
       detalle: err?.code ?? err?.errno ?? undefined,
     })
   }
@@ -318,9 +332,9 @@ export function filtrarPorLista(entradas, lista) {
   return entradas.filter((e) => e.list === lista)
 }
 
-export const bloquearIp = (router, { address, comment, lista = LISTA_MOROSOS }) =>
+export const bloquearIp = (router, { address, comment, lista = LISTA_MOROSOS, timeout }) =>
   conConexion(router, (conn) =>
-    conn.write('/ip/firewall/address-list/add', params({ list: lista, address, comment })),
+    conn.write('/ip/firewall/address-list/add', params({ list: lista, address, comment, timeout })),
   )
 
 export const desbloquear = (router, id) =>
@@ -676,7 +690,7 @@ export const asegurarPppProfile = (router, { nombre, rateLimit = '', comentario,
       if (previos[0].default === 'true') {
         throw new AppError(`"${nombre}" es un perfil por defecto de RouterOS y no se modifica`, {
           status: 400,
-          hint: 'Usá un nombre propio para el plan, distinto de default y default-encryption.',
+          hint: 'Usa un nombre propio para el plan, distinto de default y default-encryption.',
         })
       }
       await conn.write('/ppp/profile/set', [`=.id=${previos[0]['.id']}`, ...campos])
@@ -909,6 +923,34 @@ export const clonarReglaCorte = (router, { tipo = 'nat', id, lista, marca }) =>
 
     const creada = await conn.write(`${ruta}/add`, params(campos))
     return { tipo, original: id, creada: creada?.[0]?.ret ?? null, comment: campos.comment }
+  })
+
+const RUTA_REGLA = { filter: '/ip/firewall/filter', nat: '/ip/firewall/nat' }
+
+/**
+ * Agregar, corregir y mover reglas sueltas.
+ *
+ * Son las piezas con las que `portalCorte` arma lo que necesita el cortado para
+ * ver su página. La lógica —qué regla, en qué lugar— vive allá, una sola vez;
+ * acá solo se traduce a la API de cada driver.
+ */
+export const agregarRegla = (router, { tipo, campos }) =>
+  conConexion(router, async (conn) => {
+    const creada = await conn.write(`${RUTA_REGLA[tipo]}/add`, params(campos))
+    return { id: creada?.[0]?.ret ?? null }
+  })
+
+export const editarRegla = (router, { tipo, id, campos }) =>
+  conConexion(router, async (conn) => {
+    await conn.write(`${RUTA_REGLA[tipo]}/set`, params({ '.id': id, ...campos }))
+    return { id }
+  })
+
+/** La deja justo antes de `antesDe`. En el firewall el orden es la lógica. */
+export const moverRegla = (router, { tipo, id, antesDe }) =>
+  conConexion(router, async (conn) => {
+    await conn.write(`${RUTA_REGLA[tipo]}/move`, params({ numbers: id, destination: antesDe }))
+    return { id }
   })
 
 /** Apaga o enciende una regla, sin borrarla: es lo que permite volver atrás. */

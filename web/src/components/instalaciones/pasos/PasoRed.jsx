@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Dices, Network, Wand2 } from 'lucide-react'
-import { supabase } from '../../../lib/supabaseClient'
+import { django } from '../../../lib/djangoClient'
 import { api } from '../../../lib/apiNetwork'
 import { claveSugerida, usuarioSugerido } from '../../../lib/instalaciones'
 import { Aviso, Button, Field, Input, Select } from '../../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Paso 3 — con qué parámetros queda conectado.
@@ -57,7 +58,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
   const esPppoe = form.tipo_conexion === 'pppoe'
 
   useEffect(() => {
-    supabase
+    django
       .from('routers_mikrotik')
       .select('id, nombre, ip_host')
       .order('nombre')
@@ -108,7 +109,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
   }, [orden.id])
 
   async function pedirIp() {
-    if (!form.router_id) return onError?.(new Error('Elegí primero el router del nodo'))
+    if (!form.router_id) return onError?.(new Error('Elige primero el router del nodo'))
 
     setBuscandoIp(true)
     onError?.(null)
@@ -135,7 +136,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
       return onError?.(new Error('Faltan el usuario y la clave PPPoE'))
     }
     if (!esPppoe && form.tipo_ip === 'fija' && !form.ip.trim()) {
-      return onError?.(new Error('Falta la IP: usá el botón para tomar la siguiente libre'))
+      return onError?.(new Error('Falta la IP: usa el botón para tomar la siguiente libre'))
     }
 
     setAplicando(true)
@@ -164,7 +165,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Router del nodo" hint="De dónde sale el servicio de este sector">
+        <Field campo="router_id" label="Router del nodo" hint="De dónde sale el servicio de este sector">
           <Select value={form.router_id} onChange={set('router_id')}>
             <option value="">Elegir…</option>
             {routers.map((r) => (
@@ -175,7 +176,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
           </Select>
         </Field>
 
-        <Field
+        <Field campo="tipo_conexion"
           label="Tipo de conexión"
           hint={
             /**
@@ -187,8 +188,8 @@ export default function PasoRed({ orden, onError, onGuardado }) {
              * cambia lo que no debe o deja lo que estaba mal.
              */
             orden.tipo_conexion
-              ? 'Viene de la ficha del abonado. Cambialo solo si en la casa es otra cosa.'
-              : 'La ficha no lo tenía cargado: confirmalo antes de aplicar.'
+              ? 'Viene de la ficha del abonado. Cámbialo solo si en la casa es otra cosa.'
+              : 'La ficha no lo tenía cargado: confírmalo antes de aplicar.'
           }
         >
           <Select value={form.tipo_conexion} onChange={set('tipo_conexion')}>
@@ -202,7 +203,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
       {esPppoe ? (
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Usuario PPPoE">
+            <Field campo="usuario_ppp" label="Usuario PPPoE">
               <Input
                 value={form.usuario_ppp}
                 onChange={set('usuario_ppp')}
@@ -211,8 +212,8 @@ export default function PasoRed({ orden, onError, onGuardado }) {
                 placeholder="jefferson.ona"
               />
             </Field>
-            <Field label="Clave PPPoE" hint="Sin caracteres que se confundan al dictarla">
-              <Input value={form.clave_ppp} onChange={set('clave_ppp')} spellCheck={false} />
+            <Field campo="clave_ppp" label="Clave PPPoE" hint="Sin caracteres que se confundan al dictarla">
+              <Input placeholder="Ej.: clave123" value={form.clave_ppp} onChange={set('clave_ppp')} spellCheck={false} />
             </Field>
           </div>
 
@@ -229,7 +230,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
             Poner el mismo texto en las dos ramas sería más prolijo y sería
             falso en una de ellas.
           */}
-          <Field
+          <Field campo="tipo_ip"
             label="Direccionamiento"
             hint="Fija: la dirección se graba en su usuario PPPoE. Dinámica: la reparte el pool del router."
           >
@@ -240,7 +241,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
           </Field>
         </div>
       ) : (
-        <Field
+        <Field campo="tipo_ip"
           label="Direccionamiento"
           hint={
             form.tipo_ip === 'fija'
@@ -289,7 +290,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
               {sugerido.origen?.plan_de_la_onu && (
                 <p className="mt-1 text-[11px] leading-snug text-amber-300/80">
                   Ojo: esta orden no tiene plan cargado. El plan se tomó de la ONU
-                  ({String(sugerido.origen.plan_de_la_onu)}). Cargáselo a la orden para poder
+                  ({String(sugerido.origen.plan_de_la_onu)}). Cárgaselo a la orden para poder
                   facturarla.
                 </p>
               )}
@@ -351,7 +352,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
               queda libre: elegir un sector lleno es descubrirlo recién al pedir
               la dirección.
             */}
-            <Field
+            <Field campo="pool"
               label="Sector o segmento"
               hint={
                 segmentos.length
@@ -397,7 +398,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
               )}
             </Field>
 
-            <Field label="IPv4 asignada">
+            <Field campo="ip" label="IPv4 asignada">
               <Input value={form.ip} onChange={set('ip')} inputMode="decimal" placeholder="10.20.30.45" />
             </Field>
           </div>
@@ -406,8 +407,8 @@ export default function PasoRed({ orden, onError, onGuardado }) {
             Tomar la siguiente IP libre
           </Button>
 
-          <Field label="IPv6" hint="Solo si el nodo entrega IPv6">
-            <Input value={form.ipv6} onChange={set('ipv6')} spellCheck={false} />
+          <Field campo="ipv6" label="IPv6" hint="Solo si el nodo entrega IPv6">
+            <Input placeholder="Ej.: 2800:bf0::10" value={form.ipv6} onChange={set('ipv6')} spellCheck={false} />
           </Field>
         </div>
       )}
@@ -415,7 +416,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
       {!esPppoe && form.tipo_ip === 'fija' && !orden.equipo_mac && (
         <Aviso tipo="alerta">
           Sin la MAC del equipo la reserva no se puede fijar en el router: la dirección queda
-          anotada en la instalación pero el equipo va a tomar otra. Volvé al paso 1 y cargala.
+          anotada en la instalación pero el equipo va a tomar otra. Vuelve al paso 1 y cárgala.
         </Aviso>
       )}
 
@@ -441,7 +442,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
 
       {orden.aprovisionado_at && (
         <p className="text-xs text-slate-500">
-          Aprovisionado el {new Date(orden.aprovisionado_at).toLocaleString()}
+          Aprovisionado el {fmtFechaHora(orden.aprovisionado_at)}
         </p>
       )}
     </div>

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { AlertTriangle, FileSignature } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Aviso, Button, Field, Input, Modal, Select } from '../ui'
+import { dineroCero } from '@/lib/formato'
 
 /**
  * Lo que falta para que el contrato de adhesión salga completo.
@@ -252,7 +253,7 @@ export default function DatosContrato({
        * base la resuelve sola a partir de `condicion_especial`, y mandar las dos
        * abriría la puerta a que se contradigan.
        */
-      const { error } = await supabase
+      const { error } = await django
         .from(tabla)
         .update({
           provincia: form.provincia.trim() || null,
@@ -302,7 +303,7 @@ export default function DatosContrato({
         if (form.minima_subida_kbps !== '') cambios.minima_subida_kbps = Number(form.minima_subida_kbps)
 
         if (Object.keys(cambios).length) {
-          const { error: errPlan } = await supabase
+          const { error: errPlan } = await django
             .from('planes_velocidad')
             .update(cambios)
             .eq('id', plan.id)
@@ -335,16 +336,16 @@ export default function DatosContrato({
             Domicilio del abonado
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Provincia">
+            <Field campo="provincia" label="Provincia">
               <Input value={form.provincia} onChange={set('provincia')} placeholder="Cotopaxi" />
             </Field>
-            <Field label="Cantón">
+            <Field campo="canton" label="Cantón">
               <Input value={form.canton} onChange={set('canton')} placeholder="La Maná" />
             </Field>
-            <Field label="Ciudad">
+            <Field campo="ciudad" label="Ciudad">
               <Input value={form.ciudad} onChange={set('ciudad')} placeholder="La Maná" />
             </Field>
-            <Field label="Parroquia">
+            <Field campo="parroquia" label="Parroquia">
               <Input value={form.parroquia} onChange={set('parroquia')} placeholder="El Carmen" />
             </Field>
           </div>
@@ -361,11 +362,11 @@ export default function DatosContrato({
               campos. Solo cuando es "ninguna" se puede responder a mano, porque
               el formulario admite un SÍ sin explicar por qué.
             */}
-            <Field
+            <Field campo="condicion_especial"
               label="Condición del abonado"
               hint={
                 form.condicion_especial === 'ninguna'
-                  ? 'Si elegís una, el contrato marca la tarifa preferencial'
+                  ? 'Si eliges una, el contrato marca la tarifa preferencial'
                   : 'El contrato va a marcar SÍ en tarifa preferencial'
               }
             >
@@ -399,7 +400,7 @@ export default function DatosContrato({
               valor={form.acepta_datos_personales}
               onChange={setValor('acepta_datos_personales')}
             />
-            <Field label="Equipo" hint="Anexo 3">
+            <Field campo="equipo_modalidad" label="Equipo" hint="Anexo 3">
               <Select value={form.equipo_modalidad} onChange={set('equipo_modalidad')}>
                 <option value="arrendamiento">Arrendamiento</option>
                 <option value="compra">Compra</option>
@@ -476,7 +477,7 @@ export default function DatosContrato({
             dice 0.00 el contrato nombra una penalidad de cero. Un valor que no
             está escrito no se le puede cobrar a nadie.
 
-            Antes acá había otro aviso —"le cobrás la instalación Y lo atás dos
+            Antes acá había otro aviso —"le cobras la instalación Y lo atás dos
             años"—, que tenía sentido cuando este campo significaba "lo que se le
             cobró". Ahora significa la tarifa, así que una tarifa con permanencia
             es el trato normal y avisarlo sería un reproche equivocado.
@@ -486,9 +487,9 @@ export default function DatosContrato({
             <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <span>
-                Lo atás {form.permanencia_meses} meses, pero la tarifa de instalación queda en
+                Lo atas {form.permanencia_meses} meses, pero la tarifa de instalación queda en
                 <b> 0.00</b>. La cláusula de permanencia remite a ese renglón, así que el contrato
-                va a decir que quien se va antes paga cero. Poné acá la tarifa real; que sea gratis
+                va a decir que quien se va antes paga cero. Pon acá la tarifa real; que sea gratis
                 mientras cumpla ya lo dice el renglón de beneficios.
               </span>
             </div>
@@ -500,7 +501,7 @@ export default function DatosContrato({
             Condiciones del servicio · anexo 1f
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Red de acceso">
+            <Field campo="red_acceso" hint="Fibra, radio o cable." label="Red de acceso">
               <Select value={form.red_acceso} onChange={set('red_acceso')}>
                 {REDES.map(([valor, texto]) => (
                   <option key={valor} value={valor}>
@@ -509,7 +510,7 @@ export default function DatosContrato({
                 ))}
               </Select>
             </Field>
-            <Field label="Tipo de cuenta">
+            <Field campo="tipo_cuenta" hint="Hogar o empresa." label="Tipo de cuenta">
               <Select value={form.tipo_cuenta} onChange={set('tipo_cuenta')}>
                 {CUENTAS.map(([valor, texto]) => (
                   <option key={valor} value={valor}>
@@ -525,7 +526,7 @@ export default function DatosContrato({
           <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
             Plan contratado · anexo 1f
           </p>
-          <Field
+          <Field campo="plan_id"
             label="Plan"
             hint={
               planes.length
@@ -555,7 +556,7 @@ export default function DatosContrato({
               {(planes.length ? planes : [planInicial].filter(Boolean)).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nombre}
-                  {p.precio != null ? ` · $${Number(p.precio).toFixed(2)}` : ''}
+                  {p.precio != null ? ` · ${dineroCero(p.precio)}` : ''}
                 </option>
               ))}
             </Select>
@@ -592,7 +593,7 @@ export default function DatosContrato({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Nivel de compartición">
+              <Field campo="comparticion" label="Nivel de compartición">
                 {otroNivel ? (
                   <Input
                     value={form.comparticion}
@@ -623,7 +624,7 @@ export default function DatosContrato({
                 )}
               </Field>
 
-              <Field label="Mínima efectiva de bajada" hint="En kbps, como pide el anexo">
+              <Field campo="minima_bajada_kbps" label="Mínima efectiva de bajada" hint="En kbps, como pide el anexo">
                 <Input
                   type="number"
                   min={0}
@@ -632,7 +633,7 @@ export default function DatosContrato({
                   placeholder={plan.bajada_kbps ? String(plan.bajada_kbps) : '120000'}
                 />
               </Field>
-              <Field label="Mínima efectiva de subida" hint="En kbps">
+              <Field campo="minima_subida_kbps" label="Mínima efectiva de subida" hint="En kbps">
                 <Input
                   type="number"
                   min={0}

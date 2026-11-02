@@ -6,7 +6,7 @@
  * negocio, no decisiones de diseño: un trabajo no se puede cerrar sin que
  * alguien haya medido la señal, y eso tiene que valer igual en las tres.
  */
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 
 /**
  * Los estados de una orden de instalación.
@@ -209,7 +209,7 @@ export async function cargarParametros() {
   // valores de fábrica alcanzan hasta que vuelva la señal.
   if (typeof navigator !== 'undefined' && !navigator.onLine) return { OPTICA, RADIO, PRUEBAS }
   try {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('parametros_tecnicos')
       .select('*')
       .eq('id', 1)

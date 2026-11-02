@@ -159,21 +159,21 @@ class SRIIntegration:
         self._agregar_elemento(doc, info_fact, 'dirEstablecimiento', self.direccion_matriz)
         
         # Verificar si cliente tiene obligado a llevar contabilidad
-        obligado_contabilidad = getattr(factura.cliente, 'obligado_contabilidad', 'NO')
+        obligado_contabilidad = getattr(factura.client, 'obligado_contabilidad', 'NO')
         self._agregar_elemento(doc, info_fact, 'obligadoContabilidad', obligado_contabilidad)
         
         # Datos del cliente
-        identificacion = factura.cliente.cedula
+        identificacion = factura.client.identificacion
         self._agregar_elemento(doc, info_fact, 'tipoIdentificacionComprador',
                               self._tipo_identificacion(identificacion))
         self._agregar_elemento(doc, info_fact, 'razonSocialComprador',
-                              factura.cliente.nombre)
+                              factura.client.nombre)
         self._agregar_elemento(doc, info_fact, 'identificacionComprador',
                               identificacion)
         
-        if hasattr(factura.cliente, 'direccion'):
+        if hasattr(factura.client, 'direccion'):
             self._agregar_elemento(doc, info_fact, 'direccionComprador', 
-                                  factura.cliente.direccion)
+                                  factura.client.direccion)
         
         # Totales
         self._agregar_elemento(doc, info_fact, 'totalSinImpuestos', 
@@ -187,7 +187,7 @@ class SRIIntegration:
         self._agregar_elemento(doc, total_imp_item, 'codigoPorcentaje', '2')  # 2 = 12%
         self._agregar_elemento(doc, total_imp_item, 'baseImponible', 
                               f'{factura.subtotal:.2f}')
-        self._agregar_elemento(doc, total_imp_item, 'valor', f'{factura.iva:.2f}')
+        self._agregar_elemento(doc, total_imp_item, 'valor', f'{factura.impuesto:.2f}')
         total_impuestos.appendChild(total_imp_item)
         info_fact.appendChild(total_impuestos)
         
@@ -241,10 +241,10 @@ class SRIIntegration:
         # Información adicional
         info_adicional = doc.createElement('infoAdicional')
         self._agregar_campo_adicional(doc, info_adicional, 'email', 
-                                     factura.cliente.email)
-        if hasattr(factura.cliente, 'telefono'):
+                                     factura.client.email)
+        if hasattr(factura.client, 'telefono'):
             self._agregar_campo_adicional(doc, info_adicional, 'telefono', 
-                                         factura.cliente.telefono)
+                                         factura.client.telefono)
         root.appendChild(info_adicional)
         
         # Formatear XML

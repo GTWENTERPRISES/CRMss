@@ -47,6 +47,30 @@ def superuser(db):
     )
 
 
+@pytest.fixture
+def servicio_client(superuser):
+    """
+    El usuario de servicio del middleware: superusuario sin legajo. Por eso no
+    pasa por la seguridad por fila.
+    """
+    cliente = APIClient()
+    cliente.force_authenticate(user=superuser)
+    return cliente
+
+
+@pytest.fixture
+def servicio_jwt(superuser):
+    """
+    El usuario de servicio con un token de verdad. Las APIs REST de cada módulo
+    (/api/v1/clientes/, /olts/...) las revisa un middleware de Django antes
+    que DRF, y ese no ve `force_authenticate`.
+    """
+    from rest_framework_simplejwt.tokens import RefreshToken
+    cliente = APIClient()
+    cliente.credentials(HTTP_AUTHORIZATION=f'Bearer {RefreshToken.for_user(superuser).access_token}')
+    return cliente
+
+
 @pytest.fixture(autouse=True)
 def enable_db_access_for_all_tests(db):
     """Habilita acceso a DB para todos los tests automáticamente"""

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Info, TriangleAlert } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { Card, ErrorBanner, Select, SkeletonTabla } from '../components/ui'
 
 /**
@@ -40,7 +40,7 @@ export default function DesempenoEquipoPage() {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('v_desempeno_tecnico')
       .select('*')
       .order('mes', { ascending: false })
@@ -108,7 +108,7 @@ export default function DesempenoEquipoPage() {
           <TriangleAlert size={17} className="mt-0.5 shrink-0 text-amber-400" />
           <p className="text-[13px] text-amber-200">
             <b>Estas filas no se comparan directamente.</b> Hay técnicos que manejan mucho más por
-            trabajo que otros: están cubriendo rutas distintas. Mirá la columna{' '}
+            trabajo que otros: están cubriendo rutas distintas. Mira la columna{' '}
             <b>km/trabajo</b> antes de sacar conclusiones sobre la productividad.
           </p>
         </div>

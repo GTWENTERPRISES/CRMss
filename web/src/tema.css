@@ -75,7 +75,7 @@
   --color-slate-900: #ffffff; /* superficie de tarjeta */
   --color-slate-800: #e8edf3; /* superficie secundaria / borde suave */
   --color-slate-700: #d3dbe5; /* borde de input y de botón */
-  --color-slate-600: #94a3b8; /* texto muy tenue (pistas, ayudas) */
+  --color-slate-600: #66768c; /* texto tenue de pistas y ayudas: 4,5:1 sobre blanco (antes #94a3b8, 2,6:1, no se leía) */
   --color-slate-500: #64748b; /* texto tenue — 4,8:1 sobre blanco */
   --color-slate-400: #5a6a7f; /* texto secundario — 5,9:1 */
   --color-slate-300: #475569; /* texto secundario fuerte */
@@ -155,21 +155,22 @@
   --marca-claro: #38bdf8;
   --marca-degradado: linear-gradient(90deg, #0369a1, #38bdf8);
 
-  --tema-fondo: #e4e9f0;
-  --tema-superficie: #ffffff;
+  /* Desde la adopción de shadcn/ui, la superficie, el borde, el radio y la
+     sombra salen de sus tokens (index.css): las tarjetas .t-card del sistema
+     y las de src/components/shadcn se ven iguales. Estilo shadcn: borde fino
+     y sombra apenas marcada, en vez de la sombra de dos capas de antes. */
+  --tema-fondo: var(--background);
+  --tema-superficie: var(--card);
   --tema-superficie-2: #f8fafc;
-  --tema-borde: rgba(15, 23, 42, 0.06);
+  --tema-borde: var(--border);
 
-  --tema-radio: 18px;
-  --tema-radio-chico: 11px;
+  --tema-radio: calc(var(--radius) + 4px);
+  --tema-radio-chico: calc(var(--radius) - 2px);
 
-  /* La sombra de tarjeta es de dos capas a propósito: una corta y dura que
-     apoya la tarjeta sobre el fondo, y una larga y difusa que le da la
-     altura. Con una sola, o queda pegada o queda flotando. */
-  --tema-sombra: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 28px -12px rgba(15, 23, 42, 0.22);
-  --tema-sombra-hover: 0 8px 16px rgba(15, 23, 42, 0.08), 0 24px 44px -16px rgba(3, 105, 161, 0.35);
-  --tema-sombra-suave: 0 1px 3px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.06);
-  --tema-sombra-lift: 0 6px 14px rgba(15, 23, 42, 0.1), 0 14px 28px -14px rgba(3, 105, 161, 0.35);
+  --tema-sombra: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --tema-sombra-hover: 0 4px 12px -2px rgba(15, 23, 42, 0.1), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+  --tema-sombra-suave: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --tema-sombra-lift: 0 4px 10px -2px rgba(15, 23, 42, 0.08);
 }
 
 /* ===========================================================================
@@ -250,14 +251,16 @@
 
 /* Números tabulares: sin eso el ancho "baila" mientras el contador anima o
    cuando llega un dato nuevo, y la fila entera se mueve. */
+/* El número grande, como CardTitle de las section cards de shadcn:
+   seminegrita, cifras tabulares (el ancho no salta al actualizarse). */
 .t-kpi-valor {
-  font-family: var(--font-titulo);
-  font-weight: 800;
+  font-family: var(--font-sans);
+  font-weight: 600;
   font-size: 26px;
-  line-height: 1;
+  line-height: 1.1;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  color: #0f172a;
+  color: var(--card-foreground);
 }
 
 /* ── Encabezado de sección ────────────────────────────────────────────── */
@@ -311,10 +314,11 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 4px);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25rem;
   white-space: nowrap;
 }
 
@@ -377,14 +381,17 @@
   font-size: 0.8125rem;
 }
 
+/* Encabezados como la Table de shadcn/ui: letra del texto, sin mayúsculas,
+   peso medio y color atenuado. */
 .t-tabla thead th {
-  padding: 0.5rem 0.75rem;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #94a3b8;
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted-foreground);
   border-bottom: 1px solid var(--tema-borde);
   white-space: nowrap;
 }
@@ -397,13 +404,19 @@
   border-bottom: none;
 }
 
+.t-tabla tbody tr {
+  transition: background-color 0.15s;
+}
+
 .t-tabla tbody tr:hover {
-  background: var(--tema-superficie-2);
+  background: color-mix(in srgb, var(--muted) 60%, transparent);
 }
 
 .t-tabla tbody td {
   padding: 0.625rem 0.75rem;
   color: #334155;
+  /* Cifras del mismo ancho: las columnas de dinero quedan alineadas. */
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Tipografía de apoyo ──────────────────────────────────────────────── */

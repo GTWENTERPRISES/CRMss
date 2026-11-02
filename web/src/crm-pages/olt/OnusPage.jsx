@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from '@/lib/nextNavigation'
 import { Download, Eye, RefreshCw, Search, X } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { dbm, nivel } from '../../lib/optica'
 import { Badge, Button, Card, ErrorBanner, Input, Select, SkeletonTabla, Table } from '../../components/ui'
 
@@ -70,7 +70,7 @@ export default function OnusPage() {
   })
 
   useEffect(() => {
-    supabase
+    django
       .from('olts')
       .select('id, nombre, numero')
       .order('numero')
@@ -78,7 +78,7 @@ export default function OnusPage() {
 
     // Los valores de los filtros salen de una vista que los cuenta en la base.
     // Deducirlos de las filas cargadas mostraría solo los de la página actual.
-    supabase
+    django
       .from('v_onus_filtros')
       .select('*')
       .then(({ data }) => {
@@ -97,7 +97,7 @@ export default function OnusPage() {
 
   const cargar = useCallback(async () => {
     setFilas(null)
-    let q = supabase.from('v_onus_clientes').select('*', { count: 'exact' })
+    let q = django.from('v_onus_clientes').select('*', { count: 'exact' })
 
     if (f.olt_id) q = q.eq('olt_id', f.olt_id)
     if (f.slot !== '') q = q.eq('slot', Number(f.slot))
@@ -138,7 +138,7 @@ export default function OnusPage() {
         err.code === '42703' || err.code === '42P01'
           ? {
               message: 'Falta la migración 44',
-              hint: 'Corré supabase/migracion-44-ficha-de-onu.sql en el SQL Editor.',
+              hint: 'Actualiza la base: python manage.py migrate.',
             }
           : err,
       )
@@ -194,9 +194,7 @@ export default function OnusPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button icon={RefreshCw} onClick={cargar}>
-            Actualizar
-          </Button>
+          <Button icon={RefreshCw} onClick={cargar} title="Actualizar" />
           <Button icon={Download} onClick={exportar} disabled={!filas?.length}>
             Exportar esta página
           </Button>
@@ -359,12 +357,12 @@ export default function OnusPage() {
                     <Badge color={e.color}>{e.label}</Badge>
                   </td>
                   <td className="px-3 py-2">
-                    <Link
+                    <Link aria-label="Ver" title="Ver"
                       to={`/onus/${o.onu_id}`}
                       className="inline-flex items-center gap-1 rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/20"
                     >
-                      <Eye size={12} /> Ver
-                    </Link>
+                      <Eye size={12} />
+</Link>
                   </td>
                   <td className="px-3 py-2 text-sm">
                     {o.client_id ? (

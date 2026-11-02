@@ -19,7 +19,7 @@ import { Card } from '../components/ui'
  *
  * ── Por qué se pide la contraseña actual ──
  *
- * Supabase no la exige para cambiarla: con la sesión abierta alcanza. Se pide
+ * Django no la exige para cambiarla: con la sesión abierta alcanza. Se pide
  * igual, y se comprueba entrando con ella.
  *
  * El motivo es concreto: una sesión abierta en una computadora compartida —la
@@ -46,7 +46,7 @@ export default function MiPerfilPage() {
 
         <p className="mt-4 text-xs leading-snug text-slate-500">
           El nombre, el correo y el rol los administra quien gestiona el personal. Si algo está
-          mal, pedíselo — desde acá solo se cambia la contraseña.
+          mal, pídeselo — desde acá solo se cambia la contraseña.
         </p>
       </Card>
 

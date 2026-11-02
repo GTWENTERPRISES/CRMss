@@ -162,7 +162,7 @@ function esDefinitivo(err) {
  * ── El caso que esto evita ──
  *
  * El técnico trabaja toda la mañana sin señal. Cuando vuelve la cobertura, el
- * token de Supabase ya venció y hay que renovarlo. Durante esos segundos —o
+ * el token de Django ya venció y hay que renovarlo. Durante esos segundos —o
  * hasta que vuelva a entrar, si el refresh también venció— las escrituras
  * fallan con un error de autenticación.
  *

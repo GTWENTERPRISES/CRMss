@@ -10,7 +10,7 @@ import { db } from '../lib/db.js'
 /**
  * Envío de mensajes al abonado.
  *
- * La lectura del historial va directo a Supabase desde el navegador. Acá vive
+ * La lectura del historial va directo a Django (/api/v1/tables) desde el navegador. Acá vive
  * el envío, que necesita credenciales de SMTP y tokens de proveedores — cosas
  * que no pueden estar en el navegador de nadie.
  */
@@ -51,7 +51,7 @@ router.post(
   '/probar',
   asyncHandler(async (req, res) => {
     const { canal, destino } = req.body ?? {}
-    if (!canal || !destino) throw badRequest('Elegí el canal y a dónde mandar la prueba.')
+    if (!canal || !destino) throw badRequest('Elige el canal y a dónde mandar la prueba.')
 
     const r = await enviarCrudo({
       canal,

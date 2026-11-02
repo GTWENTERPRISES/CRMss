@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import { AlertTriangle, BarChart3, TrendingUp, Users, Wallet } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { Aviso, Card, Cargando, ErrorBanner, Select, Stat } from '../components/ui'
 
 /**
@@ -87,9 +87,9 @@ export default function EstadisticasPage() {
     let vigente = true
 
     Promise.all([
-      supabase.from('v_pagos').select('fecha_pago, monto, forma_pago, cuenta, anulado'),
-      supabase.from('v_facturas').select('fecha_emision, total, saldo, estado, anulada'),
-      supabase.from('v_saldo_clientes').select('client_id, nombre, saldo, estado'),
+      django.from('v_pagos').select('fecha_pago, monto, forma_pago, cuenta, anulado'),
+      django.from('v_facturas').select('fecha_emision, total, saldo, estado, anulada'),
+      django.from('v_saldo_clientes').select('client_id, nombre, saldo, estado'),
     ])
       .then(([p, f, s]) => {
         if (!vigente) return
@@ -179,16 +179,16 @@ export default function EstadisticasPage() {
 
       {sinDatos ? (
         <Aviso>
-          Todavía no hay cobros ni facturas para graficar. Volvé cuando hayas registrado el primer
+          Todavía no hay cobros ni facturas para graficar. Vuelve cuando hayas registrado el primer
           mes.
         </Aviso>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-4">
-            <Stat label="Cobrado este mes" valor={dinero(cobradoMes)} icon={Wallet} color="text-emerald-400" />
-            <Stat label="Facturado este mes" valor={dinero(facturadoMes)} icon={TrendingUp} />
-            <Stat label="En la calle" valor={dinero(deuda)} color="text-red-400" icon={AlertTriangle} />
-            <Stat label="Abonados con deuda" valor={morosos} icon={Users} />
+          <div className="t-kpis">
+            <Stat cargando={cargando} label="Cobrado este mes" valor={dinero(cobradoMes)} icon={Wallet} color="text-emerald-400" />
+            <Stat cargando={cargando} label="Facturado este mes" valor={dinero(facturadoMes)} icon={TrendingUp} />
+            <Stat cargando={cargando} label="En la calle" valor={dinero(deuda)} color="text-red-400" icon={AlertTriangle} />
+            <Stat cargando={cargando} label="Abonados con deuda" valor={morosos} icon={Users} />
           </div>
 
           <Card title="Facturado y cobrado por mes" icon={BarChart3}>

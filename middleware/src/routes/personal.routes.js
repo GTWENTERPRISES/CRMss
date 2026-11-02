@@ -19,10 +19,10 @@ import {
  *
  * ── Por qué esto no lo hace el navegador ──
  *
- * Leer el personal sí lo hace: la pantalla consulta Supabase directo y RLS deja
+ * Leer el personal sí lo hace: la pantalla consulta Django directo y RLS deja
  * leer. Escribir no, por tres razones que no se arreglan con RLS:
  *
- * 1. Crear la credencial exige la service_role key, que nunca sale del backend.
+ * 1. Crear la credencial exige la cuenta de servicio de Django, que nunca sale del backend.
  * 2. La regla de que un Administrador no puede crear otro Administrador es una
  *    decisión sobre quién pide, no sobre qué fila se toca. En el navegador se
  *    saltea con la consola abierta; acá no.
@@ -53,12 +53,12 @@ async function exigirActor(req, permiso) {
   if (!actor) {
     throw new AppError('Tu usuario no tiene un legajo de personal asociado', {
       status: 403,
-      hint: 'Pedile a un Super Administrador que te cree el usuario en Ajustes → Gestión de personal.',
+      hint: 'Pídele a un Super Administrador que te cree el usuario en Ajustes → Gestión de personal.',
     })
   }
   if (!actor.activo) throw new AppError('Tu usuario está desactivado', { status: 403 })
   if (permiso && !tienePermiso(actor, permiso)) {
-    throw new AppError('No tenés permiso para esta acción', {
+    throw new AppError('No tienes permiso para esta acción', {
       status: 403,
       hint: `Hace falta el permiso "${permiso}".`,
     })
@@ -338,7 +338,7 @@ router.patch(
 
     if (req.body.permisos !== undefined && !esUnoMismo) {
       if (!tienePermiso(actor, 'usuarios.permisos')) {
-        throw new AppError('No tenés permiso para cambiar permisos', { status: 403 })
+        throw new AppError('No tienes permiso para cambiar permisos', { status: 403 })
       }
       cambios.permisos = sanearPermisos(req.body.permisos, rol, actor)
     }
@@ -352,9 +352,9 @@ router.patch(
     // de dejar un sistema sin nadie que administre y con la puerta cerrada por
     // dentro.
     if (esUnoMismo) {
-      if (cambios.activo === false) throw badRequest('No podés desactivar tu propio usuario')
+      if (cambios.activo === false) throw badRequest('No puedes desactivar tu propio usuario')
       if (req.body.rol && req.body.rol !== previo.rol) {
-        throw badRequest('No podés cambiarte el rol a vos mismo')
+        throw badRequest('No puedes cambiarte el rol a ti mismo')
       }
       delete cambios.permisos
       delete cambios.todas_las_zonas
@@ -463,7 +463,7 @@ router.delete(
       .eq('id', req.params.id)
       .maybeSingle()
     if (!destino) throw new AppError('No existe ese usuario', { status: 404 })
-    if (destino.id === actor.id) throw badRequest('No podés eliminar tu propio usuario')
+    if (destino.id === actor.id) throw badRequest('No puedes eliminar tu propio usuario')
 
     // El Super Administrador no se elimina desde el sistema, y como tampoco se
     // puede crear uno nuevo, no hace falta contar cuántos quedan: siempre está

@@ -138,7 +138,7 @@ async function entrarInterfaz(sesion, { frame = 0, slot }) {
   if (fallo) {
     throw new AppError(`La OLT rechazó "interface gpon ${frame}/${slot}": ${fallo}`, {
       status: 400,
-      hint: 'Verificá que el frame/slot exista y que sea una placa GPON.',
+      hint: 'Verifica que el frame/slot exista y que sea una placa GPON.',
     })
   }
 }
@@ -521,7 +521,7 @@ export async function cambiarVlansDeUplink(
     if (!conUso.length) {
       throw new AppError('No se pudo leer qué VLANs tiene el equipo', {
         status: 502,
-        hint: 'Sin esa lista no se puede saber cuántos abonados quedarían sin servicio. Reintentá.',
+        hint: 'Sin esa lista no se puede saber cuántos abonados quedarían sin servicio. Reintenta.',
       })
     }
 
@@ -539,7 +539,7 @@ export async function cambiarVlansDeUplink(
           `La VLAN ${inexistentes.join(', ')} no existe en el equipo`,
           {
             status: 409,
-            hint: 'Hay que crearla antes de poder ponerla en un troncal. Repetí con crear = true y se crea como smart.',
+            hint: 'Hay que crearla antes de poder ponerla en un troncal. Repite con crear = true y se crea como smart.',
           },
         )
       }
@@ -562,7 +562,7 @@ export async function cambiarVlansDeUplink(
           `La VLAN ${choca.join(', ')} es la nativa de alguno de esos puertos y no se puede quitar`,
           {
             status: 409,
-            hint: 'Sin VLAN nativa el puerto deja de cursar el tráfico sin etiquetar. Cambiala primero si de verdad hace falta.',
+            hint: 'Sin VLAN nativa el puerto deja de cursar el tráfico sin etiquetar. Cámbiala primero si de verdad hace falta.',
           },
         )
       }
@@ -573,7 +573,7 @@ export async function cambiarVlansDeUplink(
           status: 409,
           hint:
             'Quitarlas del troncal los deja sin salida en el mismo segundo, y desde el lado GPON no se ve nada raro: ' +
-            'las ONTs siguen online. Si es a propósito, repetí con forzar = true.',
+            'las ONTs siguen online. Si es a propósito, repite con forzar = true.',
           detalle,
         })
       }
@@ -884,7 +884,7 @@ export async function crearServicePort(
 
     const comando = partes.join(' ')
     await escribirOFallar(sesion, comando, 'La OLT rechazó el service-port', {
-      hint: 'La ONT quedó registrada. Sin service-port no pasa tráfico: revisá la VLAN y el gemport.',
+      hint: 'La ONT quedó registrada. Sin service-port no pasa tráfico: revisa la VLAN y el gemport.',
     })
 
     return { indice, comando, sinVelocidad: ttEntrada == null || ttSalida == null }
@@ -987,7 +987,7 @@ export async function moverOnt(olt, { frame = 0, slot, puerto, ontId, nuevoSlot,
       status: 502,
       hint:
         `Falta ${!foto.sn ? 'la serie' : foto.lineProfileId == null ? 'el perfil de línea' : 'el perfil de servicio'}. ` +
-        'No se tocó nada: sin eso la ONT volvería distinta de como estaba. Probá de nuevo.',
+        'No se tocó nada: sin eso la ONT volvería distinta de como estaba. Prueba de nuevo.',
       foto,
     })
   }
@@ -1058,7 +1058,7 @@ export async function moverOnt(olt, { frame = 0, slot, puerto, ontId, nuevoSlot,
     if (nuevoOntId == null) {
       throw new AppError('La ONT se creó pero no aparece en el puerto nuevo', {
         status: 502,
-        hint: 'Revisá a mano antes de seguir. La foto está en la respuesta.',
+        hint: 'Revisa a mano antes de seguir. La foto está en la respuesta.',
         foto,
       })
     }
@@ -1450,7 +1450,7 @@ export async function configurarIpGestionOnt(
       (vlan != null ? ` vlan ${vlan}` + (prioridad != null ? ` priority ${prioridad}` : '') : '')
 
     await escribirOFallar(sesion, comando, 'La OLT rechazó la IP de gestión', {
-      hint: 'Revisá que la VLAN de gestión exista en el equipo y que la ONT esté online.',
+      hint: 'Revisa que la VLAN de gestión exista en el equipo y que la ONT esté online.',
     })
 
     // Se relee. Que el comando no diera error no significa que el equipo lo
@@ -1462,7 +1462,7 @@ export async function configurarIpGestionOnt(
       throw new AppError('El equipo aceptó el comando pero la ONT quedó sin IP de gestión', {
         status: 502,
         comando,
-        hint: 'Puede que el modelo no soporte configuración estática. Probá con DHCP.',
+        hint: 'Puede que el modelo no soporte configuración estática. Prueba con DHCP.',
       })
     }
     if (leido.ip !== ip) {
@@ -1500,7 +1500,7 @@ export async function configurarIpGestionOntDhcp(olt, { frame = 0, slot, puerto,
       (vlan != null ? ` vlan ${vlan}` + (prioridad != null ? ` priority ${prioridad}` : '') : '')
 
     await escribirOFallar(sesion, comando, 'La OLT rechazó el DHCP de gestión', {
-      hint: 'Revisá que la VLAN de gestión exista en el equipo y que la ONT esté online.',
+      hint: 'Revisa que la VLAN de gestión exista en el equipo y que la ONT esté online.',
     })
 
     // Igual que en la estática: que el comando no diera error no prueba que
@@ -1813,8 +1813,8 @@ export async function asegurarWanProfile(
       {
         status: 409,
         hint:
-          'Cambiarlo se las cambia a todas de golpe. Usá un número libre para crear otro, o '
-          + 'confirmá que querés pisar el que hay.',
+          'Cambiarlo se las cambia a todas de golpe. Usa un número libre para crear otro, o '
+          + 'confirma que quieres pisar el que hay.',
       },
     )
   }
@@ -2159,7 +2159,7 @@ export async function leerVlans(olt) {
     if (!filas.length) {
       throw new AppError('No se pudo leer la tabla de VLANs del equipo', {
         status: 502,
-        hint: 'Sin ella no se sabe cuántos abonados hay detrás de cada una. Reintentá.',
+        hint: 'Sin ella no se sabe cuántos abonados hay detrás de cada una. Reintenta.',
       })
     }
     return filas
@@ -2221,7 +2221,7 @@ export async function borrarVlans(olt, vlans = [], { forzar = false } = {}) {
     if (!conUso.length) {
       throw new AppError('No se pudo leer qué VLANs tiene el equipo', {
         status: 502,
-        hint: 'Sin esa lista no se sabe cuántos abonados quedarían sin servicio. Reintentá.',
+        hint: 'Sin esa lista no se sabe cuántos abonados quedarían sin servicio. Reintenta.',
       })
     }
 
@@ -2234,7 +2234,7 @@ export async function borrarVlans(olt, vlans = [], { forzar = false } = {}) {
         `Esas VLANs tienen abonados: ${conAbonados.map((x) => `${x.vlan} (${x.abonados})`).join(', ')}`,
         {
           status: 409,
-          hint: 'Borrarlas los deja sin servicio en el momento. Si es a propósito, repetí con forzar = true.',
+          hint: 'Borrarlas los deja sin servicio en el momento. Si es a propósito, repite con forzar = true.',
         },
       )
     }
@@ -2351,7 +2351,7 @@ export async function crearPerfilTr069(olt, { profileId, nombre, url, usuario, c
     if (usuario) partes.push(`user "${String(usuario).replace(/"/g, '')}" "${String(clave).replace(/"/g, '')}"`)
 
     await escribirOFallar(sesion, partes.join(' '), 'La OLT rechazó el perfil TR-069', {
-      hint: 'Puede que ese número de perfil ya esté ocupado. Elegí otro.',
+      hint: 'Puede que ese número de perfil ya esté ocupado. Elige otro.',
     })
 
     // Se relee. Que el comando no diera error no alcanza: el perfil tiene que
@@ -2395,7 +2395,7 @@ export async function asignarPerfilTr069(olt, { frame = 0, slot, puerto, ontId, 
 
     const comando = `ont tr069-server-config ${puerto} ${ontId} profile-id ${profileId}`
     await escribirOFallar(sesion, comando, 'La OLT rechazó el cambio de perfil TR-069', {
-      hint: 'Revisá que el perfil exista y que la ONT esté registrada en ese puerto.',
+      hint: 'Revisa que el perfil exista y que la ONT esté registrada en ese puerto.',
     })
 
     const despues = parseTr069DeOnt(await display(sesion, `display ont info ${puerto} ${ontId}`))

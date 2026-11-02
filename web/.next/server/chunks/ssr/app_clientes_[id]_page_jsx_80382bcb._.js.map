@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/BTC-SERVER/Desktop/CRMss/web/app/clientes/%5Bid%5D/page.jsx"],"sourcesContent":["'use client'\n\nimport ClienteDetallePage from '@/crm-pages/ClienteDetallePage'\nimport { ProtectedShell } from '@/NextPageShell'\n\nexport default function Page() {\n  return <ProtectedShell><ClienteDetallePage /></ProtectedShell>\n}\n"],"names":[],"mappings":";;;;;AAEA;AACA;AAHA;;;;AAKe,SAAS;IACtB,qBAAO,8OAAC,uIAAc;kBAAC,cAAA,8OAAC,qJAAkB;;;;;;;;;;AAC5C","debugId":null}}]
+}

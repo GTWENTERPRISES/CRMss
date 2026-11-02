@@ -15,7 +15,7 @@ import {
   Wifi,
   Zap,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { useTabla } from '../../lib/useTabla'
 import { api } from '../../lib/apiNetwork'
 import { ESTADOS_NODO, TIPOS_NODO, duracion } from '../../lib/red'
@@ -33,6 +33,7 @@ import {
   Select,
   Stat,
 } from '../../components/ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Monitoreo de red: el tablero y el inventario en una sola pantalla.
@@ -84,8 +85,8 @@ export default function MonitoreoPage() {
 
   const recargar = useCallback(async () => {
     const [n, t] = await Promise.all([
-      supabase.from('v_nodos_red').select('*'),
-      supabase.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre'),
+      django.from('v_nodos_red').select('*'),
+      django.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre'),
     ])
 
     if (n.error) setError(n.error)
@@ -166,8 +167,8 @@ export default function MonitoreoPage() {
 
   async function guardar(datos) {
     const { error: err } = editando?.id
-      ? await supabase.from('nodos_red').update(datos).eq('id', editando.id)
-      : await supabase.from('nodos_red').insert(datos)
+      ? await django.from('nodos_red').update(datos).eq('id', editando.id)
+      : await django.from('nodos_red').insert(datos)
 
     if (err) throw err
     setEditando(null)
@@ -175,7 +176,7 @@ export default function MonitoreoPage() {
   }
 
   async function alternar(n, campo) {
-    const { error: err } = await supabase
+    const { error: err } = await django
       .from('nodos_red')
       .update({ [campo]: !n[campo] })
       .eq('id', n.id)
@@ -193,7 +194,7 @@ export default function MonitoreoPage() {
     }
     if (!await confirmar(`¿Eliminar ${n.nombre}? Se borra también su historial de caídas.`)) return
 
-    const { error: err } = await supabase.from('nodos_red').delete().eq('id', n.id)
+    const { error: err } = await django.from('nodos_red').delete().eq('id', n.id)
     if (err) return setError(err)
     await recargar()
   }
@@ -256,11 +257,39 @@ export default function MonitoreoPage() {
         </Aviso>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="🔴 Caídos" valor={cuenta('down')} color="text-rose-400" icon={Zap} />
-        <Stat label="🟡 Degradados" valor={cuenta('warning')} color="text-amber-400" />
-        <Stat label="🟢 En servicio" valor={cuenta('up')} color="text-emerald-400" />
-        <Stat
+      {/* El router mismo no se puede sondear desde sí mismo: esto lo mira el
+          servidor, probando la API en cada pasada. */}
+      {estadoNms?.routers?.some((r) => r.conexion_estado) && (
+        <div className="t-card flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 text-xs">
+          <span className="text-slate-500">Conexión del servidor con los routers:</span>
+          {estadoNms.routers.map((r) => {
+            const caido = r.conexion_estado === 'down'
+            const dudoso = !caido && r.conexion_fallas > 0
+            const minutos = r.conexion_desde ? (Date.now() - new Date(r.conexion_desde)) / 60_000 : null
+            return (
+              <span key={r.id} title={r.conexion_detalle ?? r.ip_host}>
+                {caido ? '🔴' : dudoso ? '🟡' : '🟢'}{' '}
+                <b className="text-slate-200">{r.nombre}</b>{' '}
+                <span className={caido ? 'text-rose-300' : dudoso ? 'text-amber-300' : 'text-slate-500'}>
+                  {caido
+                    ? `sin conexión hace ${duracion(minutos)}`
+                    : dudoso
+                      ? `${r.conexion_fallas} ${r.conexion_fallas === 1 ? 'falla' : 'fallas'} seguidas`
+                      : r.conexion_chequeo
+                        ? 'responde'
+                        : 'sin probar todavía'}
+                </span>
+              </span>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="🔴 Caídos" valor={cuenta('down')} color="text-rose-400" icon={Zap} />
+        <Stat cargando={cargando} label="🟡 Degradados" valor={cuenta('warning')} color="text-amber-400" />
+        <Stat cargando={cargando} label="🟢 En servicio" valor={cuenta('up')} color="text-emerald-400" />
+        <Stat cargando={cargando}
           label="⚪ Sin datos"
           valor={cuenta('desconocido')}
           sub={`${nodos.filter((n) => n.monitorear).length} de ${nodos.length} monitoreados`}
@@ -486,15 +515,13 @@ export default function MonitoreoPage() {
               etiqueta="Uptime 30 días"
               valor={viendo.uptime_pct != null ? `${viendo.uptime_pct}%` : 'sin historial'}
             />
-            <Dato etiqueta="Último sondeo" valor={viendo.ultimo_chequeo ? new Date(viendo.ultimo_chequeo).toLocaleString() : '—'} />
+            <Dato etiqueta="Último sondeo" valor={viendo.ultimo_chequeo ? fmtFechaHora(viendo.ultimo_chequeo) : '—'} />
             <Dato etiqueta="Avisos" valor={viendo.avisar ? 'activos' : 'silenciado'} />
             <Dato etiqueta="Notas" valor={viendo.notas} />
           </dl>
 
           <div className="mt-4 flex gap-2">
-            <Button icon={Pencil} onClick={() => setEditando(viendo)}>
-              Editar
-            </Button>
+            <Button icon={Pencil} onClick={() => setEditando(viendo)} title="Editar" />
             <Button icon={BarChart3} onClick={() => setGraficando(viendo)}>
               Ver historial
             </Button>

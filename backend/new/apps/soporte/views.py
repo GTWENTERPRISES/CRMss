@@ -3,22 +3,22 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.utils import generar_codigo_por_tipo
 
-from .models import Ticket, TicketComentario
+from .models import Instalacion, Ticket, TicketComentario
 from .serializers import (
     CrearTicketSerializer,
+    InstalacionSerializer,
     TicketComentarioSerializer,
     TicketSerializer,
 )
 
 
 class TicketViewSet(viewsets.ModelViewSet):
-    queryset = Ticket.objects.select_related('cliente', 'asignado_a').prefetch_related('comentarios').all()
+    queryset = Ticket.objects.select_related('client', 'tecnico').prefetch_related('comentarios').all()
     serializer_class = TicketSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ['cliente', 'estado', 'prioridad', 'tipo_incidencia', 'asignado_a']
-    search_fields = ['numero', 'descripcion_bot', 'cliente__nombre', 'cliente__cedula']
+    filterset_fields = ['client', 'estado', 'prioridad', 'tipo_incidencia', 'tecnico']
+    search_fields = ['nombre', 'identificacion', 'descripcion', 'client__nombre']
     ordering_fields = ['created_at', 'prioridad', 'estado']
 
     @action(detail=False, methods=['post'], url_path='crear-ticket')
@@ -39,19 +39,18 @@ class TicketViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-        ticket = Ticket.objects.create(
-            cliente=cliente,
-            numero=generar_codigo_por_tipo('TICKET'),
-            tipo_incidencia=datos['tipo_incidencia'],
-            descripcion_bot=datos.get('descripcion_bot', ''),
-            prioridad=datos.get('prioridad', Ticket.Prioridad.MEDIA),
-            adjunto_url=datos.get('adjunto_url', ''),
+        ticket = Ticket.desde_bot(
+            cliente,
+            datos['tipo_incidencia'],
+            datos.get('descripcion_bot', ''),
+            datos.get('prioridad'),
+            datos.get('adjunto_url', ''),
         )
 
         return Response(
             {
                 'status': 'success',
-                'ticket_id': ticket.numero,
+                'ticket_id': ticket.codigo,
                 'ticket_uuid': str(ticket.id),
                 'mensaje': 'Ticket creado exitosamente.',
             },
@@ -63,9 +62,9 @@ class TicketViewSet(viewsets.ModelViewSet):
         from django.utils import timezone
 
         ticket = self.get_object()
-        ticket.estado = Ticket.Estado.CERRADO
-        ticket.fecha_cierre = timezone.now()
-        ticket.save(update_fields=['estado', 'fecha_cierre', 'updated_at'])
+        ticket.estado = Ticket.Estado.RESUELTO
+        ticket.cerrado_at = timezone.now()
+        ticket.save(update_fields=['estado', 'cerrado_at', 'updated_at'])
         return Response({'status': 'success', 'estado': ticket.estado})
 
 
@@ -75,3 +74,12 @@ class TicketComentarioViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filterset_fields = ['ticket', 'autor', 'es_interno']
     search_fields = ['cuerpo']
+
+
+class InstalacionViewSet(viewsets.ModelViewSet):
+    queryset = Instalacion.objects.select_related('plan', 'client').all()
+    serializer_class = InstalacionSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['estado', 'tipo', 'tecnico_id', 'plan', 'fecha', 'client']
+    search_fields = ['nombre', 'identificacion', 'telefono', 'notas', 'observaciones']
+    ordering_fields = ['fecha', 'numero', 'created_at', 'estado']

@@ -140,7 +140,7 @@ export async function clientePor({ cedula, telefono, cliente_id } = {}) {
 
   const cola = colaDelTelefono(telefono)
   if (!cola) {
-    throw badRequest('Mandá la cédula o el teléfono del abonado.', { codigo: 'DATOS_INVALIDOS' })
+    throw badRequest('Manda la cédula o el teléfono del abonado.', { codigo: 'DATOS_INVALIDOS' })
   }
 
   const { data, error } = await db()
@@ -155,7 +155,7 @@ export async function clientePor({ cedula, telefono, cliente_id } = {}) {
   if (!data?.length) {
     throw notFound(`No hay ningún abonado con el teléfono ${telefono}.`, {
       codigo: 'CLIENTE_NO_ENCONTRADO',
-      hint: 'Pedile la cédula: puede tener el servicio a nombre de otra persona de la casa.',
+      hint: 'Pídele la cédula: puede tener el servicio a nombre de otra persona de la casa.',
     })
   }
 
@@ -163,7 +163,7 @@ export async function clientePor({ cedula, telefono, cliente_id } = {}) {
     throw new AppError('Ese teléfono está en la ficha de más de un abonado.', {
       status: 409,
       codigo: 'TELEFONO_AMBIGUO',
-      hint: 'Pedile la cédula del titular para saber de cuál de los servicios se trata.',
+      hint: 'Pídele la cédula del titular para saber de cuál de los servicios se trata.',
     })
   }
 
@@ -362,7 +362,7 @@ export function normalizarPago(datos = {}, hoy = new Date().toISOString().slice(
   if (monto > 100000) {
     // No es un límite legal: es el tope que separa un cobro de un error de
     // tipeo con un cero de más. Un pago real por encima de esto se carga a mano.
-    throw badRequest('Ese monto es demasiado alto para registrarlo por acá: cargalo desde el sistema.')
+    throw badRequest('Ese monto es demasiado alto para registrarlo por acá: cárgalo desde el sistema.')
   }
 
   const riel = String(datos.forma_pago ?? datos.riel ?? 'transferencia').toLowerCase().trim()
@@ -378,7 +378,7 @@ export function normalizarPago(datos = {}, hoy = new Date().toISOString().slice(
   if (!fecha) {
     throw badRequest('La fecha del pago no se entiende.', {
       codigo: 'DATOS_INVALIDOS',
-      hint: 'Mandala como AAAA-MM-DD o como fecha y hora ISO 8601.',
+      hint: 'Mándala como AAAA-MM-DD o como fecha y hora ISO 8601.',
     })
   }
   // Una fecha futura convierte el cierre de caja de hoy en algo que no cierra
@@ -612,7 +612,7 @@ async function buscarReporteRepetido(llave, limpio, clienteId = null) {
 async function facturaDelCliente(facturaId, clienteId) {
   if (!facturaId) return null
 
-  // El `.then()` antes del `.catch()` no es adorno: lo que devuelve Supabase es
+  // El `.then()` antes del `.catch()` no es adorno: lo que devuelve la base es
   // un builder «thenable», no una Promise. Tiene `.then` pero no `.catch`, así
   // que encadenarle el `.catch` directo revienta con "catch is not a function"
   // —y revienta SIEMPRE que se manda `factura_id`, no solo cuando la consulta
@@ -662,9 +662,9 @@ export async function consultarComprobante(datos = {}) {
     null
 
   if (!hash && !uuid && !numero) {
-    throw badRequest('Decí qué comprobante querés consultar.', {
+    throw badRequest('Di qué comprobante quieres consultar.', {
       codigo: 'DATOS_INVALIDOS',
-      hint: 'Mandá hash_qr, uuid_transaccion o num_comprobante. El hash es el más confiable.',
+      hint: 'Manda hash_qr, uuid_transaccion o num_comprobante. El hash es el más confiable.',
     })
   }
 
@@ -756,14 +756,14 @@ export async function consultarComprobante(datos = {}) {
 export function mensajeDeComprobante(estado, delMismoAbonado, coincidenciaFuerte = true) {
   if (delMismoAbonado === false) {
     // No se dice a nombre de quién: ver el comentario de `consultarComprobante`.
-    return 'Este comprobante ya figura registrado a nombre de otro abonado. Si creés que es un error, escribinos.'
+    return 'Este comprobante ya figura registrado a nombre de otro abonado. Si crees que es un error, escribinos.'
   }
 
   if (estado === 'confirmado') {
     return 'Este comprobante ya fue registrado y acreditado. No hace falta enviarlo de nuevo.'
   }
   if (estado === 'rechazado') {
-    return 'Este comprobante fue revisado y no se pudo validar. Si tenés una foto más clara, mandala.'
+    return 'Este comprobante fue revisado y no se pudo validar. Si tienes una foto más clara, mándala.'
   }
 
   return coincidenciaFuerte
@@ -915,7 +915,7 @@ export async function registrarPago(llave, datos = {}) {
         ? 'esta llave no acredita pagos sin verificación'
         : !evidenciaAlcanza
           ? `el método "${limpio.metodo_verificacion}" no alcanza para acreditar sin revisión`
-          : 'no se sabe a qué cuenta entró la plata: mandá `cuenta_destino` o fijá una cuenta por defecto en la llave',
+          : 'no se sabe a qué cuenta entró la plata: manda `cuenta_destino` o fija una cuenta por defecto en la llave',
       mensaje:
         'Recibimos el reporte del pago. Lo verificamos y se acredita apenas se confirme.',
     }
@@ -1031,7 +1031,7 @@ export async function crearTicket(identificacion, { tipo, descripcion } = {}) {
     if (incidencia) {
       throw new AppError('Ya conocemos esta falla: hay una avería abierta en su sector.', {
         status: 409,
-        hint: 'Contestale con el mensaje de la incidencia. No hace falta abrir un reclamo.',
+        hint: 'Contéstale con el mensaje de la incidencia. No hace falta abrir un reclamo.',
         incidencia,
         ticket_creado: false,
       })

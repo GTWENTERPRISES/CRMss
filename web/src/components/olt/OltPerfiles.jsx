@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { Gauge, Layers, Upload } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import OltRelevamiento from './OltRelevamiento'
 import { Aviso, Badge, Button, Card, ErrorBanner, SkeletonTabla, Table } from '../ui'
@@ -27,8 +27,8 @@ export default function OltPerfiles({ olt }) {
 
   const cargar = useCallback(async () => {
     const [rPerfiles, rPlanes] = await Promise.all([
-      supabase.from('line_profiles').select('*').eq('olt_id', olt.id).order('nombre'),
-      supabase.from('planes_velocidad').select('*').order('bajada_kbps', { ascending: true }),
+      django.from('line_profiles').select('*').eq('olt_id', olt.id).order('nombre'),
+      django.from('planes_velocidad').select('*').order('bajada_kbps', { ascending: true }),
     ])
     if (rPerfiles.error) return setError(rPerfiles.error)
     if (rPlanes.error) return setError(rPlanes.error)
@@ -139,7 +139,7 @@ export default function OltPerfiles({ olt }) {
 
           <Aviso tipo="alerta">
             Esta tabla dice lo que el sistema <b>va a mandar</b>, no lo que el equipo tiene hoy.
-            Para ver lo que hay realmente configurado, usá el relevamiento de abajo.
+            Para ver lo que hay realmente configurado, usa el relevamiento de abajo.
           </Aviso>
         </div>
       </Card>

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 
 import { api } from '../../lib/apiNetwork'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { MOTIVOS_REVOCACION } from '../../lib/motivos'
 import {
   Aviso,
@@ -32,6 +32,7 @@ import {
   Tabs,
   Textarea,
 } from '../../components/ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Integraciones: las llaves con las que entran los sistemas externos.
@@ -116,7 +117,7 @@ const FORM_VACIO = {
 }
 
 const fechaCorta = (v) =>
-  v ? new Date(v).toLocaleString('es-EC', { dateStyle: 'short', timeStyle: 'short' }) : '—'
+  v ? fmtFechaHora(v) : '—'
 
 export default function IntegracionesPage() {
   const [tab, setTab] = useState('llaves')
@@ -143,7 +144,7 @@ export default function IntegracionesPage() {
     try {
       const [ll, cu] = await Promise.all([
         api.integraciones.llaves(),
-        supabase.from('cuentas_pago').select('id, nombre, tipo').eq('activa', true).order('nombre'),
+        django.from('cuentas_pago').select('id, nombre, tipo').eq('activa', true).order('nombre'),
       ])
       setLlaves(ll)
       setCuentas(cu.data ?? [])
@@ -294,7 +295,7 @@ export default function IntegracionesPage() {
             <Cargando />
           ) : llaves.length === 0 ? (
             <Aviso>
-              Todavía no hay ninguna llave. Emitile una al proveedor del CRM con los permisos
+              Todavía no hay ninguna llave. Emítele una al proveedor del CRM con los permisos
               mínimos que necesite: siempre se le pueden agregar después.
             </Aviso>
           ) : (
@@ -364,10 +365,7 @@ export default function IntegracionesPage() {
                                   ips: (l.ips_permitidas ?? []).join(', '),
                                   cuenta_id: l.cuenta_id ?? '',
                                 })
-                              }
-                            >
-                              Editar
-                            </Button>
+                              } title="Editar" />
                             <Button variante="fantasma" onClick={() => alternarActiva(l)}>
                               Pausar
                             </Button>
@@ -431,7 +429,7 @@ export default function IntegracionesPage() {
       >
         {creando && (
           <form onSubmit={crear} className="space-y-4">
-            <Field label="Nombre" hint="Con qué la vas a reconocer dentro de seis meses.">
+            <Field campo="nombre" label="Nombre" hint="Con qué la vas a reconocer dentro de seis meses.">
               <Input
                 value={creando.nombre}
                 onChange={(e) => setCreando({ ...creando, nombre: e.target.value })}
@@ -474,8 +472,8 @@ export default function IntegracionesPage() {
                 <p className="text-[12px] leading-snug text-amber-200/90">
                   <ShieldAlert size={13} className="mr-1 inline" />
                   Un pago reportado por un chat es la palabra del abonado, y una captura se edita en
-                  treinta segundos. Dejá esto apagado para el bot: el pago queda en la bandeja y
-                  cobranza lo confirma contra el extracto. Encendelo solo para el webhook de una
+                  treinta segundos. Deja esto apagado para el bot: el pago queda en la bandeja y
+                  cobranza lo confirma contra el extracto. Enciéndelo solo para el webhook de una
                   pasarela, donde quien avisa es el que recibió la plata.
                 </p>
 
@@ -495,9 +493,9 @@ export default function IntegracionesPage() {
 
                 {creando.confirma_pagos && (
                   <>
-                    <Field
+                    <Field campo="cuenta_id"
                       label="Cuenta por defecto (opcional)"
-                      hint="Dejala vacía si el sistema externo informa a qué cuenta entró cada pago. Solo se usa como red por si alguno llega sin decirlo."
+                      hint="Déjala vacía si el sistema externo informa a qué cuenta entró cada pago. Solo se usa como red por si alguno llega sin decirlo."
                     >
                       <Select
                         value={creando.cuenta_id}
@@ -534,7 +532,7 @@ export default function IntegracionesPage() {
               </div>
             )}
 
-            <Field
+            <Field campo="ips"
               label="IPs desde las que puede llamar"
               hint="Separadas por coma. Vacío = desde cualquier lado. Cargarlas es la diferencia entre una llave filtrada que sirve desde cualquier café y una que solo sirve desde el servidor del proveedor."
             >
@@ -545,7 +543,7 @@ export default function IntegracionesPage() {
               />
             </Field>
 
-            <Field label="Notas">
+            <Field campo="notas" label="Notas">
               <Textarea
                 rows={2}
                 value={creando.notas}
@@ -577,11 +575,11 @@ export default function IntegracionesPage() {
           <form onSubmit={guardarEdicion} className="space-y-4">
             <Aviso>
               La llave en sí no se puede ver ni cambiar — solo lo que puede hacer. Si se perdió,
-              revocala y emití otra.
+              revócala y emite otra.
             </Aviso>
 
-            <Field label="Nombre">
-              <Input
+            <Field campo="nombre" label="Nombre">
+              <Input placeholder="Ej.: Juan Pérez"
                 value={editando.nombre}
                 onChange={(e) => setEditando({ ...editando, nombre: e.target.value })}
               />
@@ -621,7 +619,7 @@ export default function IntegracionesPage() {
                 <p className="text-[12px] leading-snug text-amber-200/90">
                   <ShieldAlert size={13} className="mr-1 inline" />
                   Con esto encendido, lo que el sistema externo registre <b>entra a la caja sin que
-                  lo mire nadie</b>. Encendelo cuando ya viste cómo se porta: solo acredita solo lo
+                  lo mire nadie</b>. Enciéndelo cuando ya viste cómo se porta: solo acredita solo lo
                   que llegue con <code className="font-mono">bank_api</code>,{' '}
                   <code className="font-mono">qr_validado</code> o{' '}
                   <code className="font-mono">human</code>; un{' '}
@@ -647,9 +645,9 @@ export default function IntegracionesPage() {
 
                 {editando.confirma_pagos && (
                   <>
-                    <Field
+                    <Field campo="cuenta_id"
                       label="Cuenta por defecto (opcional)"
-                      hint="Dejala vacía si el sistema externo informa a qué cuenta entró cada pago: ahí gana lo que diga el comprobante y esta no se usa nunca. Solo hace falta como red por si algún pago llega sin decirlo — y si no hay ninguna de las dos, ese pago queda a verificar en vez de acreditarse."
+                      hint="Déjala vacía si el sistema externo informa a qué cuenta entró cada pago: ahí gana lo que diga el comprobante y esta no se usa nunca. Solo hace falta como red por si algún pago llega sin decirlo — y si no hay ninguna de las dos, ese pago queda a verificar en vez de acreditarse."
                     >
                       <Select
                         value={editando.cuenta_id ?? ''}
@@ -686,7 +684,7 @@ export default function IntegracionesPage() {
               </div>
             )}
 
-            <Field
+            <Field campo="ips"
               label="IPs desde las que puede llamar"
               hint="Separadas por coma. Vacío = desde cualquier lado. Cargalas cuando el proveedor tenga su servidor definitivo."
             >
@@ -697,8 +695,8 @@ export default function IntegracionesPage() {
               />
             </Field>
 
-            <Field label="Notas">
-              <Textarea
+            <Field campo="notas" label="Notas">
+              <Textarea placeholder="Ej.: Llamar antes de ir"
                 rows={2}
                 value={editando.notas ?? ''}
                 onChange={(e) => setEditando({ ...editando, notas: e.target.value })}
@@ -720,7 +718,7 @@ export default function IntegracionesPage() {
       {/* --- La llave recién emitida --- */}
       <Modal
         abierto={Boolean(emitida)}
-        titulo="Copiá la llave ahora"
+        titulo="Copia la llave ahora"
         onCerrar={() => setEmitida(null)}
         ancho="max-w-2xl"
       >
@@ -751,7 +749,7 @@ export default function IntegracionesPage() {
               <p className="mb-2 text-slate-300">Cómo la usa el proveedor:</p>
               <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
 {`curl -H "X-API-Key: ${emitida.llave}" \\
-  ${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '')}/api/integracion/ping`}
+  ${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1/red').replace(/\/$/, '')}/api/integracion/ping`}
               </pre>
             </div>
 
@@ -775,7 +773,7 @@ export default function IntegracionesPage() {
                 ['Llave', aRevocar.nombre],
                 ['Prefijo', aRevocar.prefijo],
                 ['Permisos', `${(aRevocar.permisos ?? []).length}`],
-                ['Último uso', aRevocar.ultimo_uso ? new Date(aRevocar.ultimo_uso).toLocaleString('es-EC') : 'nunca se usó'],
+                ['Último uso', aRevocar.ultimo_uso ? fmtFechaHora(aRevocar.ultimo_uso) : 'nunca se usó'],
               ]
             : []
         }

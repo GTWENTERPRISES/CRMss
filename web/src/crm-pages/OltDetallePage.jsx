@@ -17,7 +17,7 @@ import {
   Terminal,
   Waves,
 } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import { hace } from '../lib/olts'
 import { api } from '../lib/apiNetwork'
 import OLTForm from '../components/olt/OLTForm'
@@ -35,6 +35,7 @@ import OltConsola from '../components/olt/OltConsola'
 import OltBackups from '../components/olt/OltBackups'
 import OltHistorial from '../components/olt/OltHistorial'
 import { Badge, Button, Cargando, ErrorBanner, Modal, Punto, Tabs } from '../components/ui'
+import { useMiga } from '../lib/migas'
 
 /**
  * Ficha de una OLT.
@@ -73,6 +74,7 @@ export default function OltDetallePage() {
   const [params, setParams] = useSearchParams()
 
   const [olt, setOlt] = useState(null)
+  useMiga(olt?.nombre)
   const [error, setError] = useState(null)
   const [editando, setEditando] = useState(false)
   const [sondeando, setSondeando] = useState(false)
@@ -86,7 +88,7 @@ export default function OltDetallePage() {
   const abrirPanel = (p) => setParams(p ? { tab: activa, panel: p } : { tab: activa }, { replace: true })
 
   const cargar = useCallback(async () => {
-    const { data, error: err } = await supabase.from('v_olts').select('*').eq('id', id).maybeSingle()
+    const { data, error: err } = await django.from('v_olts').select('*').eq('id', id).maybeSingle()
     if (err) return setError(err)
     if (!data) return setError(new Error('Esa OLT no existe o fue eliminada'))
     setOlt(data)
@@ -245,7 +247,7 @@ export default function OltDetallePage() {
           olt={olt}
           onCancelar={() => setEditando(false)}
           onGuardado={async (datos) => {
-            const { error: err } = await supabase.from('olts').update(datos).eq('id', olt.id)
+            const { error: err } = await django.from('olts').update(datos).eq('id', olt.id)
             if (err) return setError(err)
             setEditando(false)
             await cargar()

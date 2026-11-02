@@ -15,6 +15,7 @@
  */
 
 import { db } from '../lib/db.js'
+import { ivaGeneral } from '../lib/iva.js'
 import { avisarFacturaNueva } from './avisoFactura.js'
 import { config } from '../config.js'
 
@@ -240,8 +241,13 @@ export function decidirFacturacion(clientes = [], hoy = new Date(), { tarifa = 1
     })
 
     // El vencimiento es su día de pago dentro del mes de emisión.
+    //
+    // Si su día de pago ya pasó cuando se genera —genera el 6 y paga el 5, un
+    // error de configuración—, la factura nacía vencida. Vence el mismo día en
+    // que se emite: no nace en mora, y tampoco se le regala el mes, que es lo
+    // que pasaba si se la mandaba al día de pago del mes siguiente.
     const diaPago = c.dia_facturacion ?? dia
-    const vence = new Date(hoy.getFullYear(), hoy.getMonth(), diaPago, 12)
+    const vence = new Date(hoy.getFullYear(), hoy.getMonth(), Math.max(diaPago, diaDeHoy), 12)
 
     facturar.push({
       cliente: c,
@@ -306,7 +312,8 @@ export async function generarFacturas({ simular = false, fecha = null } = {}) {
     }
   }
 
-  const { facturar, omitidos } = decidirFacturacion(clientes ?? [], hoy)
+  // La tarifa general es la que se usa si el plan del abonado no trae la suya.
+  const { facturar, omitidos } = decidirFacturacion(clientes ?? [], hoy, { tarifa: await ivaGeneral() })
 
   if (simular) {
     return { simulado: true, fecha: fechaLocal(hoy), pendientes: facturar, omitidos, creadas: [] }

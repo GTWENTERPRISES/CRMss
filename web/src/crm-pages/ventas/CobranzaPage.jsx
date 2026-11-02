@@ -33,6 +33,7 @@ import {
   enlaceWhatsApp,
   esUrgente,
 } from '../../lib/cobranza'
+import { fecha as fmtFecha, fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Cobros por gestionar.
@@ -130,17 +131,17 @@ export default function CobranzaPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Por gestionar" valor={cobros.length} icon={Wallet} />
-        <Stat label="Monto total" valor={dinero(total)} color="text-sky-400" />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Por gestionar" valor={cobros.length} icon={Wallet} />
+        <Stat cargando={cargando} label="Monto total" valor={dinero(total)} color="text-sky-400" />
+        <Stat cargando={cargando}
           label="Más de 15 días"
           valor={urgentes}
           sub="Cerca del corte"
           icon={AlertTriangle}
           color={urgentes ? 'text-red-400' : 'text-slate-400'}
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Promesas para hoy"
           valor={promesasHoy}
           icon={CalendarClock}
@@ -154,7 +155,7 @@ export default function CobranzaPage() {
         </Card>
       ) : cobros.length === 0 ? (
         <Aviso>
-          No tenés cobros asignados. Cuando un cliente que vendiste quede con saldo pendiente y esté
+          No tienes cobros asignados. Cuando un cliente que vendiste quede con saldo pendiente y esté
           dentro de tu período de acompañamiento, va a aparecer acá solo.
         </Aviso>
       ) : (
@@ -187,7 +188,7 @@ export default function CobranzaPage() {
                       {c.plan ?? 'sin plan'}
                       {c.telefono ? ` · ${c.telefono}` : ' · sin teléfono'}
                       {c.ultimo_pago
-                        ? ` · último pago ${new Date(c.ultimo_pago).toLocaleDateString('es-EC')}`
+                        ? ` · último pago ${fmtFecha(c.ultimo_pago)}`
                         : ' · sin pagos registrados'}
                     </p>
                   </div>
@@ -206,9 +207,9 @@ export default function CobranzaPage() {
 
                 {c.ultima_gestion && (
                   <p className="mt-2 text-[11px] text-slate-500">
-                    Última gestión: {new Date(c.ultima_gestion).toLocaleString('es-EC')}
+                    Última gestión: {fmtFechaHora(c.ultima_gestion)}
                     {c.promesa_fecha
-                      ? ` · prometió pagar el ${new Date(`${c.promesa_fecha}T12:00:00`).toLocaleDateString('es-EC')}`
+                      ? ` · prometió pagar el ${fmtFecha(`${c.promesa_fecha}T12:00:00`)}`
                       : ''}
                   </p>
                 )}
@@ -270,7 +271,7 @@ export default function CobranzaPage() {
         {gestionando && (
           <div className="space-y-3">
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Canal">
+              <Field hint="Por dónde se le manda el mensaje." label="Canal">
                 <Select
                   value={gestionando.canal}
                   onChange={(e) => setGestionando({ ...gestionando, canal: e.target.value })}
@@ -282,7 +283,7 @@ export default function CobranzaPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Resultado">
+              <Field hint="Cómo terminó el contacto." label="Resultado">
                 <Select
                   value={gestionando.resultado}
                   onChange={(e) => setGestionando({ ...gestionando, resultado: e.target.value })}
@@ -305,7 +306,7 @@ export default function CobranzaPage() {
                   vence te va a aparecer en el tablero.
                 </Aviso>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <Field label="¿Cuándo va a pagar?">
+                  <Field hint="Si no paga ese día, vuelve a quedar para corte." label="¿Cuándo va a pagar?">
                     <Input
                       type="date"
                       value={gestionando.promesaFecha}
@@ -356,7 +357,7 @@ export default function CobranzaPage() {
               <Button variante="fantasma" onClick={() => setGestionando(null)}>
                 Cancelar
               </Button>
-              <Button
+              <Button variante="primario"
                 disabled={
                   gestionando.resultado === 'promesa_pago' && !gestionando.promesaFecha
                 }

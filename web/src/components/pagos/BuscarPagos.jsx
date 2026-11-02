@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { dineroCero as dinero } from '../../lib/formato'
 import { Link } from '@/lib/nextNavigation'
 import { Ban, Printer, Receipt, Search, X } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { imprimirTirilla } from '../../lib/tirilla'
 import { useTabla } from '../../lib/useTabla'
 import { MOTIVOS_ANULACION } from '../../lib/motivos'
 import { Aviso, Button, Card, Cargando, Field, Input, PedirMotivo, Select, Stat, Table } from '../ui'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Búsqueda de cobros.
@@ -20,7 +21,7 @@ import { Aviso, Button, Card, Cargando, Field, Input, PedirMotivo, Select, Stat,
  * rango de fechas.
  */
 
-const fecha = (f) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(`${String(f).slice(0, 10)}T12:00:00`) : '—')
 
 /** Los últimos 30 días: el rango en el que caen casi todas las consultas. */
 function hace(dias) {
@@ -69,7 +70,7 @@ export default function BuscarPagos({ onError }) {
       setBuscando(true)
       setBuscado(true)
 
-      let q = supabase.from('v_pagos').select('*').order('fecha_pago', { ascending: false })
+      let q = django.from('v_pagos').select('*').order('fecha_pago', { ascending: false })
 
       const texto = filtros.texto.trim()
       if (texto) {
@@ -110,7 +111,7 @@ export default function BuscarPagos({ onError }) {
   async function anular(motivo) {
     const pago = aAnular
     setAnulando(true)
-    const { error } = await supabase
+    const { error } = await django
       .from('pagos')
       .update({
         anulado: true,
@@ -134,9 +135,9 @@ export default function BuscarPagos({ onError }) {
     <div className="space-y-4">
       <Card title="Buscar cobros" icon={Search}>
         <form onSubmit={buscar} className="space-y-4">
-          <Field
+          <Field campo="texto"
             label="N° de transacción, recibo o cliente"
-            hint="Pegá el número del comprobante del banco y te dice de quién es"
+            hint="Pega el número del comprobante del banco y te dice de quién es"
           >
             <div className="flex gap-2">
               <Input
@@ -159,7 +160,7 @@ export default function BuscarPagos({ onError }) {
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Field
+            <Field campo="desde"
               label="Desde"
               hint={filtros.texto ? 'Se ignora al buscar por número' : null}
             >
@@ -170,7 +171,7 @@ export default function BuscarPagos({ onError }) {
                 disabled={Boolean(filtros.texto)}
               />
             </Field>
-            <Field label="Hasta">
+            <Field campo="hasta" label="Hasta">
               <Input
                 type="date"
                 value={filtros.hasta}
@@ -178,17 +179,17 @@ export default function BuscarPagos({ onError }) {
                 disabled={Boolean(filtros.texto)}
               />
             </Field>
-            <Field label="Forma de pago">
+            <Field campo="forma" hint="Cómo pagó el cliente." label="Forma de pago">
               <Select value={filtros.forma} onChange={set('forma')}>
                 <option value="">Todas</option>
-                {['efectivo', 'transferencia', 'deposito', 'tarjeta', 'otro'].map((f) => (
+                {['efectivo', 'transferencia', 'deposito', 'tarjeta', 'billetera', 'otro'].map((f) => (
                   <option key={f} value={f}>
                     {f}
                   </option>
                 ))}
               </Select>
             </Field>
-            <Field label="Cuenta">
+            <Field campo="cuenta" hint="A qué cuenta o caja entra el dinero." label="Cuenta">
               <Select value={filtros.cuenta} onChange={set('cuenta')}>
                 <option value="">Todas</option>
                 {cuentas.map((c) => (
@@ -208,15 +209,13 @@ export default function BuscarPagos({ onError }) {
                 />
                 Anulados
               </label>
-              <Button type="submit" variante="primario" icon={Search} cargando={buscando}>
-                Buscar
-              </Button>
+              <Button type="submit" variante="primario" icon={Search} cargando={buscando} title="Buscar" />
             </div>
           </div>
         </form>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="t-kpis">
         <Stat label="Resultados" valor={filas.length} icon={Search} />
         <Stat label="Total cobrado" valor={dinero(total)} color="text-emerald-400" />
         <Stat
@@ -349,7 +348,7 @@ export default function BuscarPagos({ onError }) {
             ? [
                 ['Abonado', aAnular.cliente],
                 ['Monto', dinero(aAnular.monto)],
-                ['Fecha', aAnular.fecha ? new Date(`${String(aAnular.fecha).slice(0, 10)}T12:00:00`).toLocaleDateString('es-EC') : '—'],
+                ['Fecha', aAnular.fecha ? fmtFecha(`${String(aAnular.fecha).slice(0, 10)}T12:00:00`) : '—'],
                 ['Forma de pago', aAnular.forma_pago ?? '—'],
               ]
             : []

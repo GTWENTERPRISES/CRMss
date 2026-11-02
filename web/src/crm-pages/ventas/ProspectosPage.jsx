@@ -47,6 +47,7 @@ import {
   seEstaEnfriando,
   ventasApi,
 } from '../../lib/ventas'
+import { fecha as fmtFecha, fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Prospectos — el embudo de ventas.
@@ -87,7 +88,7 @@ const VACIO = {
   notas: '',
 }
 
-const fecha = (v) => (v ? new Date(v).toLocaleDateString('es-EC') : '—')
+const fecha = (v) => (v ? fmtFecha(v) : '—')
 
 export default function ProspectosPage() {
   const confirmar = useConfirmar()
@@ -246,17 +247,17 @@ export default function ProspectosPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="En el embudo" valor={abiertos.length} icon={TrendingUp} />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="En el embudo" valor={abiertos.length} icon={TrendingUp} />
+        <Stat cargando={cargando}
           label="Se están enfriando"
           valor={enfriando}
           sub="5 días o más sin contacto"
           icon={Flame}
           color="text-amber-400"
         />
-        <Stat label="Ganados" valor={contar('ganado')} icon={UserPlus} color="text-emerald-400" />
-        <Stat label="Perdidos" valor={contar('perdido')} color="text-red-400" />
+        <Stat cargando={cargando} label="Ganados" valor={contar('ganado')} icon={UserPlus} color="text-emerald-400" />
+        <Stat cargando={cargando} label="Perdidos" valor={contar('perdido')} color="text-red-400" />
       </div>
 
       {/* El embudo como botones de filtro: cada etapa dice cuántos tiene, así se
@@ -404,56 +405,56 @@ export default function ProspectosPage() {
         {editando && (
           <div className="space-y-4">
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Nombre y apellido">
-                <Input
+              <Field campo="nombre" label="Nombre y apellido">
+                <Input placeholder="Ej.: María José Andrade"
                   value={editando.nombre}
                   onChange={(e) => setEditando({ ...editando, nombre: e.target.value })}
                   autoFocus
                 />
               </Field>
-              <Field label="Cédula o RUC" hint="Se puede completar después, al cerrar la venta.">
-                <Input
+              <Field campo="identificacion" label="Cédula o RUC" hint="Se puede completar después, al cerrar la venta.">
+                <Input placeholder="Ej.: 0912345678"
                   value={editando.identificacion ?? ''}
                   onChange={(e) => setEditando({ ...editando, identificacion: e.target.value })}
                 />
               </Field>
-              <Field label="Teléfono">
-                <Input
+              <Field campo="telefono" label="Teléfono">
+                <Input placeholder="Ej.: 0991234567"
                   value={editando.telefono ?? ''}
                   onChange={(e) => setEditando({ ...editando, telefono: e.target.value })}
                 />
               </Field>
-              <Field label="WhatsApp">
-                <Input
+              <Field campo="telefono_whatsapp" label="WhatsApp">
+                <Input placeholder="Ej.: 0991234567"
                   value={editando.telefono_whatsapp ?? ''}
                   onChange={(e) => setEditando({ ...editando, telefono_whatsapp: e.target.value })}
                 />
               </Field>
-              <Field label="Correo">
-                <Input
+              <Field campo="email" label="Correo">
+                <Input placeholder="Ej.: cliente@correo.com"
                   type="email"
                   value={editando.email ?? ''}
                   onChange={(e) => setEditando({ ...editando, email: e.target.value })}
                 />
               </Field>
-              <Field label="Sector o barrio">
-                <Input
+              <Field campo="sector" label="Sector o barrio">
+                <Input placeholder="Ej.: Urdesa Central"
                   value={editando.sector ?? ''}
                   onChange={(e) => setEditando({ ...editando, sector: e.target.value })}
                 />
               </Field>
-              <Field label="Dirección" className="md:col-span-2">
-                <Input
+              <Field campo="direccion" label="Dirección" className="md:col-span-2">
+                <Input placeholder="Ej.: Av. 9 de Octubre 123 y Boyacá"
                   value={editando.direccion ?? ''}
                   onChange={(e) => setEditando({ ...editando, direccion: e.target.value })}
                 />
               </Field>
-              <Field
+              <Field campo="referencia"
                 label="Referencia"
                 hint="Cómo llegar. En un barrio sin nomenclatura es lo único que sirve."
                 className="md:col-span-2"
               >
-                <Input
+                <Input placeholder="Ej.: Casa esquinera, portón negro"
                   value={editando.referencia ?? ''}
                   onChange={(e) => setEditando({ ...editando, referencia: e.target.value })}
                 />
@@ -462,14 +463,14 @@ export default function ProspectosPage() {
                   que es donde se ve si está cerca de una caja con lugar. La
                   forma cómoda de cargarlas es verificar la cobertura y crear el
                   prospecto desde ahí: el punto ya queda marcado. */}
-              <Field label="Latitud" hint="Se cargan solas si creás el prospecto desde Verificar cobertura.">
+              <Field campo="latitud" label="Latitud" hint="Se cargan solas si creas el prospecto desde Verificar cobertura.">
                 <Input
                   value={editando.latitud ?? ''}
                   onChange={(e) => setEditando({ ...editando, latitud: e.target.value })}
                   placeholder="-0.9376"
                 />
               </Field>
-              <Field label="Longitud">
+              <Field campo="longitud" label="Longitud">
                 <Input
                   value={editando.longitud ?? ''}
                   onChange={(e) => setEditando({ ...editando, longitud: e.target.value })}
@@ -481,7 +482,7 @@ export default function ProspectosPage() {
             <div className="grid gap-3 md:grid-cols-2">
               {/* El plan sale del catálogo: el vendedor elige de lo que se
                   vende, con el precio vigente. No es un texto libre. */}
-              <Field label="Plan que pidió" hint="Precio con IVA: lo que el abonado va a pagar.">
+              <Field campo="plan_id" label="Plan que pidió" hint="Precio con IVA: lo que el abonado va a pagar.">
                 <Select
                   value={editando.plan_id ?? ''}
                   onChange={(e) => setEditando({ ...editando, plan_id: e.target.value })}
@@ -494,7 +495,7 @@ export default function ProspectosPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Cómo llegó">
+              <Field campo="origen" hint="Para saber qué publicidad funciona." label="Cómo llegó">
                 <Select
                   value={editando.origen}
                   onChange={(e) => setEditando({ ...editando, origen: e.target.value })}
@@ -506,7 +507,7 @@ export default function ProspectosPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Cobertura" hint="Consultala en el mapa de cobertura antes de prometer.">
+              <Field campo="cobertura" label="Cobertura" hint="Consúltala en el mapa de cobertura antes de prometer.">
                 <Select
                   value={editando.cobertura}
                   onChange={(e) => setEditando({ ...editando, cobertura: e.target.value })}
@@ -518,7 +519,7 @@ export default function ProspectosPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Volver a contactar el">
+              <Field campo="proxima_accion" hint="Te aparece como pendiente ese día." label="Volver a contactar el">
                 <Input
                   type="date"
                   value={editando.proxima_accion ?? ''}
@@ -527,8 +528,8 @@ export default function ProspectosPage() {
               </Field>
             </div>
 
-            <Field label="Notas">
-              <Textarea
+            <Field campo="notas" label="Notas">
+              <Textarea placeholder="Ej.: Llamar antes de ir"
                 rows={3}
                 value={editando.notas ?? ''}
                 onChange={(e) => setEditando({ ...editando, notas: e.target.value })}
@@ -809,7 +810,7 @@ function FichaProspecto({
             </div>
           </div>
 
-          <Button onClick={registrar} cargando={trabajando} disabled={trabajando} className="mt-3">
+          <Button variante="primario" onClick={registrar} cargando={trabajando} disabled={trabajando} className="mt-3">
             Guardar
           </Button>
         </Card>
@@ -839,7 +840,7 @@ function FichaProspecto({
                       {s.proxima_accion || TIPOS_ACTIVIDAD[s.tipo]}
                     </span>
                     <div className="text-[11px] text-slate-500">
-                      {new Date(s.programado_para).toLocaleString('es-EC')}
+                      {fmtFechaHora(s.programado_para)}
                     </div>
                   </div>
                   <Button
@@ -883,7 +884,7 @@ function FichaProspecto({
                 </div>
                 {a.detalle && <p className="mt-0.5 text-[12px] text-slate-400">{a.detalle}</p>}
                 <div className="mt-0.5 text-[11px] text-slate-500">
-                  {new Date(a.creado_en).toLocaleString('es-EC')}
+                  {fmtFechaHora(a.creado_en)}
                   {a.usuario_nombre ? ` · ${a.usuario_nombre}` : ''}
                 </div>
               </div>
@@ -936,7 +937,7 @@ function FichaProspecto({
                       ? ` · instalación ${dinero(c.costo_instalacion)}`
                       : ''}
                     {Number(c.descuento) > 0 ? ` · descuento ${dinero(c.descuento)}` : ''}
-                    {` · ${new Date(c.creado_en).toLocaleDateString('es-EC')}`}
+                    {` · ${fmtFecha(c.creado_en)}`}
                   </div>
                 </div>
                 <Badge color="gris">{c.estado}</Badge>
@@ -965,7 +966,7 @@ function FichaProspecto({
                   })
                 }}
               >
-                <option value="">— elegí el plan —</option>
+                <option value="">— elige el plan —</option>
                 {planes.map((pl) => (
                   <option key={pl.id} value={pl.id}>
                     {pl.nombre} — {dinero(pl.precio)}
@@ -975,7 +976,7 @@ function FichaProspecto({
             </Field>
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Precio mensual">
-                <Input
+                <Input placeholder="Ej.: 25.00"
                   type="number"
                   step="0.01"
                   value={cotizando.precio_mensual}
@@ -983,7 +984,7 @@ function FichaProspecto({
                 />
               </Field>
               <Field label="Costo de instalación">
-                <Input
+                <Input placeholder="Ej.: 30.00"
                   type="number"
                   step="0.01"
                   value={cotizando.costo_instalacion}
@@ -991,7 +992,7 @@ function FichaProspecto({
                 />
               </Field>
               <Field label="Equipo">
-                <Input
+                <Input placeholder="Ej.: ONT Huawei HG8145V5"
                   type="number"
                   step="0.01"
                   value={cotizando.costo_equipo}
@@ -999,7 +1000,7 @@ function FichaProspecto({
                 />
               </Field>
               <Field label="Descuento">
-                <Input
+                <Input placeholder="Ej.: 5.00"
                   type="number"
                   step="0.01"
                   value={cotizando.descuento}
@@ -1007,14 +1008,14 @@ function FichaProspecto({
                 />
               </Field>
               <Field label="Meses de contrato">
-                <Input
+                <Input placeholder="Ej.: 12"
                   type="number"
                   value={cotizando.meses_contrato}
                   onChange={(e) => setCotizando({ ...cotizando, meses_contrato: e.target.value })}
                 />
               </Field>
               <Field label="Validez (días)">
-                <Input
+                <Input placeholder="Ej.: 15"
                   type="number"
                   value={cotizando.validez_dias}
                   onChange={(e) => setCotizando({ ...cotizando, validez_dias: e.target.value })}
@@ -1025,7 +1026,7 @@ function FichaProspecto({
               <Button variante="fantasma" onClick={() => setCotizando(null)}>
                 Cancelar
               </Button>
-              <Button
+              <Button variante="primario"
                 disabled={!cotizando.plan_id}
                 onClick={async () => {
                   try {

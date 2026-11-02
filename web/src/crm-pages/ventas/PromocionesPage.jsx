@@ -157,7 +157,7 @@ export default function PromocionesPage() {
           <p className="campo-suave text-sm">
             {puedeEditar
               ? 'Lo que el equipo puede ofrecer. Lo que definas acá es lo que van a decir todos.'
-              : 'Lo que podés ofrecer hoy. Se aplican solas en el Cotizador — no hace falta calcular nada.'}
+              : 'Lo que puedes ofrecer hoy. Se aplican solas en el Cotizador — no hace falta calcular nada.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -184,7 +184,7 @@ export default function PromocionesPage() {
             <Gift size={30} className="campo-tenue mx-auto mb-2" />
             <p className="campo-suave text-sm">
               {puedeEditar
-                ? 'Todavía no hay promociones. Creá la primera y va a aparecer en el Cotizador de todo el equipo.'
+                ? 'Todavía no hay promociones. Crea la primera y va a aparecer en el Cotizador de todo el equipo.'
                 : 'No hay promociones vigentes en este momento.'}
             </p>
           </div>
@@ -230,7 +230,7 @@ export default function PromocionesPage() {
 
       {!puedeEditar && promos.length > 0 && (
         <Aviso>
-          En el <b>Cotizador</b> elegís la promoción y el precio se recalcula solo. Al ganarse la
+          En el <b>Cotizador</b> eliges la promoción y el precio se recalcula solo. Al ganarse la
           venta, el descuento pasa a la ficha del abonado sin que nadie lo cargue a mano.
         </Aviso>
       )}
@@ -340,9 +340,7 @@ function Tarjeta({ promo, planes, C, puedeEditar, onEditar, onBajar }) {
 
       {puedeEditar && (
         <div className="mt-3 flex gap-2">
-          <Button variante="fantasma" icon={Pencil} onClick={onEditar}>
-            Editar
-          </Button>
+          <Button variante="fantasma" icon={Pencil} onClick={onEditar} title="Editar" />
           {promo.activa && (
             <Button variante="fantasma" icon={Power} onClick={onBajar}>
               Dar de baja
@@ -381,10 +379,10 @@ function Editor({
     >
       <div className="space-y-3">
         <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-          <Field label="Nombre" hint="Como lo va a nombrar el equipo: «Promo Navidad».">
+          <Field campo="nombre" label="Nombre" hint="Como lo va a nombrar el equipo: «Promo Navidad».">
             <Input value={promo.nombre} onChange={set('nombre')} placeholder="Promo Navidad" />
           </Field>
-          <Field label="Color">
+          <Field campo="color" label="Color">
             <input
               type="color"
               value={promo.color}
@@ -394,15 +392,15 @@ function Editor({
           </Field>
         </div>
 
-        <Field
+        <Field campo="descripcion"
           label="Qué se le dice al cliente"
-          hint="Sale tal cual en la cotización. Escribilo una vez acá y deja de depender de cómo lo cuente cada uno."
+          hint="Sale tal cual en la cotización. Escríbelo una vez acá y deja de depender de cómo lo cuente cada uno."
         >
           <Textarea
             rows={2}
             value={promo.descripcion ?? ''}
             onChange={set('descripcion')}
-            placeholder="Los primeros 3 meses pagás la mitad."
+            placeholder="Los primeros 3 meses pagas la mitad."
           />
         </Field>
 
@@ -421,7 +419,7 @@ function Editor({
 
         {promo.tipo !== 'instalacion_gratis' && (
           <div className="grid gap-3 md:grid-cols-2">
-            <Field
+            <Field campo="valor"
               label={
                 promo.tipo === 'porcentaje'
                   ? 'Porcentaje de descuento'
@@ -435,14 +433,17 @@ function Editor({
                 step={promo.tipo === 'meses_gratis' ? '1' : '0.01'}
                 value={promo.valor ?? ''}
                 onChange={set('valor')}
+                placeholder={
+                  promo.tipo === 'porcentaje' ? 'Ej.: 20' : promo.tipo === 'meses_gratis' ? 'Ej.: 1' : 'Ej.: 19.99'
+                }
               />
             </Field>
             {tipo.pideMeses && (
-              <Field
+              <Field campo="meses_aplica"
                 label="Durante cuántos meses"
                 hint="Cuánto le dura al cliente. No es lo mismo que hasta cuándo se vende."
               >
-                <Input
+                <Input placeholder="Ej.: 3"
                   type="number"
                   value={promo.meses_aplica ?? ''}
                   onChange={set('meses_aplica')}
@@ -453,10 +454,10 @@ function Editor({
         )}
 
         <div className="grid gap-3 md:grid-cols-2">
-          <Field label="Se vende desde">
+          <Field campo="vigente_desde" hint="Desde qué fecha se puede ofrecer." label="Se vende desde">
             <Input type="date" value={promo.vigente_desde} onChange={set('vigente_desde')} />
           </Field>
-          <Field
+          <Field campo="vigente_hasta"
             label="Hasta"
             hint="Vacío = sin fecha de término. Con fecha, desaparece sola del Cotizador ese día."
           >
@@ -466,7 +467,7 @@ function Editor({
 
         <Field
           label="Planes"
-          hint="Sin marcar ninguno, aplica a todos. Marcá solo si la promo es de un plan puntual."
+          hint="Sin marcar ninguno, aplica a todos. Marca solo si la promo es de un plan puntual."
         >
           <div className="flex flex-wrap gap-2">
             {planes.map((p) => {

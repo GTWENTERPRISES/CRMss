@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { asyncHandler, notFound, badRequest, AppError } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
-import { db } from '../lib/db.js'
+import { cargarRouter, db } from '../lib/db.js'
 import * as mk from '../services/mikrotikService.js'
 import * as olt from '../services/oltService.js'
 
@@ -39,14 +39,14 @@ async function contexto(clientId) {
   if (error) throw new AppError(`No se pudo leer el cliente: ${error.message}`, { status: 502 })
   if (!cliente) throw notFound('No existe ese cliente')
 
+  // Con la contraseña descifrada: leída directo de la tabla, el MikroTik
+  // rechazaba cada herramienta con "Username or password is invalid".
   let equipo = null
   if (cliente.router_id) {
-    const { data } = await db()
-      .from('routers_mikrotik')
-      .select('*')
-      .eq('id', cliente.router_id)
-      .maybeSingle()
-    equipo = data ?? null
+    equipo = await cargarRouter(cliente.router_id).catch((e) => {
+      if (e?.status === 404) return null
+      throw e
+    })
   }
 
   return { cliente, equipo }
@@ -99,7 +99,7 @@ async function registrando(req, { clientId, comando, parametros = {}, destino },
 function exigirRouter(equipo, cliente) {
   if (!equipo) {
     throw badRequest(
-      `${cliente.nombre} no tiene router MikroTik asignado en su ficha. Asignalo en la pestaña Servicio.`,
+      `${cliente.nombre} no tiene router MikroTik asignado en su ficha. Asígnalo en la pestaña Servicio.`,
     )
   }
   return equipo
@@ -364,7 +364,7 @@ router.post(
     exigirRouter(equipo, cliente)
 
     const { ssid, clave } = req.body ?? {}
-    if (!ssid && !clave) throw badRequest('Indicá el nombre de la red, la clave o ambos')
+    if (!ssid && !clave) throw badRequest('Indica el nombre de la red, la clave o ambos')
     if (clave && String(clave).length < 8) {
       throw badRequest('La clave WiFi tiene que tener al menos 8 caracteres')
     }

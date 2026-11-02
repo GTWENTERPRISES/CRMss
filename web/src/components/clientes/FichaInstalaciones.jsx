@@ -3,7 +3,7 @@ import { useConfirmar } from '../../lib/confirmar'
 import { dineroCero as dinero } from '../../lib/formato'
 import { Link } from '@/lib/nextNavigation'
 import { Check, Plus, Trash2, Wrench, X } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import BuscadorCliente from '../pagos/BuscadorCliente'
 import {
   Aviso,
@@ -18,6 +18,8 @@ import {
   Table,
   Textarea,
 } from '../ui'
+import { fecha as fmtFecha } from '@/lib/formato'
+import { COLOR_ESTADO as COLORES } from '../../lib/estados'
 
 /**
  * Visitas al domicilio: el alta, un traslado, una reparación.
@@ -35,18 +37,11 @@ const TIPOS = [
   { valor: 'retiro', label: 'Retiro de equipos' },
 ]
 
-const COLOR_ESTADO = {
-  // 'prospecto' es el estado inicial desde que Instalaciones también recibe a
-  // los que todavía no son abonados (migración 31).
-  prospecto: 'gris',
-  agendada: 'azul',
-  en_curso: 'ambar',
-  hecha: 'verde',
-  cancelada: 'gris',
-}
+// Colores de estado: los mismos en todo el sistema (lib/estados).
+const COLOR_ESTADO = COLORES.instalacion
 
 const hoy = () => new Date().toISOString().slice(0, 10)
-const fecha = (f) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(`${String(f).slice(0, 10)}T12:00:00`) : '—')
 
 const VACIA = {
   tipo: 'nueva',
@@ -86,7 +81,7 @@ export default function FichaInstalaciones({ cliente = null, onError, onGuardado
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    let consulta = supabase.from('v_instalaciones').select('*').order('fecha', { ascending: false })
+    let consulta = django.from('v_instalaciones').select('*').order('fecha', { ascending: false })
     if (cliente) consulta = consulta.eq('client_id', cliente.id)
     else if (filtro) consulta = consulta.eq('estado', filtro)
 
@@ -103,12 +98,12 @@ export default function FichaInstalaciones({ cliente = null, onError, onGuardado
   async function crear(e) {
     e.preventDefault()
     const paraQuien = cliente ?? destino
-    if (!paraQuien) return onError?.(new Error('Elegí a qué cliente corresponde la visita'))
+    if (!paraQuien) return onError?.(new Error('Elige a qué cliente corresponde la visita'))
 
     setGuardando(true)
     onError?.(null)
     try {
-      const { data: sesion } = await supabase.auth.getUser()
+      const { data: sesion } = await django.auth.getUser()
       /**
        * Lo que ya decidió la oficina viaja con la orden.
        *
@@ -136,13 +131,13 @@ export default function FichaInstalaciones({ cliente = null, onError, onGuardado
        * desde un lado y desde el otro no, sin ningún error visible: la orden
        * saldría con los valores por defecto y nadie sabría por qué.
        */
-      const { data: ficha } = await supabase
+      const { data: ficha } = await django
         .from('clientes')
         .select('tipo_conexion, tipo_ip, plan_id, router_id')
         .eq('id', paraQuien.id)
         .maybeSingle()
 
-      const { error } = await supabase.from('instalaciones').insert({
+      const { error } = await django.from('instalaciones').insert({
         client_id: paraQuien.id,
         tecnologia: form.tecnologia,
         ...(ficha?.tipo_conexion ? { tipo_conexion: ficha.tipo_conexion } : {}),
@@ -178,7 +173,7 @@ export default function FichaInstalaciones({ cliente = null, onError, onGuardado
   }
 
   async function cambiarEstado(i, estado) {
-    const { error } = await supabase.from('instalaciones').update({ estado }).eq('id', i.id)
+    const { error } = await django.from('instalaciones').update({ estado }).eq('id', i.id)
     if (error) return onError?.(error)
     await recargar()
     await onGuardado?.()
@@ -186,7 +181,7 @@ export default function FichaInstalaciones({ cliente = null, onError, onGuardado
 
   async function eliminar(i) {
     if (!await confirmar(`¿Eliminar la visita del ${fecha(i.fecha)}?`)) return
-    const { error } = await supabase.from('instalaciones').delete().eq('id', i.id)
+    const { error } = await django.from('instalaciones').delete().eq('id', i.id)
     if (error) onError?.(error)
     else await recargar()
   }
@@ -196,10 +191,10 @@ export default function FichaInstalaciones({ cliente = null, onError, onGuardado
   return (
     <div className="space-y-4">
       {!cliente && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Stat label="Visitas registradas" valor={filas.length} icon={Wrench} />
-          <Stat label="Pendientes" valor={pendientes} color="text-amber-400" />
-          <Stat
+        <div className="t-kpis">
+          <Stat cargando={cargando} label="Visitas registradas" valor={filas.length} icon={Wrench} />
+          <Stat cargando={cargando} label="Pendientes" valor={pendientes} color="text-amber-400" />
+          <Stat cargando={cargando}
             label="Cobrado en visitas"
             valor={dinero(filas.reduce((s, f) => s + Number(f.costo ?? 0), 0))}
           />
@@ -222,7 +217,7 @@ export default function FichaInstalaciones({ cliente = null, onError, onGuardado
 
           {(cliente || destino) && (
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              <Field label="Tipo">
+              <Field campo="tipo" label="Tipo">
                 <Select value={form.tipo} onChange={set('tipo')}>
                   {TIPOS.map((t) => (
                     <option key={t.valor} value={t.valor}>
@@ -231,7 +226,7 @@ export default function FichaInstalaciones({ cliente = null, onError, onGuardado
                   ))}
                 </Select>
               </Field>
-              <Field
+              <Field campo="tecnologia"
                 label="Tecnología"
                 hint="Cambia el asistente del técnico: qué mide y de dónde sale la red"
               >
@@ -240,43 +235,43 @@ export default function FichaInstalaciones({ cliente = null, onError, onGuardado
                   <option value="wireless">Radioenlace</option>
                 </Select>
               </Field>
-              <Field label="Estado">
+              <Field campo="estado" label="Estado">
                 <Select value={form.estado} onChange={set('estado')}>
                   <option value="agendada">Agendada</option>
                   <option value="en_curso">En curso</option>
                   <option value="hecha">Hecha</option>
                 </Select>
               </Field>
-              <Field label="Fecha">
+              <Field campo="fecha" label="Fecha">
                 <Input type="date" value={form.fecha} onChange={set('fecha')} required />
               </Field>
-              <Field label="Hora">
+              <Field campo="hora" label="Hora">
                 <Input type="time" value={form.hora} onChange={set('hora')} />
               </Field>
 
-              <Field label="Técnico">
+              <Field campo="tecnico" label="Técnico">
                 <Input value={form.tecnico} onChange={set('tecnico')} placeholder="Quién va" />
               </Field>
-              <Field label="Equipo instalado">
+              <Field campo="equipo" label="Equipo instalado">
                 <Input value={form.equipo} onChange={set('equipo')} placeholder="ONU, router…" />
               </Field>
-              <Field label="Metros de cable">
-                <Input
+              <Field campo="metros_cable" label="Metros de cable">
+                <Input placeholder="Ej.: 80"
                   type="number"
                   min={0}
                   value={form.metros_cable}
                   onChange={set('metros_cable')}
                 />
               </Field>
-              <Field label="Costo cobrado">
-                <Input type="number" step="0.01" min={0} value={form.costo} onChange={set('costo')} />
+              <Field campo="costo" label="Costo cobrado">
+                <Input placeholder="Ej.: 15.00" type="number" step="0.01" min={0} value={form.costo} onChange={set('costo')} />
               </Field>
 
-              <Field label="Dirección" className="sm:col-span-2" hint="Vacío = la del cliente">
-                <Input value={form.direccion} onChange={set('direccion')} />
+              <Field campo="direccion" label="Dirección" className="sm:col-span-2" hint="Vacío = la del cliente">
+                <Input placeholder="Ej.: Av. 9 de Octubre 123 y Boyacá" value={form.direccion} onChange={set('direccion')} />
               </Field>
-              <Field label="Notas" className="sm:col-span-2">
-                <Textarea rows={2} value={form.notas} onChange={set('notas')} />
+              <Field campo="notas" label="Notas" className="sm:col-span-2">
+                <Textarea placeholder="Ej.: Llamar antes de ir" rows={2} value={form.notas} onChange={set('notas')} />
               </Field>
 
               <div className="flex items-end pb-1 sm:col-span-3 lg:col-span-4">

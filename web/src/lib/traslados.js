@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 
 /**
  * Traslado de domicilio.
@@ -25,7 +25,7 @@ import { supabase } from './supabaseClient'
 export const trasladosApi = {
   /** Abre el traslado y agenda la visita. Devuelve el id del traslado. */
   async iniciar({ clienteId, direccion, latitud, longitud, fecha, motivo, tecnicoId, referencia }) {
-    const { data, error } = await supabase.rpc('iniciar_traslado', {
+    const { data, error } = await django.rpc('iniciar_traslado', {
       p_cliente: clienteId,
       p_direccion: direccion,
       p_latitud: latitud === '' || latitud == null ? null : Number(latitud),
@@ -41,7 +41,7 @@ export const trasladosApi = {
 
   /** Los que tienen la ONT vieja todavía viva en su OLT de origen. */
   async pendientes() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_traslados_pendientes')
       .select('*')
       .order('creado_en')
@@ -51,7 +51,7 @@ export const trasladosApi = {
 
   /** El historial de mudanzas de un abonado. */
   async delCliente(clienteId) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_traslados')
       .select('*')
       .eq('cliente_id', clienteId)
@@ -62,7 +62,7 @@ export const trasladosApi = {
 
   /** El que está abierto ahora, si hay. Solo puede haber uno. */
   async abierto(clienteId) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_traslados')
       .select('*')
       .eq('cliente_id', clienteId)
@@ -80,7 +80,7 @@ export const trasladosApi = {
    * un detalle — "la borré yo el martes" es lo que después explica el hueco.
    */
   async marcarBaja(id, detalle) {
-    const { error } = await supabase
+    const { error } = await django
       .from('traslados')
       .update({
         pendiente_baja: false,
@@ -93,7 +93,7 @@ export const trasladosApi = {
 
   /** Cierra el traslado. La base no deja cerrarlo con la ONT vieja viva. */
   async cerrar(id) {
-    const { error } = await supabase
+    const { error } = await django
       .from('traslados')
       .update({ estado: 'hecho', cerrado_en: new Date().toISOString() })
       .eq('id', id)
@@ -101,7 +101,7 @@ export const trasladosApi = {
   },
 
   async cancelar(id) {
-    const { error } = await supabase
+    const { error } = await django
       .from('traslados')
       .update({ estado: 'cancelado', cerrado_en: new Date().toISOString() })
       .eq('id', id)

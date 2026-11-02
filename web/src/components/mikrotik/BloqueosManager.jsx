@@ -62,7 +62,7 @@ export default function BloqueosManager({ router }) {
   async function restaurar(entrada) {
     if (!await confirmar(`¿Restaurar el servicio de ${entrada.address}?`)) return
     try {
-      await api.mikrotik.desbloquear(router.id, entrada.id)
+      await api.mikrotik.desbloquear(router.id, entrada.id, entrada.address)
       await cargar()
     } catch (err) {
       setError(err)
@@ -75,9 +75,7 @@ export default function BloqueosManager({ router }) {
       subtitle="Address-list CORTE_MOROSOS + regla de drop en forward"
       icon={Ban}
       actions={
-        <Button icon={RefreshCw} onClick={cargar} cargando={cargando} disabled={!router}>
-          Refrescar
-        </Button>
+        <Button icon={RefreshCw} onClick={cargar} cargando={cargando} disabled={!router} title="Refrescar" />
       }
     >
       <div className="space-y-4">
@@ -85,10 +83,10 @@ export default function BloqueosManager({ router }) {
         {aviso && <Aviso>{aviso}</Aviso>}
 
         <form onSubmit={bloquear} className="grid items-end gap-3 sm:grid-cols-3">
-          <Field label="IP del cliente">
+          <Field campo="address" label="IP del cliente">
             <Input value={form.address} onChange={set('address')} placeholder="10.0.0.55" required />
           </Field>
-          <Field label="Motivo / cliente">
+          <Field campo="comment" label="Motivo / cliente">
             <Input value={form.comment} onChange={set('comment')} placeholder="Juan Pérez - factura 0234" />
           </Field>
           <div className="pb-2">
@@ -109,7 +107,7 @@ export default function BloqueosManager({ router }) {
           <Cargando texto="Consultando el router…" />
         ) : bloqueos === null ? (
           <p className="py-6 text-center text-sm text-slate-500">
-            Elegí un router para ver los cortes activos.
+            Elige un router para ver los cortes activos.
           </p>
         ) : (
           <Table

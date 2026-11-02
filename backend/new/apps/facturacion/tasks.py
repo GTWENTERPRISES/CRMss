@@ -1,10 +1,13 @@
 """
-Tareas asíncronas de Celery para el módulo de Facturación
-Maneja generación masiva, envío y procesamiento de facturas electrónicas
+Tareas de Celery de facturación: emisión mensual, envío por correo y SRI.
+
+Trabajan sobre las tablas del dashboard: la factura (`facturas`) dice a quién y
+por qué período; lo pagado sale de `pagos`; el comprobante electrónico vive en
+`electronic_documents` y la factura lo apunta con `document_id`.
 """
 import logging
 from datetime import timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from celery import shared_task
 from django.conf import settings
@@ -16,348 +19,223 @@ from .sri import SRIIntegration
 logger = logging.getLogger(__name__)
 
 
+def _centavos(valor):
+    return Decimal(valor).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def importes(precio, tipo_impuesto):
+    """(subtotal, impuesto, total) de un precio según cómo se cobra el IVA."""
+    iva = Decimal(str(getattr(settings, 'IVA_PORCENTAJE', 15))) / 100
+    precio = Decimal(precio)
+    if tipo_impuesto == 'ninguno':
+        return _centavos(precio), Decimal('0.00'), _centavos(precio)
+    if tipo_impuesto == 'mas':
+        subtotal = _centavos(precio)
+        impuesto = _centavos(subtotal * iva)
+        return subtotal, impuesto, subtotal + impuesto
+    # 'incluido' (el valor de siempre): el precio ya trae el IVA adentro.
+    total = _centavos(precio)
+    subtotal = _centavos(total / (1 + iva))
+    return subtotal, total - subtotal, total
+
+
 @shared_task(bind=True, max_retries=3)
 def generar_facturas_mensuales(self):
     """
-    Genera facturas mensuales para todos los clientes activos
-    Se ejecuta el 1º de cada mes mediante Celery Beat
+    Una factura de servicios por abonado activo para el mes en curso.
+
+    El precio es el `precio_mensual` del abonado o, si no tiene, el de su plan.
+    Si ya existe la factura de servicios de ese período, no se repite.
     """
     from apps.clientes.models import Cliente
-    from .models import DetalleFactura, Factura
-    logger.info('Iniciando generación masiva de facturas mensuales')
-    
-    clientes = Cliente.objects.filter(
-        estado_servicio=Cliente.EstadoServicio.ACTIVO,
-    ).prefetch_related('servicios__plan')
 
-    generadas = 0
-    errores = 0
-    mes_actual = timezone.now().strftime('%B %Y')
-    
-    for cliente in clientes:
+    from .models import Factura
+
+    hoy = timezone.localdate()
+    desde = hoy.replace(day=1)
+    hasta = (desde + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    generadas = errores = 0
+
+    for cliente in Cliente.objects.filter(estado=Cliente.Estado.ACTIVO).select_related('plan'):
         try:
-            # Verificar si ya tiene factura este mes
-            existe = Factura.objects.filter(
-                cliente=cliente,
-                mes=mes_actual,
-            ).exists()
-            
-            if existe:
-                logger.debug(f'Cliente {cliente.nombre} ya tiene factura de {mes_actual}')
+            if Factura.objects.filter(client=cliente, tipo='servicios', periodo_desde=desde,
+                                      anulada=False).exists():
                 continue
-            
-            # Obtener servicios activos del cliente
-            servicios = cliente.servicios.filter(estado='activo')
-            
-            if not servicios.exists():
-                logger.warning(f'Cliente {cliente.nombre} no tiene servicios activos')
+            precio = cliente.precio_mensual or (cliente.plan.precio if cliente.plan_id else None)
+            if not precio:
+                logger.warning('Cliente %s sin precio: no se factura', cliente.nombre)
                 continue
-            
-            # Calcular subtotal de todos los servicios
-            subtotal = sum(s.plan.precio for s in servicios if s.plan)
-            
-            if subtotal == 0:
-                logger.warning(f'Cliente {cliente.nombre} tiene servicios sin precio')
-                continue
-            
-            # Calcular IVA y total
-            iva_porcentaje = getattr(settings, 'IVA_PORCENTAJE', Decimal('12'))
-            iva = subtotal * (iva_porcentaje / 100)
-            total = subtotal + iva
-            
-            # Generar número secuencial
-            ultimo_numero = Factura.objects.order_by('-created_at').first()
-            nuevo_numero = 1
-            if ultimo_numero:
-                try:
-                    nuevo_numero = int(ultimo_numero.numero.rsplit('-', 1)[-1]) + 1
-                except (TypeError, ValueError):
-                    nuevo_numero = Factura.objects.count() + 1
-            
-            # Crear factura
+            tipo_impuesto = cliente.tipo_impuesto or (cliente.plan.tipo_impuesto if cliente.plan_id else 'incluido')
+            subtotal, impuesto, total = importes(precio, tipo_impuesto)
+            plan = cliente.plan.nombre if cliente.plan_id else 'Internet'
             factura = Factura.objects.create(
-                cliente=cliente,
-                numero=f'001-001-{nuevo_numero:09d}',
-                mes=mes_actual,
+                client=cliente,
+                cliente_nombre=cliente.nombre,
+                tipo='servicios',
+                concepto=f'Servicio de internet {plan} - {desde:%m/%Y}',
+                periodo_desde=desde,
+                periodo_hasta=hasta,
+                fecha_emision=hoy,
+                fecha_vencimiento=hoy + timedelta(days=cliente.dias_gracia or 5),
                 subtotal=subtotal,
-                iva=iva,
+                impuesto=impuesto,
                 total=total,
-                fecha_vencimiento=(timezone.now() + timedelta(days=5)).date(),
-                estado=Factura.Estado.PENDIENTE,
+                origen='automatica',
             )
-            
-            # Crear detalles de factura
-            for servicio in servicios:
-                if servicio.plan:
-                    DetalleFactura.objects.create(
-                        factura=factura,
-                        descripcion=f'Servicio Internet - Plan {servicio.plan.nombre}',
-                        cantidad=Decimal('1.00'),
-                        precio_unitario=servicio.plan.precio,
-                        subtotal=servicio.plan.precio,
-                    )
-            
             generadas += 1
-            logger.info(f'Factura {factura.numero} generada para {cliente.nombre}')
-            
-            # Encolar tarea para enviar factura
             enviar_factura_individual.delay(str(factura.id))
-            
         except Exception as exc:
             errores += 1
-            logger.error(f'Error generando factura para {cliente.nombre}: {str(exc)}')
-    
-    resultado = f'Facturas generadas: {generadas}, Errores: {errores}'
-    logger.info(resultado)
+            logger.error('Error generando factura para %s: %s', cliente.nombre, exc)
+
+    logger.info('Facturas generadas: %s, errores: %s', generadas, errores)
     return {'generadas': generadas, 'errores': errores}
 
 
-@shared_task(bind=True, max_retries=3)
-def enviar_facturas_por_email(self):
-    """
-    Envía facturas pendientes por correo electrónico
-    """
-    from .models import Factura
-
-    logger.info('Iniciando envío masivo de facturas por email')
-    
-    pendientes = Factura.objects.filter(
-        estado=Factura.Estado.PENDIENTE,
-        enviada=False,
-    ).exclude(
-        cliente__email=''
-    ).select_related('cliente').prefetch_related('detalles')[:100]  # Limitar a 100 por ejecución
-
-    enviadas = 0
-    errores = 0
-    
-    for factura in pendientes:
-        try:
-            # Generar HTML de factura
-            detalles_html = '<br>'.join([
-                f'- {d.descripcion}: ${d.subtotal}'
-                for d in factura.detalles.all()
-            ])
-            
-            mensaje_html = f"""
-            <html>
-            <body>
-                <h2>Factura {factura.numero}</h2>
-                <p>Estimado/a {factura.cliente.nombre},</p>
-                <p>Adjuntamos el detalle de su factura:</p>
-                <p><strong>Mes:</strong> {factura.mes}</p>
-                <p><strong>Detalles:</strong><br>{detalles_html}</p>
-                <p><strong>Subtotal:</strong> ${factura.subtotal}</p>
-                <p><strong>IVA:</strong> ${factura.iva}</p>
-                <p><strong>Total:</strong> ${factura.total}</p>
-                <p><strong>Fecha de vencimiento:</strong> {factura.fecha_vencimiento}</p>
-                <p>Gracias por su preferencia.</p>
-            </body>
-            </html>
-            """
-            
-            email = EmailMessage(
-                subject=f'Factura {factura.numero} - {factura.mes}',
-                body=mensaje_html,
-                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
-                to=[factura.cliente.email],
-            )
-            email.content_subtype = 'html'
-            email.send(fail_silently=False)
-            
-            factura.enviada = True
-            factura.save(update_fields=['enviada', 'updated_at'])
-            enviadas += 1
-            
-            logger.info(f'Factura {factura.numero} enviada a {factura.cliente.email}')
-            
-        except Exception as exc:
-            errores += 1
-            logger.error(f'Error enviando factura {factura.numero}: {str(exc)}')
-    
-    return {'enviadas': enviadas, 'errores': errores}
+def _correo_de_factura(factura):
+    cliente = factura.client
+    return (
+        f'<html><body style="font-family: Arial, sans-serif;">'
+        f'<h2>Factura N° {factura.numero:08d}</h2>'
+        f'<p>Estimado/a {cliente.nombre},</p>'
+        f'<p>{factura.concepto}</p>'
+        f'<p><strong>Total:</strong> ${factura.total}</p>'
+        f'<p><strong>Vence:</strong> {factura.fecha_vencimiento:%d/%m/%Y}</p>'
+        f'</body></html>'
+    )
 
 
 @shared_task(bind=True, max_retries=3)
 def enviar_factura_individual(self, factura_id):
-    """
-    Envía una factura individual por correo electrónico
-    
-    Args:
-        factura_id: UUID de la factura
-    """
+    """Manda por correo una factura al abonado (si tiene correo)."""
     from .models import Factura
-    
-    try:
-        factura = Factura.objects.select_related('cliente').prefetch_related(
-            'detalles'
-        ).get(id=factura_id)
-    except Factura.DoesNotExist:
-        logger.error(f'Factura {factura_id} no encontrada')
+
+    factura = Factura.objects.select_related('client').filter(id=factura_id).first()
+    if factura is None or factura.client is None:
         return False
-    
-    if not factura.cliente.email:
-        logger.warning(f'Cliente {factura.cliente.nombre} no tiene email')
+    if not factura.client.email:
+        logger.warning('Cliente %s no tiene email', factura.client.nombre)
         return False
-    
     try:
-        # Generar HTML
-        detalles_html = '<br>'.join([
-            f'- {d.descripcion}: ${d.subtotal}'
-            for d in factura.detalles.all()
-        ])
-        
-        mensaje_html = f"""
-        <html>
-        <body>
-            <h2>Factura {factura.numero}</h2>
-            <p>Estimado/a {factura.cliente.nombre},</p>
-            <p>Adjuntamos el detalle de su factura:</p>
-            <p><strong>Mes:</strong> {factura.mes}</p>
-            <p><strong>Detalles:</strong><br>{detalles_html}</p>
-            <p><strong>Total:</strong> ${factura.total}</p>
-            <p><strong>Vence:</strong> {factura.fecha_vencimiento}</p>
-        </body>
-        </html>
-        """
-        
-        email = EmailMessage(
-            subject=f'Factura {factura.numero}',
-            body=mensaje_html,
-            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
-            to=[factura.cliente.email],
+        correo = EmailMessage(
+            subject=f'Factura {factura.numero:08d} - {factura.concepto}',
+            body=_correo_de_factura(factura),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[factura.client.email],
         )
-        email.content_subtype = 'html'
-        email.send()
-        
-        factura.enviada = True
-        factura.save(update_fields=['enviada', 'updated_at'])
-        
-        logger.info(f'Factura {factura.numero} enviada exitosamente')
+        correo.content_subtype = 'html'
+        correo.send()
+        if factura.document_id:
+            factura.document.__class__.objects.filter(pk=factura.document_id).update(
+                enviado_por_email=True, fecha_envio_email=timezone.now())
         return True
-        
     except Exception as exc:
-        logger.error(f'Error enviando factura {factura.numero}: {str(exc)}')
-        raise self.retry(exc=exc, countdown=60)
+        logger.error('Error enviando factura %s: %s', factura_id, exc)
+        raise self.retry(exc=exc, countdown=300)
+
+
+@shared_task(bind=True, max_retries=3)
+def enviar_facturas_por_email(self):
+    """Manda las facturas emitidas hoy (no anuladas) a quien tenga correo."""
+    from .models import Factura
+
+    enviadas = 0
+    for factura in Factura.objects.filter(fecha_emision=timezone.localdate(), anulada=False,
+                                          client__isnull=False)[:200]:
+        if factura.client.email:
+            enviar_factura_individual.delay(str(factura.id))
+            enviadas += 1
+    return {'enviadas': enviadas, 'errores': 0}
 
 
 @shared_task(bind=True, max_retries=3)
 def procesar_factura_electronica_sri(self, factura_id):
     """
-    Genera XML, firma y envía factura al SRI Ecuador
-    
-    Args:
-        factura_id: UUID de la factura
+    Arma el comprobante electrónico de una factura y lo manda al SRI.
+
+    El comprobante queda en `electronic_documents` (estado BORRADOR → FIRMADO →
+    ENVIADO) y la factura lo apunta con `document_id`.
     """
-    from .models import Factura
-    from .sri import SRIIntegration
-    
-    try:
-        factura = Factura.objects.select_related('cliente').prefetch_related(
-            'detalles'
-        ).get(id=factura_id)
-    except Factura.DoesNotExist:
-        logger.error(f'Factura {factura_id} no encontrada')
+    from apps.dashboard.models import ElectronicDocuments
+
+    from .models import DetalleFactura, Factura
+
+    factura = Factura.objects.select_related('client').filter(id=factura_id).first()
+    if factura is None or factura.client is None:
         return False
-    
+
     sri = SRIIntegration()
-    
+    factura.serie = '001-001'
+    xml = sri.generar_xml_factura(factura, list(DetalleFactura.objects.filter(factura=factura)))
+    cliente = factura.client
+    documento = factura.document or ElectronicDocuments(
+        tipo_doc='01',
+        ambiente=str(getattr(settings, 'SRI_AMBIENTE', '1')),
+        secuencial=str(factura.numero).zfill(9),
+        clave_acceso=getattr(factura, 'clave_acceso', None) or '',
+        fecha_emision=factura.fecha_emision,
+        client=cliente,
+        tipo_identificacion_comprador=cliente.tipo_identificacion or '05',
+        identificacion_comprador=cliente.identificacion or '',
+        razon_social_comprador=cliente.nombre,
+        direccion_comprador=(cliente.direccion or '')[:300] or None,
+        email_comprador=cliente.email,
+        total_sin_impuestos=factura.subtotal,
+        total_iva=factura.impuesto,
+        importe_total=factura.total,
+    )
+    documento.xml_sin_firma = xml
+    documento.save()
+    if factura.document_id != documento.pk:
+        factura.document = documento
+        factura.save(update_fields=['document', 'updated_at'])
+
+    certificado = getattr(settings, 'SRI_CERTIFICADO_PATH', '')
+    if not certificado:
+        logger.warning('Sin certificado SRI: el comprobante %s queda en borrador', documento.pk)
+        return True
     try:
-        # 1. Generar XML
-        logger.info(f'Generando XML para factura {factura.numero}')
-        xml_factura = sri.generar_xml_factura(factura, factura.detalles.all())
-        
-        # 2. Firmar XML (requiere certificado digital)
-        cert_path = getattr(settings, 'SRI_CERTIFICADO_PATH', None)
-        cert_password = getattr(settings, 'SRI_CERTIFICADO_PASSWORD', None)
-        
-        if cert_path and cert_password:
-            logger.info(f'Firmando XML factura {factura.numero}')
-            xml_firmado = sri.firmar_xml(xml_factura, cert_path, cert_password)
+        documento.xml_firmado = sri.firmar_xml(xml, certificado, settings.SRI_CERTIFICADO_PASSWORD)
+        documento.estado = 'FIRMADO'
+        documento.save(update_fields=['xml_firmado', 'estado', 'updated_at'])
+        recepcion = sri.enviar_recepcion(documento.xml_firmado)
+        if recepcion.get('estado') == 'RECIBIDA':
+            documento.estado = 'ENVIADO'
+            documento.save(update_fields=['estado', 'updated_at'])
+            consultar_autorizacion_sri.apply_async(args=[str(factura.id)], countdown=30)
         else:
-            logger.warning('Certificado SRI no configurado, usando XML sin firmar')
-            xml_firmado = xml_factura
-        
-        # 3. Enviar a recepción SRI
-        logger.info(f'Enviando factura {factura.numero} al SRI')
-        resultado_recepcion = sri.enviar_recepcion(xml_firmado)
-        
-        if resultado_recepcion.get('estado') == 'RECIBIDA':
-            factura.xml_factura = xml_firmado
-            factura.estado_sri = 'RECIBIDA'
-            factura.save(update_fields=['xml_factura', 'estado_sri', 'updated_at'])
-            
-            # 4. Consultar autorización (después de algunos segundos)
-            consultar_autorizacion_sri.apply_async(
-                args=[factura_id],
-                countdown=10,  # Esperar 10 segundos
-            )
-            
-            logger.info(f'Factura {factura.numero} recibida por SRI')
-            return True
-        else:
-            logger.error(f'Factura {factura.numero} rechazada por SRI: {resultado_recepcion}')
-            factura.estado_sri = 'RECHAZADA'
-            factura.save(update_fields=['estado_sri', 'updated_at'])
-            return False
-            
+            documento.mensaje_autorizacion = recepcion.get('mensaje') or str(recepcion)
+            documento.save(update_fields=['mensaje_autorizacion', 'updated_at'])
+        return True
     except Exception as exc:
-        logger.error(f'Error procesando factura {factura.numero} en SRI: {str(exc)}')
-        raise self.retry(exc=exc, countdown=300)  # Reintentar en 5 minutos
+        logger.error('Error procesando comprobante de %s: %s', factura_id, exc)
+        raise self.retry(exc=exc, countdown=120)
 
 
 @shared_task(bind=True, max_retries=5)
 def consultar_autorizacion_sri(self, factura_id):
-    """
-    Consulta el estado de autorización de una factura en el SRI
-    
-    Args:
-        factura_id: UUID de la factura
-    """
+    """Pregunta al SRI si autorizó el comprobante de la factura."""
     from .models import Factura
-    from .sri import SRIIntegration
-    
-    try:
-        factura = Factura.objects.get(id=factura_id)
-    except Factura.DoesNotExist:
-        logger.error(f'Factura {factura_id} no encontrada')
+
+    factura = Factura.objects.select_related('document').filter(id=factura_id).first()
+    documento = factura.document if factura else None
+    if documento is None or not documento.clave_acceso:
         return False
-    
-    if not factura.clave_acceso:
-        logger.error(f'Factura {factura.numero} no tiene clave de acceso')
-        return False
-    
-    sri = SRIIntegration()
-    
     try:
-        resultado = sri.consultar_autorizacion(factura.clave_acceso)
-        
-        estado = resultado.get('estado')
-        
-        if estado == 'AUTORIZADO':
-            factura.estado_sri = 'AUTORIZADA'
-            factura.numero_autorizacion_sri = resultado.get('numero_autorizacion', '')
-            factura.fecha_autorizacion = timezone.now()
-            factura.save(update_fields=[
-                'estado_sri',
-                'numero_autorizacion_sri',
-                'fecha_autorizacion',
-                'updated_at'
-            ])
-            logger.info(f'Factura {factura.numero} AUTORIZADA por SRI')
-            return True
-            
-        elif estado == 'NO AUTORIZADO':
-            factura.estado_sri = 'NO_AUTORIZADA'
-            factura.save(update_fields=['estado_sri', 'updated_at'])
-            logger.warning(f'Factura {factura.numero} NO AUTORIZADA por SRI')
-            return False
-            
-        else:
-            # Estado aún en proceso, reintentar
-            logger.info(f'Factura {factura.numero} aún en proceso en SRI, reintentando...')
-            raise self.retry(countdown=30)  # Reintentar en 30 segundos
-            
+        resultado = SRIIntegration().consultar_autorizacion(documento.clave_acceso)
     except Exception as exc:
-        logger.error(f'Error consultando autorización factura {factura.numero}: {str(exc)}')
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=300)
+
+    estado = resultado.get('estado')
+    if estado == 'AUTORIZADO':
+        documento.estado = 'AUTORIZADO'
+        documento.numero_autorizacion = resultado.get('numero_autorizacion') or documento.clave_acceso
+        documento.fecha_autorizacion = timezone.now()
+        documento.save(update_fields=['estado', 'numero_autorizacion', 'fecha_autorizacion', 'updated_at'])
+        return True
+    if estado == 'NO AUTORIZADO':
+        documento.estado = 'NO_AUTORIZADO'
+        documento.mensaje_autorizacion = resultado.get('mensaje') or ''
+        documento.save(update_fields=['estado', 'mensaje_autorizacion', 'updated_at'])
+        return False
+    raise self.retry(countdown=300)

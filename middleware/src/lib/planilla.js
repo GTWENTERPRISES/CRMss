@@ -76,7 +76,7 @@ export async function leerExcel(bytes, ExcelJS) {
     await wb.xlsx.load(bytes)
   } catch (e) {
     throw badRequest('No se pudo leer el Excel', {
-      hint: 'Si es un .xls viejo, abrilo y guardalo como .xlsx o como CSV.',
+      hint: 'Si es un .xls viejo, ábrelo y guárdalo como .xlsx o como CSV.',
       detalle: e.message,
     })
   }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
 import { dineroCero as dinero } from '../../lib/formato'
+import { useIvaGeneral } from '../../lib/iva'
 import {
   Check,
   ChevronDown,
@@ -11,7 +12,7 @@ import {
   Trash2,
   Wallet,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { useTabla } from '../../lib/useTabla'
 import { errorTransaccionRepetida } from '../../lib/pagos'
@@ -29,6 +30,8 @@ import {
   Table,
   Textarea,
 } from '../ui'
+import { fecha as fmtFecha } from '@/lib/formato'
+import { COLOR_ESTADO as COLORES } from '../../lib/estados'
 
 /**
  * Facturas del sistema: lo que el negocio le cobra al abonado.
@@ -43,7 +46,7 @@ import {
  * cobro que no fue así.
  */
 
-const fecha = (f) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(`${String(f).slice(0, 10)}T12:00:00`) : '—')
 const hoy = () => new Date().toISOString().slice(0, 10)
 
 /** Primer y último día del mes de una fecha YYYY-MM o YYYY-MM-DD. */
@@ -88,14 +91,10 @@ function proximoMesSinFactura(facturas, desde = new Date()) {
   return `${desde.getFullYear()}-${p(desde.getMonth() + 1)}`
 }
 
-const COLOR_ESTADO = {
-  pagada: 'verde',
-  pendiente: 'ambar',
-  vencida: 'rojo',
-  anulada: 'gris',
-}
+// Colores de estado: los mismos en todo el sistema (lib/estados).
+const COLOR_ESTADO = COLORES.factura
 
-const FORMAS = ['efectivo', 'transferencia', 'deposito', 'tarjeta', 'otro']
+const FORMAS = ['efectivo', 'transferencia', 'deposito', 'tarjeta', 'billetera', 'otro']
 
 async function abrirPdf(descargar) {
   const blob = await descargar()
@@ -108,6 +107,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
   const confirmar = useConfirmar()
   const { filas: cuentas } = useTabla('cuentas_pago', { orderBy: 'nombre', ascending: true })
 
+  const ivaGeneral = useIvaGeneral()
   const [facturas, setFacturas] = useState([])
   const [pagosPorFactura, setPagosPorFactura] = useState({})
   const [cerradas, setCerradas] = useState(() => new Set())
@@ -124,12 +124,12 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
     setCargando(true)
 
     const [f, p] = await Promise.all([
-      supabase
+      django
         .from('v_facturas')
         .select('*')
         .eq('client_id', cliente.id)
         .order('fecha_emision', { ascending: false }),
-      supabase
+      django
         .from('v_pagos')
         .select('*')
         .eq('client_id', cliente.id)
@@ -167,12 +167,12 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
     onError?.(null)
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
+      const { data: sesion } = await django.auth.getUser()
 
       // El cobro se reparte entre las facturas que alcance, empezando por esta
       // —que es la que el cobrador tenía abierta— y siguiendo por antigüedad,
       // sin distinguir servicio de materiales. Lo que sobra queda a favor.
-      const { data: resultado, error } = await supabase.rpc('aplicar_cobro', {
+      const { data: resultado, error } = await django.rpc('aplicar_cobro', {
         p_client_id: cliente.id,
         p_monto: Number(cobrando.monto),
         p_forma_pago: cobrando.forma_pago,
@@ -238,21 +238,21 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
     if (
       !await confirmar(
         `¿Eliminar el pago de ${dinero(pago.monto)} del ${fecha(pago.fecha_pago)}?\n\n` +
-          'La factura vuelve a quedar impaga y podés registrarlo de nuevo con los datos correctos.\n' +
+          'La factura vuelve a quedar impaga y puedes registrarlo de nuevo con los datos correctos.\n' +
           (fiscalPendiente
             ? `\nEl comprobante ${factura.numero_fiscal} todavía no se envió al SRI: se va a anular para que se emita de nuevo con el valor corregido.\n`
             : '') +
           (fiscalAutorizado
             ? `\nOJO: el comprobante ${factura.numero_fiscal} ya está AUTORIZADO por el SRI. Borrar el pago no lo corrige: eso se hace con una nota de crédito.\n`
             : '') +
-          '\nSi el cobro fue real y solo querés dejar constancia del error, anulalo desde Cobros.',
+          '\nSi el cobro fue real y solo quieres dejar constancia del error, anúlalo desde Cobros.',
       )
     )
       return
 
     onError?.(null)
 
-    const { error } = await supabase.from('pagos').delete().eq('id', pago.id)
+    const { error } = await django.from('pagos').delete().eq('id', pago.id)
     if (error) return onError?.(error)
 
     if (fiscalPendiente) {
@@ -265,7 +265,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
         const r = await api.sri.liberarNumero(factura.document_id, {
           motivo: 'Anulado al corregir el cobro que lo originó',
         })
-        await supabase.from('facturas').update({ document_id: null }).eq('id', factura.id)
+        await django.from('facturas').update({ document_id: null }).eq('id', factura.id)
         setAviso(r.aviso)
       } catch (err) {
         onError?.(
@@ -331,7 +331,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
         notas: editando.notas?.trim() || null,
       }
 
-      const { error } = await supabase.from('facturas').update(datos).eq('id', editando.id)
+      const { error } = await django.from('facturas').update(datos).eq('id', editando.id)
       if (error) throw error
 
       if (cambioElValor && fiscalPendiente) {
@@ -339,11 +339,11 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
           motivo: `Anulado al corregir el valor de ${dinero(original.total)} a ${dinero(editando.total)}`,
         })
 
-        await supabase.from('facturas').update({ document_id: null }).eq('id', editando.id)
+        await django.from('facturas').update({ document_id: null }).eq('id', editando.id)
 
         // Los cobros de esta factura vuelven a la cola: sin esto la factura
         // corregida se quedaría sin comprobante y nadie se enteraría.
-        await supabase
+        await django
           .from('pagos')
           .update({ facturar: true, document_id: null })
           .eq('factura_id', editando.id)
@@ -385,7 +385,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
         return onError?.(
           new Error(
             `Ya existe la factura N° ${String(repetida.numero).padStart(8, '0')} para ${mesEnPalabras(creando.mes)} ` +
-              `(${dinero(repetida.total)}, ${repetida.estado}). Si el abonado va a pagar dos meses, cobrá esa y creá la del mes siguiente.`,
+              `(${dinero(repetida.total)}, ${repetida.estado}). Si el abonado va a pagar dos meses, cobra esa y crea la del mes siguiente.`,
           ),
         )
       }
@@ -395,8 +395,8 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
     onError?.(null)
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
-      const { data: creada, error } = await supabase.from('facturas').insert({
+      const { data: sesion } = await django.auth.getUser()
+      const { data: creada, error } = await django.from('facturas').insert({
         client_id: cliente.id,
         cliente_nombre: cliente.nombre,
         tipo: creando.tipo,
@@ -419,7 +419,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
         .single()
       if (error) throw error
 
-      const { data: aplicado } = await supabase.rpc('aplicar_saldo_a_favor', {
+      const { data: aplicado } = await django.rpc('aplicar_saldo_a_favor', {
         p_factura_id: creada.id,
       })
       if (Number(aplicado) > 0) {
@@ -438,7 +438,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
       onError?.(
         err?.code === '23505'
           ? new Error(
-              `Ya existe una factura de servicio para ${mesEnPalabras(creando.mes)}. Actualizá la lista para verla.`,
+              `Ya existe una factura de servicio para ${mesEnPalabras(creando.mes)}. Actualiza la lista para verla.`,
             )
           : err,
       )
@@ -470,7 +470,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
     setGuardando(true)
     onError?.(null)
     try {
-      const { data: aplicado, error } = await supabase.rpc('aplicar_saldo_a_favor', {
+      const { data: aplicado, error } = await django.rpc('aplicar_saldo_a_favor', {
         p_factura_id: pendientes[0].id,
       })
       if (error) throw error
@@ -506,7 +506,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
         `¿Eliminar la factura N° ${String(f.numero).padStart(8, '0')} por ${dinero(f.total)}?` +
           (pagos.length
             ? `\n\nSe van a borrar también sus ${pagos.length} pago(s), por ${dinero(cobrado)} en total.\n` +
-              'Si esa plata entró de verdad, cancelá: borrar la factura sin sus pagos dejaría el dinero como saldo a favor del cliente.'
+              'Si esa plata entró de verdad, cancela: borrar la factura sin sus pagos dejaría el dinero como saldo a favor del cliente.'
             : ''),
       )
     )
@@ -518,13 +518,13 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
     // dejándolos sin factura, y esa plata aparecería como saldo a favor sin que
     // nadie sepa de dónde salió.
     if (pagos.length) {
-      const { error: errPagos } = await supabase.from('pagos').delete().eq('factura_id', f.id)
+      const { error: errPagos } = await django.from('pagos').delete().eq('factura_id', f.id)
       if (errPagos) {
         return onError?.(new Error(`No se pudieron borrar los pagos: ${errPagos.message}`))
       }
     }
 
-    const { error } = await supabase.from('facturas').delete().eq('id', f.id)
+    const { error } = await django.from('facturas').delete().eq('id', f.id)
     if (error) onError?.(error)
     else {
       await recargar()
@@ -538,7 +538,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
    * Reparte un total entre base e impuesto según cómo se le factura al abonado.
    * Es la misma regla que usa la generación mensual.
    */
-  function repartir(valor, tarifa = 15) {
+  function repartir(valor, tarifa = Number(cliente.plan_iva_porcentaje) || ivaGeneral) {
     const n = Number(valor) || 0
     const tipo = cliente.tipo_impuesto ?? 'incluido'
 
@@ -552,6 +552,28 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
     return { subtotal: base, impuesto: Math.round((n - base) * 100) / 100, total: n }
   }
 
+  /** La tarifa del abonado: la de su plan, o la general de Facturación. */
+  const tarifa = Number(cliente.plan_iva_porcentaje) || ivaGeneral
+  const exento = (cliente.tipo_impuesto ?? 'incluido') === 'ninguno'
+  const r2 = (x) => Math.round(x * 100) / 100
+
+  /**
+   * Al corregir el subtotal, el impuesto y el total se calculan solos.
+   *
+   * Es para el error más común al cargar abonados: el precio quedó como "IVA
+   * incluido" cuando en realidad era "más IVA", y la factura salió con una base
+   * de 17.39 en vez de 20. Antes había que sacar la cuenta del impuesto y del
+   * total a mano, y un centavo mal redondeado deja la factura sin cerrar.
+   *
+   * El subtotal es la base COMPLETA y el descuento se resta aparte, igual que en
+   * la generación mensual: subtotal - descuento + impuesto = total.
+   */
+  const desdeSubtotal = (subtotal, descuento = 0) => {
+    const gravado = Math.max(0, r2((Number(subtotal) || 0) - (Number(descuento) || 0)))
+    const impuesto = exento ? 0 : r2(gravado * (tarifa / 100))
+    return { impuesto, total: r2(gravado + impuesto) }
+  }
+
   if (cargando) return <Cargando />
 
   const pendientes = facturas.filter((f) => ['pendiente', 'vencida'].includes(f.estado))
@@ -561,15 +583,15 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Stat label="Facturas" valor={facturas.length} icon={Wallet} />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Facturas" valor={facturas.length} icon={Wallet} />
+        <Stat cargando={cargando}
           label="Vencidas"
           valor={facturas.filter((f) => f.estado === 'vencida').length}
           color="text-red-400"
         />
-        <Stat label="Deuda" valor={dinero(deuda)} color={deuda > 0 ? 'text-red-400' : 'text-emerald-400'} />
-        <Stat
+        <Stat cargando={cargando} label="Deuda" valor={dinero(deuda)} color={deuda > 0 ? 'text-red-400' : 'text-emerald-400'} />
+        <Stat cargando={cargando}
           label={aFavor > 0.005 ? 'Saldo a favor' : 'Facturado'}
           valor={aFavor > 0.005 ? dinero(aFavor) : dinero(facturas.reduce((s, f) => s + Number(f.total), 0))}
           color={aFavor > 0.005 ? 'text-fuchsia-400' : 'text-slate-400'}
@@ -802,6 +824,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                               fecha_emision: String(f.fecha_emision).slice(0, 10),
                               fecha_vencimiento: String(f.fecha_vencimiento).slice(0, 10),
                               subtotal: f.subtotal,
+                              descuento: Number(f.descuento) || 0,
                               impuesto: f.impuesto,
                               total: f.total,
                               notas: f.notas ?? '',
@@ -878,7 +901,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
           <form onSubmit={registrarPago} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Monto" hint={`Saldo: ${dinero(cobrando.factura.saldo)}`}>
-                <Input
+                <Input placeholder="Ej.: 25.00"
                   type="number"
                   step="0.01"
                   min={0.01}
@@ -888,7 +911,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                   autoFocus
                 />
               </Field>
-              <Field label="Fecha del pago">
+              <Field hint="El día en que pagó, no el de hoy si es otro." label="Fecha del pago">
                 <Input
                   type="date"
                   value={cobrando.fecha_pago}
@@ -897,7 +920,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                 />
               </Field>
 
-              <Field label="Forma de pago">
+              <Field hint="Cómo pagó el cliente." label="Forma de pago">
                 <Select
                   value={cobrando.forma_pago}
                   onChange={(e) => setCobrando((c) => ({ ...c, forma_pago: e.target.value }))}
@@ -909,13 +932,13 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                   ))}
                 </Select>
               </Field>
-              <Field label="Cuenta de destino">
+              <Field hint="A qué cuenta o caja entra el dinero." label="Cuenta de destino">
                 <Select
                   value={cobrando.cuenta_id}
                   onChange={(e) => setCobrando((c) => ({ ...c, cuenta_id: e.target.value }))}
                   required
                 >
-                  <option value="">— elegí una cuenta —</option>
+                  <option value="">— elige una cuenta —</option>
                   {cuentas.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nombre}
@@ -932,7 +955,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                     : 'El N° del comprobante del banco'
                 }
               >
-                <Input
+                <Input placeholder="Ej.: 123456789"
                   value={cobrando.n_transaccion}
                   onChange={(e) => setCobrando((c) => ({ ...c, n_transaccion: e.target.value }))}
                   required
@@ -940,7 +963,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                 />
               </Field>
               <Field label="Comisión">
-                <Input
+                <Input placeholder="Ej.: 0.50"
                   type="number"
                   step="0.01"
                   min={0}
@@ -984,8 +1007,8 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
               </Aviso>
             )}
 
-            <Field label="Concepto">
-              <Input
+            <Field campo="concepto" label="Concepto">
+              <Input placeholder="Ej.: Internet Hogar 50 Mbps"
                 value={editando.concepto}
                 onChange={(e) => setEditando((f) => ({ ...f, concepto: e.target.value }))}
                 required
@@ -993,14 +1016,14 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Emitida">
+              <Field campo="fecha_emision" hint="Fecha de la factura." label="Emitida">
                 <Input
                   type="date"
                   value={editando.fecha_emision}
                   onChange={(e) => setEditando((f) => ({ ...f, fecha_emision: e.target.value }))}
                 />
               </Field>
-              <Field label="Vence">
+              <Field campo="fecha_vencimiento" hint="Después de esta fecha la factura queda vencida." label="Vence">
                 <Input
                   type="date"
                   value={editando.fecha_vencimiento}
@@ -1010,24 +1033,54 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                 />
               </Field>
 
-              <Field label="Subtotal">
+              <Field campo="subtotal"
+                label="Subtotal"
+                hint={
+                  exento
+                    ? 'Abonado exento: el total es el subtotal'
+                    : `El IVA ${tarifa} % y el total se calculan solos`
+                }
+              >
                 <Input
                   type="number"
                   step="0.01"
                   value={editando.subtotal}
-                  onChange={(e) => setEditando((f) => ({ ...f, subtotal: e.target.value }))}
+                  onChange={(e) =>
+                    setEditando((f) => ({
+                      ...f,
+                      subtotal: e.target.value,
+                      ...desdeSubtotal(e.target.value, f.descuento),
+                    }))
+                  }
                 />
               </Field>
-              <Field label="Impuesto">
+              <Field campo="impuesto"
+                label={exento ? 'Impuesto' : `Impuesto (IVA ${tarifa} %)`}
+                hint={
+                  editando.descuento > 0
+                    ? `Sobre el subtotal menos el descuento de ${dinero(editando.descuento)}`
+                    : undefined
+                }
+              >
                 <Input
                   type="number"
                   step="0.01"
                   value={editando.impuesto}
-                  onChange={(e) => setEditando((f) => ({ ...f, impuesto: e.target.value }))}
+                  // Si se corrige a mano -un centavo de redondeo-, el total lo sigue.
+                  onChange={(e) =>
+                    setEditando((f) => ({
+                      ...f,
+                      impuesto: e.target.value,
+                      total: r2(
+                        Math.max(0, (Number(f.subtotal) || 0) - (Number(f.descuento) || 0)) +
+                          (Number(e.target.value) || 0),
+                      ),
+                    }))
+                  }
                 />
               </Field>
-              <Field label="Total" className="sm:col-span-2">
-                <Input
+              <Field campo="total" label="Total" className="sm:col-span-2">
+                <Input placeholder="Ej.: 25.00"
                   type="number"
                   step="0.01"
                   value={editando.total}
@@ -1037,8 +1090,8 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
               </Field>
             </div>
 
-            <Field label="Notas">
-              <Textarea
+            <Field campo="notas" label="Notas">
+              <Textarea placeholder="Ej.: Llamar antes de ir"
                 rows={2}
                 value={editando.notas}
                 onChange={(e) => setEditando((f) => ({ ...f, notas: e.target.value }))}
@@ -1062,7 +1115,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
         {creando && (
           <form onSubmit={crearFactura} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Tipo">
+              <Field campo="tipo" label="Tipo">
                 <Select
                   value={creando.tipo}
                   onChange={(e) => setCreando((f) => ({ ...f, tipo: e.target.value }))}
@@ -1073,7 +1126,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                   <option value="otro">Otro</option>
                 </Select>
               </Field>
-              <Field
+              <Field campo="total"
                 label="Importe"
                 hint={
                   cliente.tipo_impuesto === 'mas'
@@ -1083,7 +1136,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                       : 'El importe ya incluye el IVA'
                 }
               >
-                <Input
+                <Input placeholder="Ej.: 25.00"
                   type="number"
                   step="0.01"
                   min={0}
@@ -1096,8 +1149,8 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                 />
               </Field>
 
-              <Field label="Concepto" className="sm:col-span-2">
-                <Input
+              <Field campo="concepto" label="Concepto" className="sm:col-span-2">
+                <Input placeholder="Ej.: Internet Hogar 50 Mbps"
                   value={creando.concepto}
                   onChange={(e) => setCreando((f) => ({ ...f, concepto: e.target.value }))}
                   required
@@ -1105,7 +1158,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
               </Field>
 
               {creando.tipo === 'servicios' && (
-                <Field
+                <Field campo="mes"
                   label="Mes facturado"
                   className="sm:col-span-2"
                   hint={
@@ -1135,14 +1188,14 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                 </Field>
               )}
 
-              <Field label="Emitida">
+              <Field campo="fecha_emision" hint="Fecha de la factura." label="Emitida">
                 <Input
                   type="date"
                   value={creando.fecha_emision}
                   onChange={(e) => setCreando((f) => ({ ...f, fecha_emision: e.target.value }))}
                 />
               </Field>
-              <Field label="Vence">
+              <Field campo="fecha_vencimiento" hint="Después de esta fecha la factura queda vencida." label="Vence">
                 <Input
                   type="date"
                   value={creando.fecha_vencimiento}

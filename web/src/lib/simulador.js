@@ -1,5 +1,5 @@
 // Del módulo puro y no de `./comisiones`: así este archivo tampoco arrastra el
-// cliente de Supabase y se puede probar sin base de datos.
+// cliente de la base y se puede probar sin base de datos.
 //
 // Con la extensión escrita, que en el resto del proyecto se omite: Next.js la
 // resuelve sola, pero Node —que es quien corre las pruebas— exige la ruta

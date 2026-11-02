@@ -1,4 +1,5 @@
-import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
+
 import { principalDe, puedeCambiarA, resumirServicios } from '../lib/servicios.js'
 import { db } from '../lib/db.js'
 import { config } from '../config.js'
@@ -141,7 +142,7 @@ export async function pedirCodigo({ identificacion } = {}) {
     .gte('creado_en', desde)
 
   if ((count ?? 0) >= MAX_PEDIDOS_HORA) {
-    throw new AppError('Ya se enviaron varios códigos. Esperá unos minutos antes de pedir otro.', {
+    throw new AppError('Ya se enviaron varios códigos. Espera unos minutos antes de pedir otro.', {
       status: 429,
     })
   }
@@ -151,7 +152,7 @@ export async function pedirCodigo({ identificacion } = {}) {
     // Acá sí se dice la verdad: el abonado existe pero no tenemos cómo
     // alcanzarlo. Que crea que el código va a llegar sería peor — esperaría un
     // mensaje que nadie mandó.
-    throw badRequest('No tenemos un celular ni un correo cargado para vos.', {
+    throw badRequest('No tenemos un celular ni un correo cargado para ti.', {
       hint: 'Comunicate con tu proveedor para que actualice tus datos de contacto.',
     })
   }
@@ -178,7 +179,7 @@ export async function pedirCodigo({ identificacion } = {}) {
     asunto: 'Tu código de acceso',
     cuerpo:
       `Hola ${primerNombre}. Tu código para entrar es ${codigo}\n\n` +
-      `Vence en ${VIDA_CODIGO_MIN} minutos. Si no lo pediste, ignorá este mensaje y no se lo des a nadie.`,
+      `Vence en ${VIDA_CODIGO_MIN} minutos. Si no lo pediste, ignora este mensaje y no se lo des a nadie.`,
   }).catch((err) => {
     // No se lanza: el código ya está guardado y quizás llegue por otro lado.
     // Y avisar "no se pudo enviar" le confirmaría a un curioso que la cédula
@@ -231,7 +232,7 @@ export async function entrar({ identificacion, codigo, agente } = {}) {
   if (fila.intentos >= MAX_INTENTOS) {
     // Se quema, no se deja seguir probando.
     await db().from('portal_codigos').update({ usado_en: new Date().toISOString() }).eq('id', fila.id)
-    throw badRequest('Se agotaron los intentos con ese código. Pedí uno nuevo.')
+    throw badRequest('Se agotaron los intentos con ese código. Pide uno nuevo.')
   }
 
   if (!igual(fila.codigo_hash, huella(`${cliente.id}:${String(codigo ?? '').trim()}`))) {
@@ -345,7 +346,7 @@ export async function serviciosDeLaSesion(clienteId) {
 
 export async function cambiarServicio(token, destinoId) {
   const actualId = await clienteDeLaSesion(token)
-  if (!actualId) throw badRequest('La sesión venció. Volvé a entrar.')
+  if (!actualId) throw badRequest('La sesión venció. Vuelve a entrar.')
 
   const { data: fichas, error } = await db()
     .from('clientes')

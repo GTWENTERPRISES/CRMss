@@ -1,20 +1,36 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { modoDemo } from './demo'
 import { ROLES, TODO, permisosDeRol } from './permisos'
+import { errorDeValidacion, validarDatos } from './validacion/index.js'
+import { avisarErrores } from './validacion/enVivo.js'
+
+/**
+ * Antes de mandar un usuario: las mismas reglas de la tabla (correo, celular,
+ * largo de cada campo...). Si algo no cumple, no sale el pedido.
+ */
+function validarUsuario(datos, modo) {
+  const r = validarDatos('usuarios_sistema', datos, modo)
+  if (r.ok) return r.datos
+  const e = errorDeValidacion(r.errores)
+  avisarErrores(e.campos)
+  throw Object.assign(new Error(e.message), { hint: e.hint, campos: e.campos, code: e.code })
+}
 
 /**
  * El acceso a los datos de personal y auditoría.
  *
- * Leer va directo a Supabase: RLS ya deja leer el legajo a quien tiene sesión,
- * y pasarlo por el middleware solo agregaría un salto. Escribir va por el
- * middleware, siempre — ahí vive la service_role key y ahí se verifica quién
- * puede crear a quién, que en el navegador se saltea con la consola abierta.
+ * Leer va directo a las APIs de Django (la sesión del usuario ya da permiso):
+ * pasarlo por más saltos solo sumaría demora. Escribir va por el módulo de
+ * red — el proceso interno, a través del proxy de Django —, siempre: ahí se
+ * verifica quién puede crear a quién, que en el navegador se saltea con la
+ * consola abierta.
  */
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '')
+const DJANGO = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api/v1').replace(/\/$/, '')
+const BASE = (process.env.NEXT_PUBLIC_API_URL || `${DJANGO}/red`).replace(/\/$/, '')
 
 /**
- * En modo demo no hay Supabase ni middleware: se arma un plantel de mentira en
+ * En modo demo no hay backend ni servicio de red: se arma un plantel de mentira en
  * memoria. Sin esto la pantalla de personal sería la única del sistema que la
  * demo no puede mostrar, que es justo la que más se quiere mostrar al vender.
  */
@@ -38,7 +54,7 @@ const demo = {
 }
 
 async function pedir(metodo, ruta, cuerpo) {
-  const { data } = await supabase.auth.getSession()
+  const { data } = await django.auth.getSession()
   const token = data?.session?.access_token
 
   const res = await fetch(`${BASE}${ruta}`, {
@@ -49,7 +65,7 @@ async function pedir(metodo, ruta, cuerpo) {
     },
     body: cuerpo ? JSON.stringify(cuerpo) : undefined,
   }).catch(() => {
-    throw new Error(`No se puede contactar al middleware en ${BASE}. ¿Está corriendo?`)
+    throw new Error(`No se puede contactar al backend en ${BASE}. ¿Está corriendo Django?`)
   })
 
   const texto = await res.text()
@@ -72,7 +88,7 @@ export const personalApi = {
   /** El plantel completo. Incluye a los inactivos: filtrarlos es de la pantalla. */
   async listar() {
     if (modoDemo) return demo.usuarios
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('usuarios_sistema')
       .select('*')
       .order('activo', { ascending: false })
@@ -104,7 +120,7 @@ export const personalApi = {
     // `getSession` lee del almacenamiento local; `getUser` pregunta al servidor.
     // Sin señal, el segundo se cuelga y con él toda la app: hay que saber quién
     // entró para dibujar cualquier cosa.
-    const { data: ses } = await supabase.auth.getSession()
+    const { data: ses } = await django.auth.getSession()
     const authId = ses?.session?.user?.id
     if (!authId) return null
 
@@ -134,7 +150,7 @@ export const personalApi = {
     const corte = new AbortController()
     const reloj = setTimeout(() => corte.abort(), 5000)
     try {
-      const { data: fila, error } = await supabase
+      const { data: fila, error } = await django
         .from('usuarios_sistema')
         .select('*')
         .eq('auth_id', authId)
@@ -147,10 +163,10 @@ export const personalApi = {
     }
   },
 
-  crear: (usuario) => (modoDemo ? Promise.resolve({ usuario }) : pedir('POST', '/api/personal', usuario)),
+  crear: async (usuario) => (modoDemo ? { usuario } : pedir('POST', '/api/personal', validarUsuario(usuario, 'crear'))),
 
   editar: (id, cambios) =>
-    modoDemo ? Promise.resolve({ usuario: cambios }) : pedir('PATCH', `/api/personal/${id}`, cambios),
+    modoDemo ? Promise.resolve({ usuario: cambios }) : (async () => pedir('PATCH', `/api/personal/${id}`, validarUsuario(cambios, 'editar')))(),
 
   eliminar: (id) => (modoDemo ? Promise.resolve({ ok: true }) : pedir('DELETE', `/api/personal/${id}`)),
 
@@ -167,7 +183,7 @@ export const personalApi = {
    */
   async auditoria({ usuarioId, accion, desde, limite = 200 } = {}) {
     if (modoDemo) return demo.auditoria
-    let q = supabase
+    let q = django
       .from('auditoria_sistema')
       .select('*')
       .order('creado_en', { ascending: false })

@@ -10,10 +10,12 @@ import {
   YAxis,
 } from 'recharts'
 import { Activity, Download, FileText, MessageCircle, RefreshCw, Upload } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Button, Card, Field, Select, Stat, Table } from '../ui'
 import { enlaceWhatsapp } from '../../lib/soporte'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
+import SubidaSaturada from './SubidaSaturada'
 
 /**
  * Consumo del abonado, mes a mes.
@@ -83,14 +85,14 @@ export default function FichaConsumo({ cliente, onError }) {
     const hasta = `${clave}-${String(ultimo).padStart(2, '0')}`
 
     const [c, s] = await Promise.all([
-      supabase
+      django
         .from('consumo_diario')
         .select('*')
         .eq('client_id', cliente.id)
         .gte('fecha', desde)
         .lte('fecha', hasta)
         .order('fecha'),
-      supabase
+      django
         .from('sesiones_conexion')
         .select('*')
         .eq('client_id', cliente.id)
@@ -148,10 +150,29 @@ export default function FichaConsumo({ cliente, onError }) {
     setAviso(null)
     try {
       const r = await api.consumo.recolectar()
-      setAviso(
-        `Se midieron ${r.medidos} abonados.` +
-          (r.fallidos?.length ? ` ${r.fallidos.length} con error.` : ''),
-      )
+      // Se dice cada cosa por separado: "se midieron 27" sobre una gráfica vacía
+      // —porque era la primera lectura— hacía creer que la medición no andaba.
+      const partes = [`Se midieron ${r.medidos} abonados.`]
+      if (r.arranques) {
+        partes.push(
+          `${r.arranques} recién empiezan: la primera lectura solo fija el punto de partida, y el consumo aparece desde la próxima.`,
+        )
+      }
+      if (r.sin_emparejar) {
+        partes.push(
+          `${r.sin_emparejar} sin cola en su router: revisa que la IP de la ficha coincida con el target de su Simple Queue.`,
+        )
+      }
+      // Con el motivo: "1 con error" a secas no deja saber si fue el router
+      // entero —que no se pudo leer— o un abonado puntual.
+      if (r.fallidos?.length) {
+        partes.push(
+          `${r.fallidos.length} con error: ${r.fallidos
+            .map((f) => `${f.router ? `router ${f.router}` : f.cliente} — ${f.error}`)
+            .join(' · ')}`,
+        )
+      }
+      setAviso(partes.join(' '))
       await recargar()
     } catch (err) {
       onError?.(err)
@@ -222,10 +243,10 @@ export default function FichaConsumo({ cliente, onError }) {
         )}
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Descarga" valor={enGigas(total.bajada)} icon={Download} color="text-sky-400" />
-        <Stat label="Subida" valor={enGigas(total.subida)} icon={Upload} color="text-orange-400" />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Descarga" valor={enGigas(total.bajada)} icon={Download} color="text-sky-400" />
+        <Stat cargando={cargando} label="Subida" valor={enGigas(total.subida)} icon={Upload} color="text-orange-400" />
+        <Stat cargando={cargando}
           label="Total del mes"
           valor={enGigas(total.bajada + total.subida)}
           sub={`${dias.length} ${dias.length === 1 ? 'día medido' : 'días medidos'}`}
@@ -244,7 +265,7 @@ export default function FichaConsumo({ cliente, onError }) {
             <Aviso>
               La medición se toma de los contadores del router. Encendela con{' '}
               <code className="rounded bg-slate-800 px-1">CONSUMO_AUTOMATICO=true</code> en el
-              middleware, o probá con <b>Medir ahora</b> para ver si las colas del router se
+              middleware, o prueba con <b>Medir ahora</b> para ver si las colas del router se
               emparejan con este abonado.
             </Aviso>
           </div>
@@ -345,9 +366,7 @@ export default function FichaConsumo({ cliente, onError }) {
               <Button variante="primario" icon={FileText} onClick={() => verReporte(false)}>
                 Reporte en PDF
               </Button>
-              <Button variante="secundario" icon={Download} onClick={() => verReporte(true)}>
-                Descargar
-              </Button>
+              <Button variante="secundario" icon={Download} onClick={() => verReporte(true)} title="Descargar" />
               {waResumen && (
                 <a
                   href={waResumen}
@@ -373,10 +392,10 @@ export default function FichaConsumo({ cliente, onError }) {
           vacio="Sin sesiones registradas. Este abonado usa IP fija, no PPPoE, o todavía no se sincronizaron."
           renderFila={(s) => (
             <tr key={s.id} className="border-t border-slate-800">
-              <td className="px-3 py-2 text-xs">{new Date(s.inicio).toLocaleString()}</td>
+              <td className="px-3 py-2 text-xs">{fmtFechaHora(s.inicio)}</td>
               <td className="px-3 py-2 text-xs">
                 {s.fin ? (
-                  new Date(s.fin).toLocaleString()
+                  fmtFechaHora(s.fin)
                 ) : (
                   <span className="text-emerald-400">conectado</span>
                 )}
@@ -389,6 +408,8 @@ export default function FichaConsumo({ cliente, onError }) {
           )}
         />
       </Card>
+
+      <SubidaSaturada cliente={cliente} />
     </div>
   )
 }

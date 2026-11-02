@@ -68,12 +68,12 @@ router.post(
      */
     if (!anterior?.olt_id || anterior.puerto == null) {
       throw badRequest('No se pudo saber en qué puerto estaba la ONT anterior', {
-        hint: 'Autorizá la ONT nueva desde la pantalla de la OLT indicando el puerto, y después marcá este reemplazo como resuelto.',
+        hint: 'Autoriza la ONT nueva desde la pantalla de la OLT indicando el puerto, y después marca este reemplazo como resuelto.',
       })
     }
     if (anterior.vlan == null) {
       throw badRequest('La ONT anterior no tiene VLAN registrada', {
-        hint: 'Sin VLAN no pasa tráfico. Autorizá la ONT nueva desde la pantalla de la OLT.',
+        hint: 'Sin VLAN no pasa tráfico. Autoriza la ONT nueva desde la pantalla de la OLT.',
       })
     }
 
@@ -101,7 +101,7 @@ router.post(
     if (!hallazgo?.encontrada && hallazgo?.sinRespuesta) {
       throw new AppError('La OLT no contestó, así que no se pudo verificar la ONT nueva', {
         status: 503,
-        hint: 'No toques la instalación: la ONT anterior sigue autorizada. Esperá un minuto y reintentá.',
+        hint: 'No toques la instalación: la ONT anterior sigue autorizada. Espera un minuto y reintenta.',
         detalle: hallazgo.fallos?.join(' · '),
       })
     }
@@ -109,7 +109,7 @@ router.post(
     if (!hallazgo?.encontrada) {
       throw badRequest(
         `La OLT todavía no ve la ONT ${r.serie_nueva} en el puerto ${anterior.puerto}`,
-        { hint: 'Revisá el conector y el patchcord, esperá unos segundos y reintentá.' },
+        { hint: 'Revisa el conector y el patchcord, espera unos segundos y reintenta.' },
       )
     }
 
@@ -186,7 +186,7 @@ router.post(
       aviso: [
         nueva?.aviso ?? null,
         bajaVieja.ok === false
-          ? `El servicio quedó andando, pero no se pudo dar de baja la ONT anterior (${bajaVieja.error}). Avisá a la oficina para que la saque de la OLT.`
+          ? `El servicio quedó andando, pero no se pudo dar de baja la ONT anterior (${bajaVieja.error}). Avisa a la oficina para que la saque de la OLT.`
           : null,
       ]
         .filter(Boolean)

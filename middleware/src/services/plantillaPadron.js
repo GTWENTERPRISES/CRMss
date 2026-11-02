@@ -121,7 +121,7 @@ export async function generar({
   facturacion = {},
   notificaciones = {},
 } = {}) {
-  if (!router_id) throw badRequest('Elegí a qué router pertenecen estos abonados')
+  if (!router_id) throw badRequest('Elige a qué router pertenecen estos abonados')
 
   const [rRouter, rPlan] = await Promise.all([
     db().from('routers_mikrotik').select('id, nombre').eq('id', router_id).maybeSingle(),

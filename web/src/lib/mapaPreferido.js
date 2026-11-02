@@ -59,7 +59,7 @@ export const APPS_MAPA = [
   {
     clave: 'sistema',
     label: 'La que yo elija en el teléfono',
-    nota: 'Te muestra todas las que tengas: maps.me, OsmAnd, la que uses. Si tocás «Siempre», deja de preguntar.',
+    nota: 'Te muestra todas las que tengas: maps.me, OsmAnd, la que uses. Si tocas «Siempre», deja de preguntar.',
     soloAndroid: true,
   },
 ]

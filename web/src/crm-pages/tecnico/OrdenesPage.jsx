@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { AlertTriangle, ArrowRight, CheckCircle2, Clock, MapPin, Navigation } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { enlaceMapa } from '../../lib/soporte'
 import { mapaPreferido } from '../../lib/mapaPreferido'
 import { ESTADOS } from '../../lib/instalaciones'
 import { HORA, faltaPara, hoyISO } from '../../lib/campo'
 import { conCache } from '../../lib/cacheLocal'
 import { usePermisos } from '../../lib/AuthContext'
+import { enlaceLlamada } from '../../lib/telefono'
 
 /**
  * Las órdenes del técnico.
@@ -41,7 +42,7 @@ export default function OrdenesPage() {
       // Igual que el tablero: si no hay señal se muestra lo último leído, con
       // la hora a la vista. Ver `lib/cacheLocal.js`.
       const r = await conCache(`ordenes:${perfil?.id ?? 'anonimo'}`, async () => {
-        const { data, error } = await supabase
+        const { data, error } = await django
           .from('v_instalaciones')
           .select('*')
           .order('fecha', { ascending: false })
@@ -90,7 +91,7 @@ export default function OrdenesPage() {
   if (!ordenes.length) {
     return (
       <div className="py-16 text-center">
-        <p className="text-slate-400">No tenés órdenes asignadas.</p>
+        <p className="text-slate-400">No tienes órdenes asignadas.</p>
         <p className="mt-1 text-[12px] text-slate-600">
           Cuando la oficina te asigne un trabajo, aparece acá.
         </p>
@@ -160,7 +161,7 @@ function Tarjeta({ o }) {
         )}
         {o.plan && <span>{o.plan}</span>}
         {o.telefono && (
-          <a href={`tel:${o.telefono}`} className="text-sky-400">
+          <a href={enlaceLlamada(o.telefono)} className="text-sky-400">
             {o.telefono}
           </a>
         )}

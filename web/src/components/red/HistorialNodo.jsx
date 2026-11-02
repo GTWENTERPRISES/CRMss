@@ -8,9 +8,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { ESTADOS_NODO, duracion } from '../../lib/red'
 import { Aviso, Badge, Cargando, Table } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Historial de un nodo: cuándo cambió de estado y con qué latencia.
@@ -33,7 +34,7 @@ export default function HistorialNodo({ nodo }) {
     let vigente = true
     setCargando(true)
 
-    supabase
+    django
       .from('v_nodo_eventos')
       .select('*')
       .eq('nodo_id', nodo.id)
@@ -65,7 +66,7 @@ export default function HistorialNodo({ nodo }) {
     .filter((e) => e.latencia_ms != null)
     .reverse()
     .map((e) => ({
-      cuando: new Date(e.desde).toLocaleString('es-EC', { dateStyle: 'short', timeStyle: 'short' }),
+      cuando: fmtFechaHora(e.desde),
       ms: Number(e.latencia_ms),
       estado: e.estado,
     }))
@@ -140,9 +141,9 @@ export default function HistorialNodo({ nodo }) {
                 {ESTADOS_NODO[e.estado]?.label ?? e.estado}
               </Badge>
             </td>
-            <td className="px-3 py-2 text-xs">{new Date(e.desde).toLocaleString()}</td>
+            <td className="px-3 py-2 text-xs">{fmtFechaHora(e.desde)}</td>
             <td className="px-3 py-2 text-xs">
-              {e.hasta ? new Date(e.hasta).toLocaleString() : <span className="text-sky-400">en curso</span>}
+              {e.hasta ? fmtFechaHora(e.hasta) : <span className="text-sky-400">en curso</span>}
             </td>
             <td className="px-3 py-2 text-xs">{duracion(e.minutos)}</td>
             <td className="px-3 py-2 text-xs">{e.latencia_ms != null ? `${e.latencia_ms} ms` : '—'}</td>

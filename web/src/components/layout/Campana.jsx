@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { AlertTriangle, Bell, Check, Info } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { usePermisos } from '../../lib/AuthContext'
 
 /**
@@ -31,7 +31,7 @@ export default function Campana() {
 
   const recargar = useCallback(async () => {
     if (!perfil?.id) return
-    const { data } = await supabase
+    const { data } = await django
       .from('v_notificaciones')
       .select('*')
       .order('urgencia')
@@ -62,7 +62,7 @@ export default function Campana() {
 
   const marcarLeida = async (a) => {
     if (!a.se_puede_marcar) return
-    await supabase
+    await django
       .from('notificaciones')
       .update({ leida_en: new Date().toISOString() })
       .eq('id', a.clave)
@@ -72,7 +72,7 @@ export default function Campana() {
   const marcarTodas = async () => {
     const ids = avisos.filter((a) => a.se_puede_marcar && !a.leida).map((a) => a.clave)
     if (!ids.length) return
-    await supabase
+    await django
       .from('notificaciones')
       .update({ leida_en: new Date().toISOString() })
       .in('id', ids)
@@ -179,7 +179,7 @@ export default function Campana() {
               evita que alguien busque el botón que falta. */}
           {avisos.some((a) => !a.se_puede_marcar) && (
             <p className="border-t border-[rgba(15,23,42,0.06)] px-3 py-2 text-[11px] text-slate-500">
-              Los avisos sin tilde desaparecen solos cuando resolvés lo que los causa.
+              Los avisos sin tilde desaparecen solos cuando resuelves lo que los causa.
             </p>
           )}
         </div>

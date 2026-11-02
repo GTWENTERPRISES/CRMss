@@ -88,11 +88,11 @@ export default function SubredForm({
       {error && <Aviso tipo="alerta">{error}</Aviso>}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Nombre">
+        <Field campo="nombre" label="Nombre">
           <Input value={form.nombre} onChange={set('nombre')} placeholder="Clientes FTTH PROGRESO" required />
         </Field>
 
-        <Field label="Red / CIDR" hint="El gateway con su prefijo también sirve">
+        <Field campo="cidr" label="Red / CIDR" hint="El gateway con su prefijo también sirve">
           <Input
             value={form.cidr}
             onChange={set('cidr')}
@@ -102,7 +102,7 @@ export default function SubredForm({
           />
         </Field>
 
-        <Field label="Tipo" hint={TIPOS_SUBRED[form.tipo]?.ayuda}>
+        <Field campo="tipo" label="Tipo" hint={TIPOS_SUBRED[form.tipo]?.ayuda}>
           <Select value={form.tipo} onChange={set('tipo')}>
             {Object.entries(TIPOS_SUBRED).map(([valor, t]) => (
               <option key={valor} value={valor}>
@@ -112,7 +112,7 @@ export default function SubredForm({
           </Select>
         </Field>
 
-        <Field label="Router">
+        <Field campo="router_id" hint="El MikroTik que le da servicio." label="Router">
           <Select value={form.router_id} onChange={set('router_id')}>
             <option value="">Sin asignar</option>
             {routers.map((r) => (
@@ -123,18 +123,18 @@ export default function SubredForm({
           </Select>
         </Field>
 
-        <Field label="Gateway">
+        <Field campo="gateway" label="Gateway">
           <Input value={form.gateway} onChange={set('gateway')} placeholder="10.10.1.1" />
         </Field>
 
         {/* La VLAN es lo que une el bloque con el puerto PON, y por lo tanto lo
             que permite que una instalación elija sola su segmento. Sin ella, el
             técnico lo tiene que elegir de una lista arriba de una escalera. */}
-        <Field label="VLAN" hint="con esto, un alta en ese puerto elige este bloque sola">
-          <Input type="number" min={1} max={4094} value={form.vlan} onChange={set('vlan')} />
+        <Field campo="vlan" label="VLAN" hint="con esto, un alta en ese puerto elige este bloque sola">
+          <Input placeholder="Ej.: 100" type="number" min={1} max={4094} value={form.vlan} onChange={set('vlan')} />
         </Field>
 
-        <Field
+        <Field campo="olt_id"
           label="De qué OLT"
           hint="una dirección de otra OLT no enruta desde donde cuelga el abonado"
         >
@@ -155,11 +155,11 @@ export default function SubredForm({
             subred sino en las VLANs de la OLT —varios bloques pueden compartir
             una VLAN— pero se carga desde acá porque hacerlo en otra pantalla es
             el paso que se olvida. */}
-        <Field
+        <Field campo="slot"
           label="Placa"
-          hint={form.olt_id && form.vlan ? 'de qué puerto PON es este bloque' : 'primero elegí OLT y VLAN'}
+          hint={form.olt_id && form.vlan ? 'de qué puerto PON es este bloque' : 'primero elige OLT y VLAN'}
         >
-          <Input
+          <Input placeholder="Ej.: GBA-1234"
             type="number"
             min={0}
             value={form.slot}
@@ -167,8 +167,8 @@ export default function SubredForm({
             disabled={!form.olt_id || form.vlan === ''}
           />
         </Field>
-        <Field label="Puerto PON" hint="los dos o ninguno">
-          <Input
+        <Field campo="puerto" label="Puerto PON" hint="los dos o ninguno">
+          <Input placeholder="Ej.: 1"
             type="number"
             min={0}
             value={form.puerto}
@@ -177,7 +177,7 @@ export default function SubredForm({
           />
         </Field>
 
-        <Field label="Pool en el router" hint="Si la reparte por DHCP o PPP">
+        <Field campo="pool_router" label="Pool en el router" hint="Si la reparte por DHCP o PPP">
           <Input value={form.pool_router} onChange={set('pool_router')} placeholder="pool-norte" />
         </Field>
 
@@ -186,7 +186,7 @@ export default function SubredForm({
             desde la .2 y dejar la .1 como local-address del perfil PPP. Al
             guardar, el pool del router se deja igual a esto — si no, el sistema
             dice una cosa y el router entrega otra. */}
-        <Field label="Entrega desde" hint="la primera que recibe un abonado">
+        <Field campo="rango_desde" label="Entrega desde" hint="la primera que recibe un abonado">
           <Input
             value={form.rango_desde}
             onChange={set('rango_desde')}
@@ -194,7 +194,7 @@ export default function SubredForm({
             spellCheck={false}
           />
         </Field>
-        <Field label="…hasta">
+        <Field campo="rango_hasta" label="…hasta">
           <Input
             value={form.rango_hasta}
             onChange={set('rango_hasta')}
@@ -203,7 +203,7 @@ export default function SubredForm({
           />
         </Field>
 
-        <Field label="Nodo / torre">
+        <Field campo="punto_id" hint="De dónde sale su conexión." label="Nodo / torre">
           <Select value={form.punto_id} onChange={set('punto_id')}>
             <option value="">Sin asignar</option>
             {puntos.map((p) => (
@@ -214,8 +214,8 @@ export default function SubredForm({
           </Select>
         </Field>
 
-        <Field label="Notas" className="sm:col-span-2">
-          <Textarea rows={2} value={form.notas} onChange={set('notas')} />
+        <Field campo="notas" label="Notas" className="sm:col-span-2">
+          <Textarea placeholder="Ej.: Llamar antes de ir" rows={2} value={form.notas} onChange={set('notas')} />
         </Field>
       </div>
 

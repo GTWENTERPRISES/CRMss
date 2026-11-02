@@ -50,9 +50,8 @@
       "password_encrypted": "enc::encrypted_password_here",
       "enable_password_encrypted": null,
       "activo": true,
-      "estado_ultimo_sondeo": "online",
-      "ultima_conexion": "2024-08-20T10:00:00Z",
-      "modelo": "MA5608T",
+      "estado": "online",
+      "estado_at": "2024-08-20T10:00:00Z",
       "created_at": "2024-01-01T00:00:00Z",
       "updated_at": "2024-08-20T10:00:00Z"
     }
@@ -69,9 +68,8 @@
       "password_encrypted": "enc::encrypted_password_here",
       "enable_password_encrypted": null,
       "activo": true,
-      "estado_ultimo_sondeo": "online",
-      "ultima_conexion": "2024-08-20T10:05:00Z",
-      "modelo": "V1600G",
+      "estado": "online",
+      "estado_at": "2024-08-20T10:05:00Z",
       "created_at": "2024-02-01T00:00:00Z",
       "updated_at": "2024-08-20T10:05:00Z"
     }

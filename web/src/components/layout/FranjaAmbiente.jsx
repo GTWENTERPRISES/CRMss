@@ -21,7 +21,7 @@ import { AlertTriangle } from 'lucide-react'
  * ── Por qué se declara y no se adivina ──
  *
  * Sale de `NEXT_PUBLIC_AMBIENTE`, que se pone a mano en el `.env` de cada ambiente. Se
- * podría deducir del puerto o de la URL de Supabase, pero las dos cosas cambian
+ * podría deducir del puerto o de la URL del backend, pero las dos cosas cambian
  * —un ambiente de prueba puede terminar publicado en un dominio— y una alarma
  * que se apaga sola cuando cambia la infraestructura es peor que no tenerla.
  */

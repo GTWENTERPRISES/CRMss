@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { personalApi } from './personal'
 
 /**
@@ -46,15 +46,15 @@ export const ESTADOS_EQUIPO = {
 export const inventarioApi = {
   async catalogo() {
     const [articulos, almacenes] = await Promise.all([
-      supabase.from('v_articulos').select('*').order('nombre'),
-      supabase.from('almacenes').select('*').eq('activo', true).order('tipo').order('nombre'),
+      django.from('v_articulos').select('*').order('nombre'),
+      django.from('almacenes').select('*').eq('activo', true).order('tipo').order('nombre'),
     ])
     if (articulos.error) throw articulos.error
     return { articulos: articulos.data ?? [], almacenes: almacenes.data ?? [] }
   },
 
   async existencias(almacenId) {
-    let q = supabase.from('v_existencias').select('*').order('articulo')
+    let q = django.from('v_existencias').select('*').order('articulo')
     if (almacenId) q = q.eq('almacen_id', almacenId)
     const { data, error } = await q
     if (error) throw error
@@ -73,7 +73,7 @@ export const inventarioApi = {
    * la camioneta.
    */
   async stockBajo() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_stock_bajo')
       .select('*')
       // Lo agotado primero: es la diferencia entre "hay que reponer" y "hoy no
@@ -93,7 +93,7 @@ export const inventarioApi = {
    * o el aviso de la bodega llega tarde.
    */
   async guardarMinimo({ almacen_id, articulo_id, minimo, reponer }) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('stock_minimos')
       .upsert(
         {
@@ -112,7 +112,7 @@ export const inventarioApi = {
 
   /** Dejar de controlar ese artículo en ese almacén. */
   async borrarMinimo({ almacen_id, articulo_id }) {
-    const { error } = await supabase
+    const { error } = await django
       .from('stock_minimos')
       .delete()
       .eq('almacen_id', almacen_id)
@@ -122,7 +122,7 @@ export const inventarioApi = {
 
   /** Los mínimos ya cargados, para poder editarlos. */
   async minimos() {
-    const { data, error } = await supabase.from('stock_minimos').select('*')
+    const { data, error } = await django.from('stock_minimos').select('*')
     if (error) throw error
     return data ?? []
   },
@@ -136,14 +136,14 @@ export const inventarioApi = {
       stock_minimo: datos.stock_minimo === '' ? null : Number(datos.stock_minimo),
     }
     const { data, error } = id
-      ? await supabase.from('articulos').update(fila).eq('id', id).select().single()
-      : await supabase.from('articulos').insert(fila).select().single()
+      ? await django.from('articulos').update(fila).eq('id', id).select().single()
+      : await django.from('articulos').insert(fila).select().single()
     if (error) throw error
     return data
   },
 
   async equipos({ almacenId, articuloId, busqueda } = {}) {
-    let q = supabase.from('v_equipos').select('*').order('creado_en', { ascending: false }).limit(500)
+    let q = django.from('v_equipos').select('*').order('creado_en', { ascending: false }).limit(500)
     if (almacenId) q = q.eq('almacen_id', almacenId)
     if (articuloId) q = q.eq('articulo_id', articuloId)
     if (busqueda) q = q.or(`serie.ilike.%${busqueda}%,mac.ilike.%${busqueda}%`)
@@ -177,7 +177,7 @@ export const inventarioApi = {
       ? equipoIds.map((equipo_id) => ({ ...comun, equipo_id, cantidad: 1 }))
       : [{ ...comun, cantidad: Number(cantidad) }]
 
-    const { error } = await supabase.from('movimientos_inventario').insert(filas)
+    const { error } = await django.from('movimientos_inventario').insert(filas)
     if (error) throw error
 
     personalApi.registrar(
@@ -193,7 +193,7 @@ export const inventarioApi = {
     const limpias = [...new Set(series.map((s) => s.trim().toUpperCase()).filter(Boolean))]
     if (!limpias.length) throw new Error('No hay ninguna serie para dar de alta')
 
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('equipos')
       .insert(
         limpias.map((serie, i) => ({
@@ -227,7 +227,7 @@ export const inventarioApi = {
   },
 
   async movimientos({ articuloId, almacenId, limite = 300 } = {}) {
-    let q = supabase.from('v_movimientos').select('*').order('creado_en', { ascending: false }).limit(limite)
+    let q = django.from('v_movimientos').select('*').order('creado_en', { ascending: false }).limit(limite)
     if (articuloId) q = q.eq('articulo_id', articuloId)
     if (almacenId) {
       q = q.or(`almacen_origen_id.eq.${almacenId},almacen_destino_id.eq.${almacenId}`)
@@ -239,7 +239,7 @@ export const inventarioApi = {
 
   // ── Proveedores y compras ──
   async proveedores() {
-    const { data, error } = await supabase.from('proveedores').select('*').order('nombre')
+    const { data, error } = await django.from('proveedores').select('*').order('nombre')
     if (error) throw error
     return data ?? []
   },
@@ -247,13 +247,13 @@ export const inventarioApi = {
   async guardarProveedor(p) {
     const { id, ...datos } = p
     const { error } = id
-      ? await supabase.from('proveedores').update(datos).eq('id', id)
-      : await supabase.from('proveedores').insert(datos)
+      ? await django.from('proveedores').update(datos).eq('id', id)
+      : await django.from('proveedores').insert(datos)
     if (error) throw error
   },
 
   async compras() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('compras')
       .select('*, proveedores(nombre), compra_items(*, articulos(nombre, unidad, por_serie))')
       .order('fecha', { ascending: false })
@@ -263,7 +263,7 @@ export const inventarioApi = {
   },
 
   async guardarCompra({ compra, items }, perfil) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('compras')
       .insert({ ...compra, creado_por: perfil?.id ?? null })
       .select()
@@ -271,7 +271,7 @@ export const inventarioApi = {
     if (error) throw error
 
     if (items.length) {
-      const { error: e2 } = await supabase
+      const { error: e2 } = await django
         .from('compra_items')
         .insert(items.map((i) => ({ ...i, compra_id: data.id })))
       if (e2) throw e2
@@ -314,14 +314,14 @@ export const inventarioApi = {
       // El último costo sirve para valorizar el stock sin llevar un promedio
       // ponderado, que en un ISP chico nadie mantiene.
       if (Number(item.costo_unit) > 0) {
-        await supabase
+        await django
           .from('articulos')
           .update({ costo_ultimo: item.costo_unit })
           .eq('id', item.articulo_id)
       }
     }
 
-    const { error } = await supabase
+    const { error } = await django
       .from('compras')
       .update({ estado: 'recibida', recibida_en: new Date().toISOString() })
       .eq('id', compra.id)
@@ -338,7 +338,7 @@ export const inventarioApi = {
    */
   async consumosDeTrabajo({ instalacionId, ticketId }) {
     if (!instalacionId && !ticketId) return []
-    let q = supabase.from('v_movimientos').select('*').eq('tipo', 'consumo').order('creado_en')
+    let q = django.from('v_movimientos').select('*').eq('tipo', 'consumo').order('creado_en')
     q = instalacionId ? q.eq('instalacion_id', instalacionId) : q.eq('ticket_id', ticketId)
     const { data, error } = await q
     if (error) throw error
@@ -379,7 +379,7 @@ export const inventarioApi = {
     )
     if (!filas.length) return
 
-    const { error } = await supabase.from('movimientos_inventario').insert(filas)
+    const { error } = await django.from('movimientos_inventario').insert(filas)
     if (error) throw error
   },
 
@@ -393,7 +393,7 @@ export const inventarioApi = {
    */
   async vincularEquiposACliente(instalacionId, clienteId) {
     if (!instalacionId || !clienteId) return
-    const { error } = await supabase
+    const { error } = await django
       .from('equipos')
       .update({ cliente_id: clienteId })
       .eq('instalacion_id', instalacionId)
@@ -405,7 +405,7 @@ export const inventarioApi = {
   /** El almacén del técnico que tiene la sesión abierta. */
   async miAlmacen(tecnicoId) {
     if (!tecnicoId) return null
-    const { data } = await supabase
+    const { data } = await django
       .from('almacenes')
       .select('*')
       .eq('tecnico_id', tecnicoId)

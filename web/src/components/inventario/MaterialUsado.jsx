@@ -3,6 +3,7 @@ import { Check, Minus, Package, Plus, Trash2 } from 'lucide-react'
 import { usePermisos } from '../../lib/AuthContext'
 import { inventarioApi } from '../../lib/inventario'
 import { Aviso, Badge, Button, Cargando, Field, Select } from '../ui'
+import { numero as fmtNumero } from '@/lib/formato'
 
 /**
  * El material que un técnico usó en un trabajo.
@@ -137,8 +138,8 @@ export default function MaterialUsado({
     return (
       <Aviso tipo="alerta">
         Tu usuario no tiene un almacén asignado, así que el material no se puede descontar solo.
-        Podés seguir; el consumo lo va a tener que cargar bodega a mano. Para que se descuente solo,
-        pedile a un administrador que te vincule a un técnico en{' '}
+        Puedes seguir; el consumo lo va a tener que cargar bodega a mano. Para que se descuente solo,
+        pídele a un administrador que te vincule a un técnico en{' '}
         <b>Ajustes → Gestión de personal</b>.
       </Aviso>
     )
@@ -167,13 +168,13 @@ export default function MaterialUsado({
                   {c.serie ? ` · ${c.serie}` : ''}
                 </span>
                 <span className="tabular-nums text-slate-400">
-                  {Number(c.cantidad).toLocaleString('es-EC')} {c.unidad}
+                  {fmtNumero(c.cantidad)} {c.unidad}
                 </span>
               </div>
             ))}
           </div>
           <p className="mt-2 text-[11px] text-slate-500">
-            Esto ya salió de tu stock. Si te equivocaste, no lo cargues de nuevo: avisale a bodega
+            Esto ya salió de tu stock. Si te equivocaste, no lo cargues de nuevo: avísale a bodega
             para que haga el ajuste.
           </p>
         </div>
@@ -202,8 +203,8 @@ export default function MaterialUsado({
         {lineas.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-800 py-5 text-center text-[13px] text-slate-500">
             {yaConsumido.length
-              ? 'Agregá más si usaste otra cosa.'
-              : 'Si no usaste material, dejalo vacío.'}
+              ? 'Agrega más si usaste otra cosa.'
+              : 'Si no usaste material, déjalo vacío.'}
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -216,7 +217,7 @@ export default function MaterialUsado({
                   <div className="truncate text-[13px] text-slate-100">{l.etiqueta}</div>
                   {l.disponible != null && (
                     <div className="text-[11px] text-slate-500">
-                      tenés {l.disponible} {l.unidad}
+                      tienes {l.disponible} {l.unidad}
                     </div>
                   )}
                 </div>
@@ -272,7 +273,7 @@ export default function MaterialUsado({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Agregar equipo con serie">
+        <Field hint="Equipos que se controlan uno por uno (ONT, router)." label="Agregar equipo con serie">
           <Select
             value=""
             onChange={(e) => {
@@ -281,7 +282,7 @@ export default function MaterialUsado({
             }}
           >
             <option value="">
-              {disponiblesEquipo.length ? '— elegí el equipo —' : 'No te queda ninguno'}
+              {disponiblesEquipo.length ? '— elige el equipo —' : 'No te queda ninguno'}
             </option>
             {disponiblesEquipo.map((q) => (
               <option key={q.id} value={q.id}>
@@ -291,7 +292,7 @@ export default function MaterialUsado({
           </Select>
         </Field>
 
-        <Field label="Agregar material">
+        <Field hint="Material que se descuenta por cantidad (cable, conectores)." label="Agregar material">
           <Select
             value=""
             onChange={(e) => {
@@ -300,7 +301,7 @@ export default function MaterialUsado({
             }}
           >
             <option value="">
-              {disponiblesMaterial.length ? '— elegí el material —' : 'No te queda material'}
+              {disponiblesMaterial.length ? '— elige el material —' : 'No te queda material'}
             </option>
             {disponiblesMaterial.map((ex) => (
               <option key={ex.articulo_id} value={ex.articulo_id}>
@@ -315,7 +316,7 @@ export default function MaterialUsado({
           no significa nada y hay que ir a corregirlo a mano. */}
       {excedido && (
         <Aviso tipo="alerta">
-          Estás cargando más cantidad de la que tenés asignada. Corregí el número, o pedile a bodega
+          Estás cargando más cantidad de la que tienes asignada. Corrige el número, o pídele a bodega
           que te transfiera lo que falta.
         </Aviso>
       )}

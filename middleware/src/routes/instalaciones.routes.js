@@ -154,7 +154,7 @@ async function ubicacionOptica(inst, elegido = {}) {
 
     throw badRequest('La instalación no tiene OLT asignada', {
       hint:
-        'Elegila abajo y volvé a medir. Queda guardada en la orden, así que se pregunta una sola vez. ' +
+        'Elígela abajo y vuelve a medir. Queda guardada en la orden, así que se pregunta una sola vez. ' +
         'Lo normal es que salga sola de la caja NAP elegida al validar la factibilidad.',
       // La pantalla las necesita para poder ofrecerlas sin otra vuelta al
       // servidor: el técnico está en la calle y cada consulta es tiempo.
@@ -368,19 +368,19 @@ router.post(
     if (!hallazgo.encontrada && hallazgo.sinRespuesta) {
       throw new AppError('La OLT no contestó, así que no se pudo verificar la ONT', {
         status: 503,
-        hint: 'No es el conector: el equipo no respondió. Esperá un minuto y volvé a intentar.',
+        hint: 'No es el conector: el equipo no respondió. Espera un minuto y vuelve a intentar.',
         detalle: hallazgo.fallos?.join(' · '),
       })
     }
 
     if (!hallazgo.encontrada) {
       throw badRequest(`La OLT ya no ve la ONT ${inst.equipo_sn}`, {
-        hint: 'Revisá el conector y volvé a medir antes de autorizar.',
+        hint: 'Revisa el conector y vuelve a medir antes de autorizar.',
       })
     }
     if (hallazgo.registrada) {
       throw badRequest('Esa ONT ya está autorizada', {
-        hint: 'Volvé a medir: ahora sí se puede leer su potencia.',
+        hint: 'Vuelve a medir: ahora sí se puede leer su potencia.',
       })
     }
 
@@ -462,7 +462,7 @@ router.post(
       avisoSrv = modelo
         ? `La OLT no tiene un perfil de servicio llamado "${modelo}". Se autorizó con el `
           + `genérico de la plantilla "${preset?.nombre}": la ONT navega, pero puede quedarle `
-          + 'algún puerto sin habilitar. Creá el perfil con el nombre del modelo y reprovisioná.'
+          + 'algún puerto sin habilitar. Crea el perfil con el nombre del modelo y reprovisiona.'
         : 'No se pudo leer el modelo de la ONT. Se autorizó con el perfil genérico de la plantilla.'
     }
 
@@ -473,7 +473,7 @@ router.post(
           : 'No se pudo determinar el perfil de servicio',
         {
           hint:
-            'Cargá el perfil en la OLT con el nombre del modelo, o poné uno genérico en la '
+            'Carga el perfil en la OLT con el nombre del modelo, o pon uno genérico en la '
             + 'plantilla para que sirva de respaldo. Sin ninguno de los dos no hay con qué '
             + 'configurar la ONT.',
           modelo,
@@ -484,7 +484,7 @@ router.post(
     const vlan = cuerpo.vlan ?? preset?.vlan ?? null
     if (vlan == null) {
       throw badRequest('Falta la VLAN', {
-        hint: 'Elegí una plantilla que la traiga, o escribila. Sin VLAN la ONT queda registrada y sin pasar tráfico.',
+        hint: 'Elige una plantilla que la traiga, o escríbela. Sin VLAN la ONT queda registrada y sin pasar tráfico.',
       })
     }
 
@@ -552,7 +552,7 @@ router.post(
         : {}),
       // La ONT tarda unos segundos en registrarse contra la OLT. Medir en el
       // mismo instante devolvería "sin potencia" y parecería que salió mal.
-      siguiente: 'Esperá unos segundos y tocá "Volver a medir": ya va a dar potencia.',
+      siguiente: 'Espera unos segundos y toca "Volver a medir": ya va a dar potencia.',
     })
   }),
 )
@@ -573,7 +573,7 @@ router.post(
     const inst = await cargarInstalacion(req.params.id)
 
     if (!inst.equipo_sn && !inst.equipo_mac) {
-      throw badRequest('Falta leer el equipo: escaneá o escribí la serie o la MAC antes de medir')
+      throw badRequest('Falta leer el equipo: escanea o escribe la serie o la MAC antes de medir')
     }
 
     // --- Fibra -------------------------------------------------------------
@@ -618,7 +618,7 @@ router.post(
           semaforo: 'gris',
           sin_respuesta: true,
           mensaje: `La OLT ${equipo.nombre} no contestó, así que no se pudo medir.`,
-          hint: 'No es el conector: el equipo no respondió. Esperá un minuto y volvé a medir.',
+          hint: 'No es el conector: el equipo no respondió. Espera un minuto y vuelve a medir.',
           detalle: hallazgo.fallos?.join(' · '),
         })
       }
@@ -629,7 +629,7 @@ router.post(
           encontrada: false,
           semaforo: 'rojo',
           mensaje: `La OLT ${equipo.nombre} no ve la ONT ${inst.equipo_sn}.`,
-          hint: 'Revisá el conector en la NAP y en la roseta, y que la serie escaneada sea la de la ONT y no la de la caja.',
+          hint: 'Revisa el conector en la NAP y en la roseta, y que la serie escaneada sea la de la ONT y no la de la caja.',
         })
       }
 
@@ -725,7 +725,7 @@ router.post(
           semaforo === 'verde'
             ? `Potencia óptima: ${rx} dBm.`
             : semaforo === 'ambar'
-              ? `Potencia justa: ${rx} dBm. Revisá empalmes y conectores antes de cerrar.`
+              ? `Potencia justa: ${rx} dBm. Revisa empalmes y conectores antes de cerrar.`
               : `Potencia fuera de rango: ${rx} dBm. Con este valor el servicio se va a caer.`,
         instalacion: guardada,
       })
@@ -737,7 +737,7 @@ router.post(
     }
     if (!inst.router_id) {
       throw badRequest('La instalación no tiene router asignado', {
-        hint: 'Elegí desde qué MikroTik se alimenta el sector antes de medir la señal.',
+        hint: 'Elige desde qué MikroTik se alimenta el sector antes de medir la señal.',
       })
     }
 
@@ -765,7 +765,7 @@ router.post(
         semaforo: 'rojo',
         asociados: (registro ?? []).length,
         mensaje: `El CPE ${mac} no figura asociado en ${equipo.nombre}.`,
-        hint: 'Verificá que la antena esté apuntada, que el SSID y la clave sean los del sector, y que la MAC sea la del radio y no la del puerto LAN.',
+        hint: 'Verifica que la antena esté apuntada, que el SSID y la clave sean los del sector, y que la MAC sea la del radio y no la del puerto LAN.',
       })
     }
 
@@ -800,7 +800,7 @@ router.post(
         semaforo === 'verde'
           ? `Señal óptima: ${senal} dBm${ccq != null ? ` con ${ccq}% de CCQ` : ''}.`
           : semaforo === 'ambar'
-            ? `Señal justa: ${senal} dBm${ccq != null ? ` y ${ccq}% de CCQ` : ''}. Mejorá la alineación antes de cerrar.`
+            ? `Señal justa: ${senal} dBm${ccq != null ? ` y ${ccq}% de CCQ` : ''}. Mejora la alineación antes de cerrar.`
             : `Señal fuera de rango: ${senal} dBm. Con este valor el enlace se va a cortar.`,
       instalacion: guardada,
     })
@@ -850,7 +850,7 @@ router.get(
         return res.json({
           encontrado: false,
           motivo: 'Instalación por radioenlace: el segmento no se deduce de la OLT',
-          hint: 'Elegí primero el MikroTik del nodo y las redes de ese equipo aparecen abajo.',
+          hint: 'Elige primero el MikroTik del nodo y las redes de ese equipo aparecen abajo.',
         })
       }
 
@@ -908,7 +908,7 @@ router.get(
           ? `Este nodo tiene ${lista.length} redes para ${inst.tipo_conexion === 'pppoe' ? 'PPPoE' : 'IP directa'}`
           : 'Este nodo no tiene redes cargadas para esta forma de conexión',
         hint: lista.length
-          ? 'En radio no se puede saber cuál le toca sin conocer el sector: elegila abajo.'
+          ? 'En radio no se puede saber cuál le toca sin conocer el sector: elígela abajo.'
           : 'Cargalas en Red → Redes IPv4, con este router asignado.',
         candidatas: lista.map(comoLaEsperaLaPantalla),
       })
@@ -918,7 +918,7 @@ router.get(
       return res.json({
         encontrado: false,
         motivo: 'La orden todavía no tiene OLT',
-        hint: 'Se completa sola al consultar la señal. Si es radioenlace, marcá la tecnología en la orden.',
+        hint: 'Se completa sola al consultar la señal. Si es radioenlace, marca la tecnología en la orden.',
       })
     }
 
@@ -1049,7 +1049,7 @@ router.get(
     const routerId = req.query.router_id || inst.router_id
     if (!routerId) {
       throw badRequest('Falta el router del que sale el segmento', {
-        hint: 'Elegí el MikroTik del nodo en el paso de parámetros de red.',
+        hint: 'Elige el MikroTik del nodo en el paso de parámetros de red.',
       })
     }
 
@@ -1073,7 +1073,7 @@ router.get(
       origen = { tipo: 'pool', valor: pool.name, rangos: pool.ranges }
     } else {
       const pools = await mk.listarPools(equipo).catch(() => [])
-      throw badRequest('Indicá de qué pool o de qué red sacar la dirección', {
+      throw badRequest('Indica de qué pool o de qué red sacar la dirección', {
         hint: `Pools en ${equipo.nombre}: ${(pools ?? []).map((p) => p.name).join(', ') || 'ninguno'}`,
       })
     }
@@ -1208,7 +1208,7 @@ router.get(
     if (!libre) {
       throw new AppError(`No queda ninguna dirección libre en ${origen.valor}`, {
         status: 409,
-        hint: 'Ampliá el pool o liberá las direcciones de los abonados dados de baja.',
+        hint: 'Amplía el pool o libera las direcciones de los abonados dados de baja.',
       })
     }
 
@@ -1227,7 +1227,7 @@ router.get(
         ? {
             aviso:
               `No se pudo consultar ${sinConsultar.join(' ni ')}. ` +
-              'La dirección puede estar en uso: verificá antes de asignarla.',
+              'La dirección puede estar en uso: verifica antes de asignarla.',
           }
         : {}),
     })
@@ -1368,8 +1368,8 @@ router.post(
               aviso:
                 `El router no tiene un perfil PPP llamado "${perfil}": el secret quedó con el `
                 + 'perfil por defecto y el abonado navega, pero sin el límite del plan. '
-                + 'Creá ese perfil en el MikroTik, o —si la velocidad la controla la OLT— '
-                + 'cambiá el plan a «La OLT (traffic table)» en Servicios → Planes.',
+                + 'Crea ese perfil en el MikroTik, o —si la velocidad la controla la OLT— '
+                + 'cambia el plan a «La OLT (traffic table)» en Servicios → Planes.',
             }
           }
         },
@@ -1442,7 +1442,7 @@ router.post(
 
     if (!destino) {
       throw badRequest('No hay contra qué medir', {
-        hint: 'Asigná la IP en el paso anterior, o esperá a que el equipo levante la sesión PPPoE.',
+        hint: 'Asigna la IP en el paso anterior, o espera a que el equipo levante la sesión PPPoE.',
       })
     }
 

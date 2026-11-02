@@ -18,9 +18,9 @@ export default function SelectorOlt({ olts, oltId, onOltId, ubicacion, onUbicaci
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <Field label="OLT" className="lg:col-span-2">
+      <Field hint="La OLT a la que está conectada la ONU." label="OLT" className="lg:col-span-2">
         <Select value={oltId ?? ''} onChange={(e) => onOltId(e.target.value)}>
-          <option value="">— elegí una OLT —</option>
+          <option value="">— elige una OLT —</option>
           {olts.map((o) => (
             <option key={o.id} value={o.id}>
               {o.nombre} ({o.marca} · {o.ip_host})
@@ -31,17 +31,17 @@ export default function SelectorOlt({ olts, oltId, onOltId, ubicacion, onUbicaci
 
       {esHuawei && (
         <>
-          <Field label="Frame">
-            <Input type="number" value={ubicacion.frame} onChange={set('frame')} min={0} />
+          <Field campo="frame" label="Frame">
+            <Input placeholder="Ej.: 0" type="number" value={ubicacion.frame} onChange={set('frame')} min={0} />
           </Field>
-          <Field label="Slot">
-            <Input type="number" value={ubicacion.slot} onChange={set('slot')} min={0} />
+          <Field campo="slot" label="Slot">
+            <Input placeholder="Ej.: 1" type="number" value={ubicacion.slot} onChange={set('slot')} min={0} />
           </Field>
         </>
       )}
 
-      <Field label="Puerto PON">
-        <Input type="number" value={ubicacion.puerto} onChange={set('puerto')} min={0} />
+      <Field campo="puerto" label="Puerto PON">
+        <Input placeholder="Ej.: 1" type="number" value={ubicacion.puerto} onChange={set('puerto')} min={0} />
       </Field>
     </div>
   )

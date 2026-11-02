@@ -165,7 +165,7 @@ function recibo(doc, { emisor, pago, cliente, logo, copia, destinos = [], y }) {
 
   // --- Cuerpo
   const w = ANCHO - 28
-  campo(doc, xi, cursor, w, 'Recibí de:', cliente?.nombre ?? pago.cliente_nombre)
+  campo(doc, xi, cursor, w, 'Recibe de:', cliente?.nombre ?? pago.cliente_nombre)
   cursor += 14
   campo(doc, xi, cursor, w / 2 - 10, 'RUC / CI:', cliente?.identificacion ?? '—')
   campo(doc, xi + w / 2, cursor, w / 2, 'Forma de pago:', FORMAS_PAGO[pago.forma_pago] ?? pago.forma_pago)
@@ -251,7 +251,7 @@ function recibo(doc, { emisor, pago, cliente, logo, copia, destinos = [], y }) {
   // --- Firma
   const yFirma = y + alto - 40
   doc.moveTo(xi + w - 180, yFirma).lineTo(xi + w, yFirma).lineWidth(0.5).strokeColor(BORDE).stroke()
-  doc.fontSize(7).fillColor(GRIS).text('Recibí conforme', xi + w - 180, yFirma + 3, {
+  doc.fontSize(7).fillColor(GRIS).text('Recibe conforme', xi + w - 180, yFirma + 3, {
     width: 180,
     align: 'center',
   })

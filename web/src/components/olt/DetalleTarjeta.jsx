@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { Eye, KeyRound, LineChart, ListChecks, PackagePlus, Search, X } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { dbm, nivel } from '../../lib/optica'
 import { hace } from '../../lib/olts'
 import HistorialOptico from './HistorialOptico'
 import { Aviso, Badge, Button, Card, ErrorBanner, SkeletonTabla, Table } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Lo que hay detrás de cada tarjeta del tablero.
@@ -53,7 +54,7 @@ function Lista({ tipo }) {
   const [sinAlertas, setSinAlertas] = useState(false)
 
   const cargar = useCallback(async () => {
-    let q = supabase.from('v_onus_clientes').select('*')
+    let q = django.from('v_onus_clientes').select('*')
     q = def.filtrar(q)
     const { data, error: err } = await q
       .order(def.orden.columna, { ascending: def.orden.asc })
@@ -67,7 +68,7 @@ function Lista({ tipo }) {
     // sirve para nada. Se muestran igual las peores: son las que hay que
     // vigilar, y con la tendencia al lado se ve cuál se está yendo.
     if (!filas.length && def.siVacio) {
-      const { data: peores } = await supabase
+      const { data: peores } = await django
         .from('v_onus_clientes')
         .select('*')
         .not('rx_power_dbm', 'is', null)
@@ -83,7 +84,7 @@ function Lista({ tipo }) {
     // La tendencia se pide en UNA consulta para toda la lista, no una por fila:
     // con trescientas ONTs serían trescientas idas y vueltas.
     if (def.conTendencia && data2.length) {
-      const { data: t } = await supabase
+      const { data: t } = await django
         .from('v_onu_optica_tendencia')
         .select('onu_id, delta_db, tendencia, muestras')
         .in(
@@ -223,7 +224,7 @@ function Lista({ tipo }) {
 
       {filas.length === 300 && (
         <p className="text-[11px] text-slate-600">
-          Se muestran las primeras 300. Usá los filtros de la pestaña ONUs de cada OLT para el
+          Se muestran las primeras 300. Usa los filtros de la pestaña ONUs de cada OLT para el
           listado completo.
         </p>
       )}
@@ -313,7 +314,7 @@ function Esperando({ esperando, onBuscar, buscando, onAutorizar, onVer, onPlanti
                   <td className="px-3 py-2 text-xs">{o.modelo ?? '—'}</td>
                   <td className="px-3 py-2 text-xs text-slate-500">
                     {o.detectada
-                      ? new Date(o.detectada).toLocaleString('es-EC')
+                      ? fmtFechaHora(o.detectada)
                       : 'no informada'}
                   </td>
                   <td className="px-3 py-2 text-right">
@@ -382,9 +383,7 @@ export default function DetalleTarjeta({
     <Card
       title={titulo}
       actions={
-        <Button variante="fantasma" icon={X} onClick={onCerrar}>
-          Cerrar
-        </Button>
+        <Button variante="fantasma" icon={X} onClick={onCerrar} title="Cerrar" />
       }
     >
       {tipo === 'esperando' ? (

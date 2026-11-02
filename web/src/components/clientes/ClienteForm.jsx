@@ -1,10 +1,12 @@
+import { nombreDocumento, usePais } from '../../lib/pais'
 import { useEffect, useMemo, useState } from 'react'
 import { Save, Wand2 } from 'lucide-react'
-import { useTabla } from '../../lib/useTabla'
-import { supabase } from '../../lib/supabaseClient'
+import { useTablaDjango as useTabla } from '../../lib/useTablaDjango'
+import { django } from '../../lib/djangoClient'
 import { libresDe, perteneceA } from '../../lib/ip'
 import { claveSugerida, usuarioSugerido } from '../../lib/instalaciones'
 import { Aviso, Button, ErrorBanner, Field, Input, Select } from '../ui'
+import { SoloTecnico } from '../../lib/tecnico'
 
 /**
  * Alta y edición de un cliente.
@@ -14,13 +16,12 @@ import { Aviso, Button, ErrorBanner, Field, Input, Select } from '../ui'
  * cargarlos: sin identificación no se le puede emitir un comprobante.
  */
 
-const TIPOS_ID = [
-  { codigo: '05', label: 'Cédula' },
-  { codigo: '04', label: 'RUC' },
-  { codigo: '06', label: 'Pasaporte' },
-  { codigo: '07', label: 'Consumidor final' },
-  { codigo: '08', label: 'Identificación del exterior' },
-]
+/**
+ * Los tipos de documento se guardan con los códigos del SRI —la base solo
+ * acepta esos— y se usan como roles: 05 la persona, 04 la empresa, 08 el
+ * extranjero. El nombre y el largo los pone el país del ISP.
+ */
+const ORDEN_ID = ['05', '04', '06', '07', '08']
 
 const VACIO = {
   nombre: '',
@@ -64,10 +65,10 @@ const REDES_DEL_ALTA = ['estatica', 'cgnat']
 const mbps = (kbps) => (kbps ? `${Math.round(kbps / 1000)} Mbps` : '—')
 
 /** Longitud esperada según el tipo: cédula 10, RUC 13. */
-const LARGO_ESPERADO = { '05': 10, '04': 13 }
 
 export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) {
   const editando = Boolean(cliente)
+  const pais = usePais()
   const { filas: routers } = useTabla('routers_mikrotik')
   const { filas: planes } = useTabla('planes_velocidad', { orderBy: 'nombre', ascending: true })
   const { filas: redes } = useTabla('v_subredes', { orderBy: 'numero', ascending: true })
@@ -105,8 +106,8 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
     }
     let vivo = true
     Promise.all([
-      supabase.from('v_direcciones_ip').select('ip_address').eq('subred_id', redElegida.id),
-      supabase.from('clientes').select('ip').not('ip', 'is', null),
+      django.from('v_direcciones_ip').select('ip_address').eq('subred_id', redElegida.id),
+      django.from('clientes').select('ip').not('ip', 'is', null),
     ]).then(([a, b]) => {
       if (!vivo) return
       setOcupadas([
@@ -141,7 +142,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
     let vivo = true
     // Se espera a que deje de escribir: sin esto sale una consulta por tecla.
     const reloj = setTimeout(() => {
-      supabase
+      django
         .from('clientes')
         .select('id, nombre, referencia_servicio, direccion, estado')
         .eq('identificacion', cedula)
@@ -178,7 +179,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
     form.precio_mensual !== '' &&
     Math.abs(Number(form.precio_mensual) - Number(planElegido.precio)) > 0.005
 
-  const largo = LARGO_ESPERADO[form.tipo_identificacion]
+  const largo = pais.documentos[form.tipo_identificacion]?.largo
   const idIncompleta =
     largo && form.identificacion && form.identificacion.replace(/\D/g, '').length !== largo
 
@@ -199,7 +200,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
      * pedirlo igual.
      */
     if (!form.plan_id) {
-      setError(new Error('Elegí un plan. Sin plan no se le puede aplicar velocidad ni facturar el precio de lista.'))
+      setError(new Error('Elige un plan. Sin plan no se le puede aplicar velocidad ni facturar el precio de lista.'))
       return
     }
 
@@ -244,41 +245,41 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
   return (
     <form onSubmit={guardar} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Nombre o razón social" className="sm:col-span-2">
+        <Field campo="nombre" label="Nombre o razón social" className="sm:col-span-2">
           <Input value={form.nombre} onChange={set('nombre')} placeholder="JUAN PÉREZ" required />
         </Field>
 
-        <Field label="Tipo de identificación">
+        <Field campo="tipo_identificacion" hint="Cédula, RUC o pasaporte; define cómo sale la factura." label="Tipo de identificación">
           <Select value={form.tipo_identificacion} onChange={set('tipo_identificacion')}>
-            {TIPOS_ID.map((t) => (
-              <option key={t.codigo} value={t.codigo}>
-                {t.label}
+            {ORDEN_ID.map((codigo) => (
+              <option key={codigo} value={codigo}>
+                {nombreDocumento(pais, codigo)}
               </option>
             ))}
           </Select>
         </Field>
 
-        <Field
+        <Field campo="identificacion"
           label="Identificación"
           hint={largo ? `${largo} dígitos` : 'Requerida para facturar'}
         >
           <Input
             value={form.identificacion}
             onChange={set('identificacion')}
-            placeholder={form.tipo_identificacion === '04' ? '1790012345001' : '1712345678'}
+            placeholder={pais.documentos[form.tipo_identificacion]?.ejemplo ?? ''}
           />
         </Field>
 
-        <Field label="Correo" hint="Ahí se envía la factura electrónica">
-          <Input type="email" value={form.email} onChange={set('email')} />
+        <Field campo="email" label="Correo" hint="Ahí se envía la factura electrónica">
+          <Input placeholder="Ej.: cliente@correo.com" type="email" value={form.email} onChange={set('email')} />
         </Field>
 
-        <Field label="Teléfono">
-          <Input value={form.telefono} onChange={set('telefono')} />
+        <Field campo="telefono" label="Teléfono">
+          <Input placeholder="Ej.: 0991234567" value={form.telefono} onChange={set('telefono')} />
         </Field>
 
-        <Field label="Dirección" className="sm:col-span-2">
-          <Input value={form.direccion} onChange={set('direccion')} />
+        <Field campo="direccion" label="Dirección" className="sm:col-span-2">
+          <Input placeholder="Ej.: Av. 9 de Octubre 123 y Boyacá" value={form.direccion} onChange={set('direccion')} />
         </Field>
 
         {/*
@@ -287,7 +288,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
           impreso en la factura y en el contrato. Esto no sale en ninguno de los
           dos: se ve solo en las pantallas internas.
         */}
-        <Field
+        <Field campo="referencia_servicio"
           label="Referencia del servicio"
           hint="Casa, Local, Bodega. Solo para distinguirlo por dentro: no sale en la factura."
           className="sm:col-span-2"
@@ -303,9 +304,9 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
 
       {idIncompleta && (
         <Aviso tipo="alerta">
-          La {form.tipo_identificacion === '04' ? 'RUC' : 'cédula'} debería tener {largo} dígitos y
-          tiene {form.identificacion.replace(/\D/g, '').length}. El SRI rechaza el comprobante si no
-          coincide.
+          El {nombreDocumento(pais, form.tipo_identificacion)} debería tener {largo} dígitos y
+          tiene {form.identificacion.replace(/\D/g, '').length}.
+          {pais.modulos.facturacionElectronica && ' El SRI rechaza el comprobante si no coincide.'}
         </Aviso>
       )}
 
@@ -329,8 +330,8 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
             ))}
           </ul>
           <span className="mt-1 block text-xs">
-            Si estás agregando otro servicio de la misma persona, está bien: ponele el nombre real
-            y una referencia para distinguirlo. Si es un duplicado, cerrá y editá el que ya existe.
+            Si estás agregando otro servicio de la misma persona, está bien: ponle el nombre real
+            y una referencia para distinguirlo. Si es un duplicado, cierra y edita el que ya existe.
           </span>
         </Aviso>
       )}
@@ -345,7 +346,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
             <Aviso tipo="alerta">
               {planElegido.nombre} cuesta <b>${planElegido.precio}</b> y estás poniendo{' '}
               <b>${form.precio_mensual}</b>. Se le va a facturar lo que pusiste. Si es un acuerdo,
-              dejalo escrito en Facturación → Descuento acordado.
+              déjalo escrito en Facturación → Descuento acordado.
             </Aviso>
           </div>
         )}
@@ -353,14 +354,17 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
         {!esPppoe && ipFueraDeRed && (
           <div className="mb-3">
             <Aviso tipo="alerta">
-              <b>{form.ip}</b> no pertenece a {redElegida.cidr}. Revisá la red o la dirección: una
+              <b>{form.ip}</b> no pertenece a {redElegida.cidr}. Revisa la red o la dirección: una
               IP fuera del bloque no navega y el problema aparece recién en la instalación.
             </Aviso>
           </div>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field
+          {/* Los datos de red, solo para quien opera la red: al que cobra o
+              vende no le dicen nada. Quedan como estaban al guardar. */}
+          <SoloTecnico>
+          <Field campo="tipo_conexion"
             label="Tipo de conexión"
             hint="Define qué datos hacen falta abajo"
           >
@@ -371,7 +375,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
             </Select>
           </Field>
 
-          <Field label="Router">
+          <Field campo="router_id" hint="El MikroTik que le da servicio." label="Router">
             <Select value={form.router_id} onChange={set('router_id')}>
               <option value="">— sin asignar —</option>
               {routers.map((r) => (
@@ -385,7 +389,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
           {!esPppoe && (
             <>
               {/* Solo en IPoE: en PPPoE la direccion la reparte el servidor al autenticarse. */}
-          <Field label="Red IPv4" hint="De las cargadas en Red → Redes IPv4">
+          <Field campo="red_ipv4" label="Red IPv4" hint="De las cargadas en Red → Redes IPv4">
             <Select
               value={form.red_ipv4}
               onChange={(e) => setForm((f) => ({ ...f, red_ipv4: e.target.value, ip: '' }))}
@@ -401,12 +405,12 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
             </Select>
           </Field>
 
-          <Field
+          <Field campo="ip"
             label="IP"
             hint={
               redElegida
                 ? `${libres.length}${libres.length === 250 ? '+' : ''} libres en ${redElegida.cidr}`
-                : 'Elegí una red para ver las libres'
+                : 'Elige una red para ver las libres'
             }
           >
             <div className="flex gap-2">
@@ -443,12 +447,12 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
           {esPppoe && (
             <>
               {/* Solo en PPPoE y Hotspot: en IPoE no hay usuario que autenticar. */}
-          <Field
+          <Field campo="usuario_ppp"
             label="Usuario PPPoE"
             hint="Generar lo propone a partir del nombre"
           >
             <div className="flex gap-2">
-              <Input
+              <Input placeholder="Ej.: jperez01"
                 value={form.usuario_ppp}
                 onChange={set('usuario_ppp')}
                 className="font-mono"
@@ -481,8 +485,8 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
             sentado acá: es un dato que el técnico tiene que leer para cargarlo
             en la ONT. Ocultarla solo agrega un clic.
           */}
-          <Field label="Contraseña PPPoE">
-            <Input
+          <Field campo="clave_ppp" label="Contraseña PPPoE">
+            <Input placeholder="Ej.: clave123"
               value={form.clave_ppp}
               onChange={set('clave_ppp')}
               autoComplete="off"
@@ -492,7 +496,9 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
 
             </>
           )}
-          <Field label="Plan *" hint="De él salen la velocidad y el precio">
+          </SoloTecnico>
+
+          <Field campo="plan_id" label="Plan *" hint="De él salen la velocidad y el precio">
             <Select
               value={form.plan_id}
               required
@@ -517,8 +523,8 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
             </Select>
           </Field>
 
-          <Field label="Precio mensual" hint="Sin IVA. Se completa con el del plan">
-            <Input
+          <Field campo="precio_mensual" label="Precio mensual" hint="Sin IVA. Se completa con el del plan">
+            <Input placeholder="Ej.: 25.00"
               type="number"
               step="0.01"
               value={form.precio_mensual}
@@ -526,8 +532,8 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
             />
           </Field>
 
-          <Field label="Día de facturación" hint="1 a 28">
-            <Input
+          <Field campo="dia_facturacion" label="Día de facturación" hint="1 a 28">
+            <Input placeholder="Ej.: 5"
               type="number"
               min={1}
               max={28}
@@ -536,7 +542,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
             />
           </Field>
 
-          <Field label="Estado">
+          <Field campo="estado" label="Estado">
             <Select value={form.estado} onChange={set('estado')}>
               <option value="activo">activo</option>
               <option value="cortado">cortado</option>

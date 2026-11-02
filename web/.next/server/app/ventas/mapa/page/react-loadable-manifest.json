@@ -1,0 +1,11 @@
+{
+  "[project]/src/crm-pages/ventas/MapaComercialPage.jsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/src/crm-pages/ventas/MapaComercialPage.jsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/node_modules_leaflet_dist_leaflet-src_8608e1e4.js",
+      "static/chunks/src_b3b5cb96._.js",
+      "static/chunks/node_modules_leaflet_dist_leaflet_ef5f0413.css",
+      "static/chunks/src_crm-pages_ventas_MapaComercialPage_jsx_56fb8d23._.js"
+    ]
+  }
+}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
 import { dinero } from '../../lib/formato'
 import { CalendarClock, Check, Pencil, ShieldAlert, Trash2, Wifi } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import {
   Aviso,
@@ -18,6 +18,7 @@ import {
   Table,
   Textarea,
 } from '../ui'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Promesas de pago.
@@ -34,7 +35,7 @@ import {
  * obligaría a un proceso diario para que el dato no mienta.
  */
 
-const fecha = (f) => (f ? new Date(`${f}T12:00:00`).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(`${f}T12:00:00`) : '—')
 
 const COLOR = { activa: 'azul', cumplida: 'verde', incumplida: 'rojo', anulada: 'gris' }
 
@@ -51,7 +52,7 @@ export default function PromesasPago({ onError }) {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    let consulta = supabase.from('v_promesas_pago').select('*').order('fecha_promesa')
+    let consulta = django.from('v_promesas_pago').select('*').order('fecha_promesa')
     if (filtro !== 'todas') consulta = consulta.eq('estado', filtro)
 
     const { data, error } = await consulta
@@ -107,7 +108,7 @@ export default function PromesasPago({ onError }) {
   }
 
   async function cambiarEstado(promesa, estado) {
-    const { error } = await supabase.from('promesas_pago').update({ estado }).eq('id', promesa.id)
+    const { error } = await django.from('promesas_pago').update({ estado }).eq('id', promesa.id)
     if (error) onError?.(error)
     else await recargar()
   }
@@ -125,7 +126,7 @@ export default function PromesasPago({ onError }) {
     onError?.(null)
 
     try {
-      const { error } = await supabase
+      const { error } = await django
         .from('promesas_pago')
         // El monto no viaja: lo que se debe lo define la factura del cliente.
         .update({
@@ -138,7 +139,7 @@ export default function PromesasPago({ onError }) {
       if (error) {
         if (error.code === '23505') {
           throw new Error(
-            'Ese cliente ya tiene otra promesa activa. Cerrá una de las dos antes de reactivar esta.',
+            'Ese cliente ya tiene otra promesa activa. Cierra una de las dos antes de reactivar esta.',
           )
         }
         throw error
@@ -164,12 +165,12 @@ export default function PromesasPago({ onError }) {
   async function eliminar(p) {
     const aviso =
       p.activo_servicio && p.estado === 'activa'
-        ? `\n\nOJO: esta promesa habilitó el servicio de ${p.cliente}. Si la borrás, queda conectado y nadie va a saber por qué. Si no pagó, conviene cortarlo primero.`
+        ? `\n\nOJO: esta promesa habilitó el servicio de ${p.cliente}. Si la borras, queda conectado y nadie va a saber por qué. Si no pagó, conviene cortarlo primero.`
         : ''
 
     if (!await confirmar(`¿Eliminar la promesa de ${p.cliente} del ${fecha(p.fecha_promesa)}?${aviso}`)) return
 
-    const { error } = await supabase.from('promesas_pago').delete().eq('id', p.id)
+    const { error } = await django.from('promesas_pago').delete().eq('id', p.id)
     if (error) onError?.(error)
     else await recargar()
   }
@@ -200,11 +201,11 @@ export default function PromesasPago({ onError }) {
     try {
       await api.mikrotik.bloquear(promesa.router_id, {
         address: promesa.ip,
-        comment: `Promesa incumplida del ${promesa.fecha_promesa}`,
+        comment: `Promesa incumplida del ${fmtFecha(promesa.fecha_promesa)}`,
       })
 
-      await supabase.from('clientes').update({ estado: 'cortado' }).eq('id', promesa.client_id)
-      await supabase.from('promesas_pago').update({ estado: 'incumplida' }).eq('id', promesa.id)
+      await django.from('clientes').update({ estado: 'cortado' }).eq('id', promesa.client_id)
+      await django.from('promesas_pago').update({ estado: 'incumplida' }).eq('id', promesa.id)
       await recargar()
     } catch (err) {
       onError?.(err)
@@ -219,10 +220,10 @@ export default function PromesasPago({ onError }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Promesas activas" valor={activas.length} icon={CalendarClock} />
-        <Stat label="Vencidas" valor={vencidas.length} color="text-amber-400" />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Promesas activas" valor={activas.length} icon={CalendarClock} />
+        <Stat cargando={cargando} label="Vencidas" valor={vencidas.length} color="text-amber-400" />
+        <Stat cargando={cargando}
           label="Para volver a cortar"
           valor={aCortar.length}
           color="text-red-400"
@@ -268,9 +269,9 @@ export default function PromesasPago({ onError }) {
                 </>
               ) : (
                 <>
-                  <span className="text-amber-400">Desactivado.</span> Poné{' '}
+                  <span className="text-amber-400">Desactivado.</span> Pon{' '}
                   <code className="text-slate-300">CORTES_AUTOMATICOS=true</code> en el{' '}
-                  <code className="text-slate-300">.env</code> del middleware y reinicialo. Mientras
+                  <code className="text-slate-300">.env</code> del middleware y reinícialo. Mientras
                   tanto, el botón corta a mano.
                 </>
               )}
@@ -394,10 +395,7 @@ export default function PromesasPago({ onError }) {
                           estado: p.estado,
                           activo_servicio: p.activo_servicio,
                         })
-                      }
-                    >
-                      Editar
-                    </Button>
+                      } />
                     <Button
                       variante="fantasma"
                       icon={Trash2}
@@ -420,7 +418,7 @@ export default function PromesasPago({ onError }) {
         {editando && (
           <form onSubmit={guardarEdicion} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nueva fecha límite" hint="Tocá el campo para abrir el calendario">
+              <Field campo="fecha_promesa" label="Nueva fecha límite" hint="Toca el campo para abrir el calendario">
                 <Input
                   type="date"
                   value={editando.fecha_promesa}
@@ -446,7 +444,7 @@ export default function PromesasPago({ onError }) {
                 </div>
               </Field>
 
-              <Field label="Estado" className="sm:col-span-2">
+              <Field campo="estado" label="Estado" className="sm:col-span-2">
                 <Select
                   value={editando.estado}
                   onChange={(e) => setEditando((p) => ({ ...p, estado: e.target.value }))}
@@ -457,7 +455,7 @@ export default function PromesasPago({ onError }) {
                   <option value="anulada">Anulada</option>
                 </Select>
               </Field>
-              <Field label="Nota" className="sm:col-span-2">
+              <Field campo="nota" label="Nota" className="sm:col-span-2">
                 <Textarea
                   rows={3}
                   value={editando.nota}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, Crosshair, MapPin, Pencil } from 'lucide-react'
 import { Aviso, Badge, Button, Field, Input } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Captura la ubicación del domicilio.
@@ -35,7 +36,7 @@ export default function CapturaUbicacion({ expediente, onGuardar, onError }) {
   const tomar = () => {
     if (!navigator.geolocation) {
       return onError?.(
-        new Error('Este dispositivo no ofrece geolocalización. Cargala a mano con el otro botón.'),
+        new Error('Este dispositivo no ofrece geolocalización. Cárgala a mano con el otro botón.'),
       )
     }
     setMidiendo(true)
@@ -57,10 +58,10 @@ export default function CapturaUbicacion({ expediente, onGuardar, onError }) {
         onError?.(
           new Error(
             err.code === err.PERMISSION_DENIED
-              ? 'Le dijiste que no al permiso de ubicación. Habilitalo en el candado de la barra de direcciones y volvé a intentar.'
+              ? 'Le dijiste que no al permiso de ubicación. Habilítalo en el candado de la barra de direcciones y vuelve a intentar.'
               : err.code === err.TIMEOUT
-                ? 'El GPS tardó demasiado. Probá al aire libre, o cargala a mano.'
-                : 'No se pudo leer la ubicación. Probá de nuevo o cargala a mano.',
+                ? 'El GPS tardó demasiado. Prueba al aire libre, o cárgala a mano.'
+                : 'No se pudo leer la ubicación. Prueba de nuevo o cárgala a mano.',
           ),
         )
       },
@@ -96,7 +97,7 @@ export default function CapturaUbicacion({ expediente, onGuardar, onError }) {
             </Badge>
           </div>
           <p className="mt-1 text-[11px] text-slate-500">
-            {new Date(expediente.ubicacion_en).toLocaleString('es-EC')}
+            {fmtFechaHora(expediente.ubicacion_en)}
           </p>
           <a
             href={`https://www.google.com/maps?q=${expediente.latitud},${expediente.longitud}`}
@@ -140,7 +141,7 @@ export default function CapturaUbicacion({ expediente, onGuardar, onError }) {
           {lectura.precision > PRECISION_ACEPTABLE && (
             <Aviso tipo="alerta">
               <b>Precisión baja</b> (±{Math.round(lectura.precision)} m). Con esto el técnico puede
-              terminar en otra casa. Salí al aire libre y tomala de nuevo, si podés.
+              terminar en otra casa. Sal al aire libre y tómala de nuevo, si puedes.
             </Aviso>
           )}
 

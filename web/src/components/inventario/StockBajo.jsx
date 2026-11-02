@@ -81,7 +81,7 @@ export default function StockBajo({ almacenes = [], articulos = [] }) {
             <PackageX size={28} className="mx-auto mb-2 text-slate-700" />
             Nada llegó a su mínimo.
             <p className="mt-1 text-xs text-slate-600">
-              Si esperabas ver algo acá, revisá que el artículo tenga mínimo cargado: sin mínimo no
+              Si esperabas ver algo acá, revisa que el artículo tenga mínimo cargado: sin mínimo no
               se controla.
             </p>
           </div>
@@ -220,9 +220,9 @@ function FormularioMinimo({ valor, esNuevo, almacenes, articulos, onCerrar, onGu
 
         {esNuevo ? (
           <>
-            <Field label="Almacén">
+            <Field campo="almacen_id" hint="De dónde sale el material." label="Almacén">
               <Select value={form.almacen_id} onChange={(e) => cambiar('almacen_id', e.target.value)}>
-                <option value="">Elegí el almacén…</option>
+                <option value="">Elige el almacén…</option>
                 {almacenes.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.nombre}
@@ -230,9 +230,9 @@ function FormularioMinimo({ valor, esNuevo, almacenes, articulos, onCerrar, onGu
                 ))}
               </Select>
             </Field>
-            <Field label="Artículo">
+            <Field campo="articulo_id" hint="Lo que se mueve del inventario." label="Artículo">
               <Select value={form.articulo_id} onChange={(e) => cambiar('articulo_id', e.target.value)}>
-                <option value="">Elegí el artículo…</option>
+                <option value="">Elige el artículo…</option>
                 {articulos.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.nombre}
@@ -248,16 +248,16 @@ function FormularioMinimo({ valor, esNuevo, almacenes, articulos, onCerrar, onGu
         )}
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Avisar cuando quede en" hint="0 = avisar recién cuando se acabe">
-            <Input
+          <Field campo="minimo" label="Avisar cuando quede en" hint="0 = avisar recién cuando se acabe">
+            <Input placeholder="Ej.: 5"
               type="number"
               min={0}
               value={form.minimo}
               onChange={(e) => cambiar('minimo', e.target.value)}
             />
           </Field>
-          <Field label="Cuánto pedir" hint="opcional; si no, se pide lo que falta">
-            <Input
+          <Field campo="reponer" label="Cuánto pedir" hint="opcional; si no, se pide lo que falta">
+            <Input placeholder="Ej.: 10"
               type="number"
               min={1}
               value={form.reponer ?? ''}

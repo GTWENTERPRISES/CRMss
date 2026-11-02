@@ -12,7 +12,7 @@ import {
   Search,
   Trash2,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { useTabla } from '../../lib/useTabla'
 import { api } from '../../lib/apiNetwork'
 import { TIPOS_SUBRED } from '../../lib/red'
@@ -105,14 +105,14 @@ export default function RedesIpv4Page() {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const { data, error: err } = await supabase.from('v_subredes').select('*').order('numero')
+    const { data, error: err } = await django.from('v_subredes').select('*').order('numero')
     if (err) setError(err)
     setSubredes(data ?? [])
     setCargando(false)
   }, [])
 
   useEffect(() => {
-    supabase
+    django
       .from('olts')
       .select('id, nombre, numero')
       .eq('activo', true)
@@ -125,7 +125,7 @@ export default function RedesIpv4Page() {
   }, [recargar])
 
   const cargarDirecciones = useCallback(async (id) => {
-    const { data } = await supabase
+    const { data } = await django
       .from('v_direcciones_ip')
       .select('*')
       .eq('subred_id', id)
@@ -174,7 +174,7 @@ export default function RedesIpv4Page() {
     if (s.olt_id && s.vlan != null) {
       // Puede haber varios puertos con esta VLAN —en esta red la 200 es la de
       // siete— así que se muestra el primero y no se inventa que hay uno solo.
-      const { data } = await supabase
+      const { data } = await django
         .from('puertos_pon')
         .select('slot, puerto')
         .eq('olt_id', s.olt_id)
@@ -188,8 +188,8 @@ export default function RedesIpv4Page() {
 
   async function guardar({ slot, puerto, ...datos }) {
     const { error: err } = editando?.id
-      ? await supabase.from('subredes').update(datos).eq('id', editando.id)
-      : await supabase.from('subredes').insert(datos)
+      ? await django.from('subredes').update(datos).eq('id', editando.id)
+      : await django.from('subredes').insert(datos)
 
     if (err) throw err
 
@@ -234,7 +234,7 @@ export default function RedesIpv4Page() {
 
   async function eliminar(s) {
     if (!await confirmar(`¿Eliminar ${s.nombre} (${s.red}/${s.prefijo})? Se borra su mapa de IPs.`)) return
-    const { error: err } = await supabase.from('subredes').delete().eq('id', s.id)
+    const { error: err } = await django.from('subredes').delete().eq('id', s.id)
     if (err) return setError(err)
     if (mapaDe?.id === s.id) setMapaDe(null)
     await recargar()
@@ -482,9 +482,9 @@ export default function RedesIpv4Page() {
       )}
 
       <Card title="Pools y direcciones del router" icon={Network}>
-        <Field label="Router">
+        <Field hint="El MikroTik que le da servicio." label="Router">
           <Select value={routerId} onChange={(e) => setRouterId(e.target.value)}>
-            <option value="">— elegí un router —</option>
+            <option value="">— elige un router —</option>
             {routers.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.nombre} ({r.ip_host})

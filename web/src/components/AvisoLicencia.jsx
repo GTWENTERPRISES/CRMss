@@ -24,7 +24,7 @@ export default function AvisoLicencia({ licencia }) {
           </p>
           <p className="text-xs leading-snug text-red-200/80">{licencia.motivo}</p>
           <p className="text-xs leading-snug text-red-200/70">
-            Contactá a tu proveedor para renovarla. El sistema se habilita solo apenas se acredite
+            Contacta a tu proveedor para renovarla. El sistema se habilita solo apenas se acredite
             el pago.
           </p>
           {licencia.instalacion && (

@@ -106,7 +106,7 @@ export default function ReemplazosPendientes({ onError }) {
           </ul>
 
           <p className="mt-2 text-[11px] text-slate-500">
-            Si el reintento tampoco pasa, autorizá la ONT nueva a mano desde la OLT: va en el mismo
+            Si el reintento tampoco pasa, autoriza la ONT nueva a mano desde la OLT: va en el mismo
             puerto y con el mismo perfil que la anterior.
           </p>
         </div>

@@ -193,7 +193,7 @@ export const AJUSTES = [
     nombre: 'General',
     icono: Settings,
     a: '/ajustes/general',
-    para: 'El nombre y el logo del sistema, y la moneda. Lo que ven todos los días quienes lo usan.',
+    para: 'El país del ISP —que decide el impuesto, los documentos y qué módulos legales aparecen—, el nombre, el logo y la moneda.',
   },
   {
     slug: 'empresa',
@@ -206,6 +206,8 @@ export const AJUSTES = [
     slug: 'prestador',
     nombre: 'Prestador del servicio',
     icono: ShieldCheck,
+    // El contrato de adhesión de ARCOTEL: solo existe en Ecuador.
+    modulo: 'contratoRegulador',
     a: '/ajustes/prestador',
     para: 'Lo que va en el contrato de adhesión: domicilio desglosado, canales de reclamo, tarifas de instalación y la fecha en que se inscribió el modelo ante la ARCOTEL. La razón social y el RUC se heredan de Empresa.',
   },
@@ -227,8 +229,8 @@ export const AJUSTES = [
     slug: 'facturacion-electronica',
     nombre: 'Facturación electrónica',
     icono: FileText,
-    para: 'El certificado de firma, el ambiente —pruebas o producción— y los puntos de emisión ante el SRI.',
-    mientras: 'La emisión ya funciona; lo que falta es poder configurarla desde acá.',
+    a: '/ajustes/facturacion-electronica',
+    para: 'Con qué proveedor se emiten los comprobantes en el país del ISP, y sus datos de conexión: la API key, el emisor y el modo prueba. En Ecuador, el SRI directo.',
   },
   {
     slug: 'pasarelas',
@@ -350,7 +352,8 @@ export const AJUSTES = [
     slug: 'sistema',
     nombre: 'Sistema',
     icono: HardDrive,
-    para: 'Versión, actualizaciones y estado general.',
+    a: '/ajustes/sistema',
+    para: 'La zona horaria con la que corren las tareas programadas, y qué hora cree el servidor que es.',
   },
   {
     slug: 'servidor',

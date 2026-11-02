@@ -5,46 +5,28 @@ from .models import DetalleFactura, Factura, PlanVelocidad
 
 @admin.register(PlanVelocidad)
 class PlanVelocidadAdmin(admin.ModelAdmin):
-    list_display = ['nombre', 'categoria', 'bajada_kbps', 'subida_kbps', 'precio']
-    list_filter = ['categoria', 'precio_incluye_iva']
-    search_fields = ['nombre']
+    list_display = ['nombre', 'categoria', 'bajada_kbps', 'subida_kbps', 'precio', 'activo']
+    list_filter = ['categoria', 'tipo_impuesto', 'activo']
+    search_fields = ['nombre', 'codigo_facturacion']
 
 
 class DetalleFacturaInline(admin.TabularInline):
     model = DetalleFactura
-    extra = 1
+    extra = 0
     readonly_fields = ['subtotal']
 
 
 @admin.register(Factura)
 class FacturaAdmin(admin.ModelAdmin):
-    list_display = ['numero', 'cliente', 'mes', 'total', 'estado', 'fecha_vencimiento', 'enviada']
-    list_filter = ['estado', 'enviada', 'mes']
-    search_fields = ['numero', 'clave_acceso', 'cliente__nombre', 'cliente__cedula']
-    readonly_fields = ['xml_sri', 'clave_acceso', 'subtotal', 'iva', 'fecha']
-    date_hierarchy = 'fecha'
+    list_display = ['numero', 'client', 'concepto', 'total', 'fecha_emision', 'fecha_vencimiento', 'anulada']
+    list_filter = ['anulada', 'tipo', 'origen']
+    search_fields = ['cliente_nombre', 'client__nombre', 'client__identificacion']
+    date_hierarchy = 'fecha_emision'
     inlines = [DetalleFacturaInline]
-
-    fieldsets = (
-        ('Información General', {
-            'fields': ('cliente', 'numero', 'mes', 'fecha', 'fecha_vencimiento')
-        }),
-        ('Montos', {
-            'fields': ('subtotal', 'iva', 'total')
-        }),
-        ('Estado', {
-            'fields': ('estado', 'enviada')
-        }),
-        ('SRI', {
-            'fields': ('clave_acceso', 'xml_sri'),
-            'classes': ('collapse',)
-        }),
-    )
 
 
 @admin.register(DetalleFactura)
 class DetalleFacturaAdmin(admin.ModelAdmin):
-    list_display = ['factura', 'descripcion', 'cantidad', 'precio_unitario', 'subtotal', 'aplica_iva']
-    list_filter = ['aplica_iva']
-    search_fields = ['factura__numero', 'descripcion']
+    list_display = ['factura', 'descripcion', 'cantidad', 'precio_unitario', 'subtotal']
+    search_fields = ['descripcion']
     readonly_fields = ['subtotal']

@@ -142,13 +142,13 @@ export default function CertificadoFirma() {
         ) : (
           <form onSubmit={subir} className="space-y-4">
             <Aviso>
-              Subí el archivo <code>.p12</code> que te entregó la entidad certificadora (Security
+              Sube el archivo <code>.p12</code> que te entregó la entidad certificadora (Security
               Data, ANF, Uanataca o el Banco Central). Se guarda cifrado y la clave privada nunca
               sale del servidor.
             </Aviso>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Archivo .p12">
+              <Field hint="La firma electrónica que te dio la entidad certificadora." label="Archivo .p12">
                 <input
                   type="file"
                   accept=".p12,.pfx"
@@ -160,7 +160,7 @@ export default function CertificadoFirma() {
               </Field>
 
               <Field label="Contraseña del certificado">
-                <Input
+                <Input placeholder="La clave del archivo .p12"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

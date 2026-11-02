@@ -12,12 +12,13 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Button, Card, Field, Input, Modal, Select, Table, Textarea } from '../ui'
 import { comprimirImagen, enlaceWhatsapp } from '../../lib/soporte'
 import DatosContrato from './DatosContrato'
 import FirmaContrato from '../contratos/FirmaContrato'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Papeles del abonado: cédula, contrato, acta de entrega y el inventario de lo
@@ -98,7 +99,7 @@ const peso = (b) => {
   return `${Math.round(n / 1024)} KB`
 }
 
-const fecha = (f) => (f ? new Date(f).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(f) : '—')
 
 export default function FichaDocumentos({ cliente, onError }) {
   const confirmar = useConfirmar()
@@ -128,8 +129,8 @@ export default function FichaDocumentos({ cliente, onError }) {
      * cada fila dice de qué bucket es y si se puede borrar desde esta pantalla.
      */
     const [d, e] = await Promise.all([
-      supabase.from('v_documentos_abonado').select('*').eq('client_id', cliente.id).order('created_at'),
-      supabase.from('equipos_cliente').select('*').eq('client_id', cliente.id).order('created_at'),
+      django.from('v_documentos_abonado').select('*').eq('client_id', cliente.id).order('created_at'),
+      django.from('equipos_cliente').select('*').eq('client_id', cliente.id).order('created_at'),
     ])
 
     if (d.error) onError?.(d.error)
@@ -140,7 +141,7 @@ export default function FichaDocumentos({ cliente, onError }) {
     // alcanza para mirarlos y es poco para que un enlace filtrado sirva.
     const mapa = {}
     for (const doc of d.data ?? []) {
-      const { data } = await supabase.storage
+      const { data } = await django.storage
         .from(doc.bucket ?? 'documentos')
         .createSignedUrl(doc.ruta, 3600)
       if (data?.signedUrl) mapa[doc.id] = data.signedUrl
@@ -167,7 +168,7 @@ export default function FichaDocumentos({ cliente, onError }) {
     onError?.(null)
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
+      const { data: sesion } = await django.auth.getUser()
       const esImagen = archivo.type.startsWith('image/')
 
       // Las fotos se achican; un PDF firmado va tal cual, que alterarlo le
@@ -176,12 +177,12 @@ export default function FichaDocumentos({ cliente, onError }) {
       const extension = esImagen ? 'jpg' : (archivo.name.split('.').pop() ?? 'bin')
       const ruta = `${cliente.id}/${subiendo.categoria}-${Date.now()}.${extension}`
 
-      const { error: errSubida } = await supabase.storage
+      const { error: errSubida } = await django.storage
         .from('documentos')
         .upload(ruta, contenido, { contentType: esImagen ? 'image/jpeg' : archivo.type })
       if (errSubida) throw errSubida
 
-      const { error } = await supabase.from('documentos').insert({
+      const { error } = await django.from('documentos').insert({
         client_id: cliente.id,
         categoria: subiendo.categoria,
         nombre: archivo.name,
@@ -214,7 +215,7 @@ export default function FichaDocumentos({ cliente, onError }) {
       if (!seguir) return
     }
 
-    const { error } = await supabase
+    const { error } = await django
       .from('documentos')
       .update({ visible_cliente: visible })
       .eq('id', doc.id)
@@ -227,8 +228,8 @@ export default function FichaDocumentos({ cliente, onError }) {
 
     // El archivo primero: borrar solo la fila dejaría el archivo huérfano en el
     // bucket, ocupando espacio y sin nada que lo referencie.
-    await supabase.storage.from('documentos').remove([doc.ruta])
-    const { error } = await supabase.from('documentos').delete().eq('id', doc.id)
+    await django.storage.from('documentos').remove([doc.ruta])
+    const { error } = await django.from('documentos').delete().eq('id', doc.id)
     if (error) return onError?.(error)
     await recargar()
   }
@@ -238,7 +239,7 @@ export default function FichaDocumentos({ cliente, onError }) {
     setGuardando(true)
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
+      const { data: sesion } = await django.auth.getUser()
       const { id, ...datos } = equipo
       const fila = {
         client_id: cliente.id,
@@ -255,8 +256,8 @@ export default function FichaDocumentos({ cliente, onError }) {
       }
 
       const { error } = id
-        ? await supabase.from('equipos_cliente').update(fila).eq('id', id)
-        : await supabase.from('equipos_cliente').insert(fila)
+        ? await django.from('equipos_cliente').update(fila).eq('id', id)
+        : await django.from('equipos_cliente').insert(fila)
       if (error) throw error
 
       setEquipo(null)
@@ -281,14 +282,14 @@ export default function FichaDocumentos({ cliente, onError }) {
       // La lista completa, no solo el plan que ya tiene: el formulario deja
       // elegirlo, y de ahi salen la comparticion y las velocidades del anexo 1f.
       const [{ data: planes }, { data: prestador }] = await Promise.all([
-        supabase
+        django
           .from('planes_velocidad')
           .select('id, nombre, precio, bajada_kbps, subida_kbps, comparticion, minima_bajada_kbps, minima_subida_kbps')
           .eq('activo', true)
           .order('precio'),
         // Con qué valor viene propuesta la casilla de arbitraje. Lo decide el
         // ISP en el prestador; el abonado la firma aparte.
-        supabase
+        django
           .from('prestadores')
           .select('arbitraje_por_defecto')
           .eq('predeterminado', true)
@@ -325,18 +326,18 @@ export default function FichaDocumentos({ cliente, onError }) {
       const blob = await api.documentos.contratoArcotel(cliente.id)
 
       const ruta = `${cliente.id}/contrato-${Date.now()}.pdf`
-      const { error: errSubida } = await supabase.storage
+      const { error: errSubida } = await django.storage
         .from('documentos')
         .upload(ruta, blob, { contentType: 'application/pdf' })
       if (errSubida) throw errSubida
 
-      const { data: sesion } = await supabase.auth.getUser()
-      const { error } = await supabase.from('documentos').insert({
+      const { data: sesion } = await django.auth.getUser()
+      const { error } = await django.from('documentos').insert({
         client_id: cliente.id,
         categoria: 'contrato',
         // El nombre dice que está SIN FIRMAR: en la lista va a convivir con el
         // escaneo del firmado, y confundirlos sería dar por firmado lo que no.
-        nombre: `Contrato de adhesión (sin firmar) — ${new Date().toLocaleDateString()}.pdf`,
+        nombre: `Contrato de adhesión (sin firmar) — ${fmtFecha(new Date())}.pdf`,
         ruta,
         mime: 'application/pdf',
         tamano: blob.size,
@@ -650,19 +651,19 @@ export default function FichaDocumentos({ cliente, onError }) {
                 </Select>
               </Field>
               <Field label="Marca">
-                <Input
+                <Input placeholder="Ej.: Huawei"
                   value={equipo.marca ?? ''}
                   onChange={(e) => setEquipo((x) => ({ ...x, marca: e.target.value }))}
                 />
               </Field>
               <Field label="Modelo">
-                <Input
+                <Input placeholder="Ej.: HG8145V5"
                   value={equipo.modelo ?? ''}
                   onChange={(e) => setEquipo((x) => ({ ...x, modelo: e.target.value }))}
                 />
               </Field>
               <Field label="Serie">
-                <Input
+                <Input placeholder="Ej.: HWTC1A2B3C4D"
                   value={equipo.serie ?? ''}
                   onChange={(e) => setEquipo((x) => ({ ...x, serie: e.target.value }))}
                 />
@@ -689,7 +690,7 @@ export default function FichaDocumentos({ cliente, onError }) {
             </Field>
 
             <Field label="Notas">
-              <Textarea
+              <Textarea placeholder="Ej.: Llamar antes de ir"
                 rows={2}
                 value={equipo.notas ?? ''}
                 onChange={(e) => setEquipo((x) => ({ ...x, notas: e.target.value }))}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
 import { ArrowLeft, Download, Plus, RefreshCw, Save, Trash2 } from 'lucide-react'
 import { api } from '../../lib/apiNetwork'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import {
   Aviso,
   Badge,
@@ -81,7 +81,7 @@ export default function TiposOnuPage() {
 
   useEffect(() => {
     leer()
-    supabase
+    django
       .from('planes_velocidad')
       .select('id, nombre, bajada_kbps')
       .eq('activo', true)
@@ -224,6 +224,7 @@ export default function TiposOnuPage() {
               ]}
               filas={datos.tipos}
               vacio="Todavía no hay ningún modelo cargado."
+              accionVacia={{ label: 'Agregar el primer modelo', icon: Plus, onClick: () => setEditando({ ...VACIO }) }}
               renderFila={(t) => (
                 <tr key={t.id} className="text-slate-300">
                   <td className="px-3 py-2 text-xs">{t.pon_tipo}</td>
@@ -341,12 +342,12 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
       const limpio = (form.modelo || 'modelo').replace(/[^a-zA-Z0-9-]/g, '_').slice(0, 40)
       const ruta = `${limpio}-${Date.now()}.${ext}`
 
-      const { error: err } = await supabase.storage
+      const { error: err } = await django.storage
         .from('tipos-onu')
         .upload(ruta, archivo, { contentType: archivo.type, upsert: true })
       if (err) throw err
 
-      const { data } = supabase.storage.from('tipos-onu').getPublicUrl(ruta)
+      const { data } = django.storage.from('tipos-onu').getPublicUrl(ruta)
       setForm((f) => ({ ...f, imagen_url: data.publicUrl }))
     } catch (err) {
       setError(err)
@@ -404,10 +405,10 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
 
       <Card>
         <div className="grid gap-4 p-4 sm:grid-cols-2">
-          <Field label="Modelo" hint="tal como lo reporta el equipo">
+          <Field campo="modelo" label="Modelo" hint="tal como lo reporta el equipo">
             <Input value={form.modelo} onChange={set('modelo')} placeholder="EG8145V5" required />
           </Field>
-          <Field label="Marca">
+          <Field campo="marca" label="Marca">
             <Input value={form.marca} onChange={set('marca')} placeholder="Huawei" />
           </Field>
 
@@ -444,7 +445,7 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
             </div>
           </Field>
 
-          <Field label="Puertos Ethernet">
+          <Field campo="puertos_ethernet" hint="Cuántos puertos de red tiene el equipo." label="Puertos Ethernet">
             <Select value={form.puertos_ethernet} onChange={set('puertos_ethernet')}>
               {NUMEROS.map((n) => (
                 <option key={n} value={n}>
@@ -456,7 +457,7 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
 
           {/* Cuántas redes, no "tiene WiFi": una ONT de una banda y una de dos
               se configuran distinto, y el técnico necesita saber cuántas. */}
-          <Field label="Redes WiFi" hint="cuántos SSIDs configurables">
+          <Field campo="wifi_ssids" label="Redes WiFi" hint="cuántos SSIDs configurables">
             <Select value={form.wifi_ssids} onChange={set('wifi_ssids')}>
               {[0, 1, 2, 4].map((n) => (
                 <option key={n} value={n}>
@@ -466,7 +467,7 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
             </Select>
           </Field>
 
-          <Field label="Puertos VoIP">
+          <Field campo="puertos_fxs" hint="Cuántas líneas de teléfono admite." label="Puertos VoIP">
             <Select value={form.puertos_fxs} onChange={set('puertos_fxs')}>
               {[0, 1, 2].map((n) => (
                 <option key={n} value={n}>
@@ -476,7 +477,7 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
             </Select>
           </Field>
 
-          <Field label="Salidas CATV">
+          <Field campo="catv" hint="Salidas de televisión por cable; 0 si no tiene." label="Salidas CATV">
             <Select value={form.catv} onChange={set('catv')}>
               {[0, 1].map((n) => (
                 <option key={n} value={n}>
@@ -508,7 +509,7 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
             </div>
           </Field>
 
-          <Field label="Perfiles de velocidad propios">
+          <Field campo="perfiles_propios" label="Perfiles de velocidad propios">
             <label className="flex items-center gap-2 pt-1.5 text-sm text-slate-300">
               <input
                 type="checkbox"
@@ -519,7 +520,7 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
             </label>
           </Field>
 
-          <Field label="Plan por defecto" hint="el que se propone al autorizar una de estas">
+          <Field campo="perfil_default_id" label="Plan por defecto" hint="el que se propone al autorizar una de estas">
             <Select value={form.perfil_default_id ?? ''} onChange={set('perfil_default_id')}>
               <option value="">— ninguno —</option>
               {planes.map((p) => (
@@ -532,9 +533,9 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
 
           {/* Tres estados. "Sin probar" no es "no soporta": con el primero se
               intenta igual al autorizar y el resultado queda aprendido. */}
-          <Field
+          <Field campo="soporta_tr069"
             label="¿Acepta TR069?"
-            hint="dejalo sin probar y el sistema lo averigua en la primera instalación"
+            hint="déjalo sin probar y el sistema lo averigua en la primera instalación"
           >
             <Select value={form.soporta_tr069 ?? ''} onChange={set('soporta_tr069')}>
               <option value="">Sin probar</option>
@@ -578,8 +579,8 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
             </div>
           </Field>
 
-          <Field label="Notas" className="sm:col-span-2">
-            <Textarea rows={2} value={form.notas ?? ''} onChange={set('notas')} />
+          <Field campo="notas" label="Notas" className="sm:col-span-2">
+            <Textarea placeholder="Ej.: Llamar antes de ir" rows={2} value={form.notas ?? ''} onChange={set('notas')} />
           </Field>
         </div>
       </Card>
@@ -597,19 +598,19 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
               existe y la configuración falla sin decir por qué.
             </Aviso>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Prefijo Ethernet">
-                <Input value={form.prefijo_eth ?? ''} onChange={set('prefijo_eth')} spellCheck={false} />
+              <Field campo="prefijo_eth" label="Prefijo Ethernet">
+                <Input placeholder="Ej.: eth" value={form.prefijo_eth ?? ''} onChange={set('prefijo_eth')} spellCheck={false} />
               </Field>
-              <Field label="Prefijo WiFi">
-                <Input value={form.prefijo_wifi ?? ''} onChange={set('prefijo_wifi')} spellCheck={false} />
+              <Field campo="prefijo_wifi" label="Prefijo WiFi">
+                <Input placeholder="Ej.: wlan" value={form.prefijo_wifi ?? ''} onChange={set('prefijo_wifi')} spellCheck={false} />
               </Field>
-              <Field label="Prefijo VoIP">
-                <Input value={form.prefijo_voip ?? ''} onChange={set('prefijo_voip')} spellCheck={false} />
+              <Field campo="prefijo_voip" label="Prefijo VoIP">
+                <Input placeholder="Ej.: pots" value={form.prefijo_voip ?? ''} onChange={set('prefijo_voip')} spellCheck={false} />
               </Field>
-              <Field label="Vendor ID" hint="lo que el equipo dice de sí mismo">
+              <Field campo="vendor_id" label="Vendor ID" hint="lo que el equipo dice de sí mismo">
                 <Input value={form.vendor_id ?? ''} onChange={set('vendor_id')} placeholder="HWTC" />
               </Field>
-              <Field label="Versión de spec">
+              <Field campo="version_spec" label="Versión de spec">
                 <Input value={form.version_spec ?? ''} onChange={set('version_spec')} placeholder="1.0" />
               </Field>
             </div>

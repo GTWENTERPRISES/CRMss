@@ -84,7 +84,7 @@ export default function OltRelevamiento({ olt, area, titulo, ayuda }) {
             concreto — inventarlos desde el manual es lo que ya salió caro en este proyecto.
             <br />
             <br />
-            Apretá <b>Preguntar al equipo</b>: se prueban varios comandos candidatos y se muestra
+            Aprieta <b>Preguntar al equipo</b>: se prueban varios comandos candidatos y se muestra
             la salida cruda de cada uno. Con ese texto se escribe el parser y esta pestaña pasa a
             mostrar los datos ya ordenados.
           </Aviso>
@@ -129,7 +129,7 @@ export default function OltRelevamiento({ olt, area, titulo, ayuda }) {
             ))}
 
             <Aviso tipo="alerta">
-              Si alguno trajo la tabla que buscabas, copiá la salida y pedime que escriba el
+              Si alguno trajo la tabla que buscabas, copia la salida y pídeme que escriba el
               lector. Con el texto real a la vista el parser sale bien a la primera; sin él, sale
               dos veces.
             </Aviso>

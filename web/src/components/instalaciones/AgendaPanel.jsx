@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CalendarClock, HardHat, Save } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { FRANJAS } from '../../lib/instalaciones'
 import { Aviso, Button, Card, Field, Input, Select } from '../ui'
 
@@ -37,13 +37,13 @@ export default function AgendaPanel({ instalacion, onError, onGuardado }) {
 
     ;(async () => {
       const [tec, cua, pl] = await Promise.all([
-        supabase
+        django
           .from('tecnicos')
           .select('id, nombre, especialidad')
           .eq('activo', true)
           .order('nombre'),
-        supabase.from('cuadrillas').select('id, nombre, zona').eq('activo', true).order('nombre'),
-        supabase.from('planes_velocidad').select('id, nombre, precio').order('nombre'),
+        django.from('cuadrillas').select('id, nombre, zona').eq('activo', true).order('nombre'),
+        django.from('planes_velocidad').select('id, nombre, precio').order('nombre'),
       ])
 
       if (!vigente) return
@@ -93,7 +93,7 @@ export default function AgendaPanel({ instalacion, onError, onGuardado }) {
       const asignado = Boolean(cambios.tecnico_id || cambios.cuadrilla_id)
       if (asignado && instalacion.estado === 'prospecto') cambios.estado = 'agendada'
 
-      const { error } = await supabase.from('instalaciones').update(cambios).eq('id', instalacion.id)
+      const { error } = await django.from('instalaciones').update(cambios).eq('id', instalacion.id)
       if (error) throw error
 
       await onGuardado?.()
@@ -120,11 +120,11 @@ export default function AgendaPanel({ instalacion, onError, onGuardado }) {
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Fecha de visita">
+          <Field campo="fecha" hint="Cuándo va el técnico." label="Fecha de visita">
             <Input type="date" value={form.fecha} onChange={set('fecha')} required />
           </Field>
 
-          <Field label="Franja">
+          <Field campo="franja" hint="En qué parte del día se hace la visita." label="Franja">
             <Select value={form.franja} onChange={set('franja')}>
               <option value="">Sin definir</option>
               {Object.entries(FRANJAS).map(([valor, label]) => (
@@ -136,12 +136,12 @@ export default function AgendaPanel({ instalacion, onError, onGuardado }) {
           </Field>
 
           {form.franja === 'exacta' && (
-            <Field label="Hora">
+            <Field campo="hora" label="Hora">
               <Input type="time" value={form.hora} onChange={set('hora')} />
             </Field>
           )}
 
-          <Field
+          <Field campo="tecnico_id"
             label="Técnico"
             hint={
               especialistas.length < tecnicos.length
@@ -159,7 +159,7 @@ export default function AgendaPanel({ instalacion, onError, onGuardado }) {
             </Select>
           </Field>
 
-          <Field label="Cuadrilla" hint="Cuando salen varios juntos">
+          <Field campo="cuadrilla_id" label="Cuadrilla" hint="Cuando salen varios juntos">
             <Select value={form.cuadrilla_id} onChange={set('cuadrilla_id')}>
               <option value="">Sin asignar</option>
               {cuadrillas.map((c) => (
@@ -173,7 +173,7 @@ export default function AgendaPanel({ instalacion, onError, onGuardado }) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Plan contratado">
+          <Field campo="plan_id" hint="El plan de internet que contrata." label="Plan contratado">
             <Select value={form.plan_id} onChange={elegirPlan}>
               <option value="">Sin definir</option>
               {planes.map((p) => (
@@ -184,8 +184,8 @@ export default function AgendaPanel({ instalacion, onError, onGuardado }) {
             </Select>
           </Field>
 
-          <Field label="Precio mensual" hint="Puede diferir del precio de lista">
-            <Input
+          <Field campo="precio_mensual" label="Precio mensual" hint="Puede diferir del precio de lista">
+            <Input placeholder="Ej.: 25.00"
               type="number"
               step="0.01"
               min={0}
@@ -194,8 +194,8 @@ export default function AgendaPanel({ instalacion, onError, onGuardado }) {
             />
           </Field>
 
-          <Field label="Día de facturación" hint="1 a 28. Lo define la oficina.">
-            <Input
+          <Field campo="dia_facturacion" label="Día de facturación" hint="1 a 28. Lo define la oficina.">
+            <Input placeholder="Ej.: 5"
               type="number"
               min={1}
               max={28}
@@ -204,8 +204,8 @@ export default function AgendaPanel({ instalacion, onError, onGuardado }) {
             />
           </Field>
 
-          <Field label="Costo de instalación" hint="Lo que se le cobra por la visita">
-            <Input type="number" step="0.01" min={0} value={form.costo} onChange={set('costo')} />
+          <Field campo="costo" label="Costo de instalación" hint="Lo que se le cobra por la visita">
+            <Input placeholder="Ej.: 30.00" type="number" step="0.01" min={0} value={form.costo} onChange={set('costo')} />
           </Field>
         </div>
 

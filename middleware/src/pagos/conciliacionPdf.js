@@ -213,7 +213,7 @@ export function generarConciliacionPdf({ empresa = {}, informe = {}, cuenta = nu
    */
   y = seccion(doc, y, {
     titulo: 'Conciliados',
-    nota: 'Están en el banco y en el sistema, por el mismo monto. Revisá que el abonado sea el que corresponde.',
+    nota: 'Están en el banco y en el sistema, por el mismo monto. Revisa que el abonado sea el que corresponde.',
     color: VERDE,
     columnas: [
       { titulo: 'Fecha', ancho: 52, valor: (c) => fecha(c.fecha_pago) },

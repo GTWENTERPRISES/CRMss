@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useOutletContext } from '@/lib/nextNavigation'
 import { BellOff, Check } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Los avisos del técnico.
@@ -22,7 +23,7 @@ export default function AvisosPage() {
   const [cargando, setCargando] = useState(true)
 
   const recargar = useCallback(async () => {
-    const { data } = await supabase
+    const { data } = await django
       .from('v_notificaciones')
       .select('*')
       .order('creado_en', { ascending: false })
@@ -37,7 +38,7 @@ export default function AvisosPage() {
 
   const marcar = async (ids) => {
     if (!ids.length) return
-    await supabase
+    await django
       .from('notificaciones')
       .update({ leida_en: new Date().toISOString() })
       .in('id', ids)
@@ -97,12 +98,7 @@ export default function AvisosPage() {
                 <p className="mt-0.5 text-[12px] text-slate-500">{a.mensaje}</p>
               )}
               <p className="mt-1 text-[11px] text-slate-600">
-                {new Date(a.creado_en).toLocaleString('es-EC', {
-                  day: '2-digit',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {fmtFechaHora(a.creado_en)}
               </p>
             </div>
             {!a.leida_en && (

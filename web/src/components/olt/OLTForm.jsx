@@ -103,23 +103,23 @@ export default function OLTForm({ olt = null, onGuardado, onCancelar }) {
   return (
     <form onSubmit={guardar} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Nombre">
+        <Field campo="nombre" label="Nombre">
           <Input value={form.nombre} onChange={set('nombre')} placeholder="OLT Central" required />
         </Field>
 
-        <Field label="Marca">
+        <Field campo="marca" label="Marca">
           <Select value={form.marca} onChange={set('marca')}>
             <option value="Huawei">Huawei (MA5800 / VRP)</option>
             <option value="VSOL">V-SOL</option>
           </Select>
         </Field>
 
-        <Field label="IP de gestión">
+        <Field campo="ip_host" label="IP de gestión">
           <Input value={form.ip_host} onChange={set('ip_host')} placeholder="192.168.1.10" required />
         </Field>
 
-        <Field label="Puerto SSH">
-          <Input
+        <Field campo="puerto_ssh" label="Puerto SSH">
+          <Input placeholder="Ej.: 22"
             type="number"
             value={form.puerto_ssh}
             onChange={set('puerto_ssh')}
@@ -128,11 +128,11 @@ export default function OLTForm({ olt = null, onGuardado, onCancelar }) {
           />
         </Field>
 
-        <Field label="Usuario">
-          <Input value={form.usuario} onChange={set('usuario')} autoComplete="off" required />
+        <Field campo="usuario" label="Usuario">
+          <Input placeholder="Ej.: jperez" value={form.usuario} onChange={set('usuario')} autoComplete="off" required />
         </Field>
 
-        <Field
+        <Field campo="password"
           label="Contraseña"
           hint={editando ? 'Vacía = se conserva la actual' : undefined}
         >
@@ -153,7 +153,7 @@ export default function OLTForm({ olt = null, onGuardado, onCancelar }) {
           contraseña, hasta que corta la sesión. Lo que se ve es "la OLT cerró
           la sesión", que manda a buscar el problema a otro lado.
         */}
-        <Field
+        <Field campo="enable_password"
           label={
             esVsol ? 'Contraseña de enable (necesaria en V-SOL)' : 'Contraseña de enable (opcional)'
           }
@@ -179,8 +179,8 @@ export default function OLTForm({ olt = null, onGuardado, onCancelar }) {
           </p>
         </div>
 
-        <Field label="Puerto SNMP (UDP)">
-          <Input
+        <Field campo="snmp_puerto" label="Puerto SNMP (UDP)">
+          <Input placeholder="Ej.: 161"
             type="number"
             value={form.snmp_puerto}
             onChange={set('snmp_puerto')}
@@ -189,7 +189,7 @@ export default function OLTForm({ olt = null, onGuardado, onCancelar }) {
           />
         </Field>
 
-        <Field label="Se llega por túnel VPN" hint="Cambia dónde mirar primero cuando no responde.">
+        <Field campo="via_vpn" label="Se llega por túnel VPN" hint="Cambia dónde mirar primero cuando no responde.">
           <Select
             value={form.via_vpn ? 'si' : 'no'}
             onChange={(e) => setForm((f) => ({ ...f, via_vpn: e.target.value === 'si' }))}
@@ -199,7 +199,7 @@ export default function OLTForm({ olt = null, onGuardado, onCancelar }) {
           </Select>
         </Field>
 
-        <Field
+        <Field campo="snmp_ro"
           label="Comunidad SNMP de solo lectura"
           hint={editando ? 'Vacía = se conserva la actual' : 'Opcional'}
         >
@@ -212,9 +212,9 @@ export default function OLTForm({ olt = null, onGuardado, onCancelar }) {
           />
         </Field>
 
-        <Field
+        <Field campo="snmp_rw"
           label="Comunidad SNMP de lectura/escritura"
-          hint="Permite modificar el equipo. Cargala solo si hace falta."
+          hint="Permite modificar el equipo. Cárgala solo si hace falta."
         >
           <Input
             type="password"
@@ -232,7 +232,7 @@ export default function OLTForm({ olt = null, onGuardado, onCancelar }) {
               —lo habitual— devuelve la sesión al prompt de login y todas las operaciones fallan con
               un error que parece de conexión.
               <span className="mt-1 block text-xs">
-                Si no la sabés: entrá por SSH con PuTTY, escribí <code>enable</code> y probá. Lo que
+                Si no la sabes: entra por SSH con PuTTY, escribe <code>enable</code> y prueba. Lo que
                 funcione es lo que va acá.
               </span>
             </Aviso>

@@ -117,9 +117,9 @@ export const CAMPOS_PLANTILLA = [
   { clave: 'zona', titulo: 'Zona', ejemplo: 'GUAMANÍ',
     ayuda: 'Barrio, sector o nodo. Con esto se filtra el listado de abonados y se arman las rutas del técnico.' },
   { clave: 'plan', titulo: 'Plan', ejemplo: 'PLAN_HOME',
-    ayuda: 'El nombre del plan tal como está cargado en el sistema. Si lo dejás vacío, se usa el plan elegido al generar esta plantilla.' },
+    ayuda: 'El nombre del plan tal como está cargado en el sistema. Si lo dejas vacío, se usa el plan elegido al generar esta plantilla.' },
   { clave: 'precio_mensual', titulo: 'Precio', ejemplo: '20.09',
-    ayuda: 'Lo que paga por mes. Si el abonado tiene un precio acordado distinto del de lista, poné el suyo: manda sobre el del plan.' },
+    ayuda: 'Lo que paga por mes. Si el abonado tiene un precio acordado distinto del de lista, pon el suyo: manda sobre el del plan.' },
   { clave: 'dia_facturacion', titulo: 'Día Pago', ejemplo: '5',
     ayuda: 'Día del mes en que le toca pagar, del 1 al 28.' },
   { clave: 'usuario_ppp', titulo: 'Usuario PPPoE', ejemplo: 'jose.ona',
@@ -129,7 +129,7 @@ export const CAMPOS_PLANTILLA = [
   { clave: 'ip', titulo: 'IP Actual', texto: true, ejemplo: '10.20.1.15',
     ayuda: 'La IP que tiene hoy. Importante para no tener que redireccionar a todos al migrar.' },
   { clave: 'mac_address', titulo: 'MAC', texto: true, ejemplo: 'A4:2B:B0:11:22:33',
-    ayuda: 'La MAC del equipo del abonado, si la tenés.' },
+    ayuda: 'La MAC del equipo del abonado, si la tienes.' },
   { clave: 'serie_onu', titulo: 'Serie ONT', texto: true, ejemplo: 'HWTC6E1B5AB4',
     ayuda: 'El número de serie de la ONT. Con esto el abonado queda enganchado con el equipo que ya está en la OLT, sin cargarlo a mano.' },
   { clave: 'fecha_instalacion', titulo: 'Fecha Instalación', ejemplo: '14/03/2022',
@@ -139,7 +139,7 @@ export const CAMPOS_PLANTILLA = [
   { clave: 'estado', titulo: 'Estado', ejemplo: 'Activo',
     ayuda: 'Activo, Suspendido, Cortado o Retirado. Lo que no se entienda entra como activo.' },
   { clave: 'saldo', titulo: 'Saldo', ejemplo: '44.70',
-    ayuda: 'Lo que debe hoy. Se convierte en una factura de saldo anterior, que se cobra como cualquier otra. Si tiene saldo a favor, ponelo en negativo: eso no se importa, se carga como pago.' },
+    ayuda: 'Lo que debe hoy. Se convierte en una factura de saldo anterior, que se cobra como cualquier otra. Si tiene saldo a favor, ponlo en negativo: eso no se importa, se carga como pago.' },
   { clave: 'pasarela', titulo: 'Medio de Pago', ejemplo: 'Cuentadigital',
     ayuda: 'Dónde paga: Cuentadigital, PayPhone, ventanilla…' },
   { clave: 'codigo_pago', titulo: 'Código de Pago', texto: true, ejemplo: '990011',
@@ -377,8 +377,8 @@ export async function revisar({ texto, archivo, ajustes, filas: filasDadas, sist
   if (!faltaRouter && !rRouter.data) {
     throw badRequest('El router de este archivo ya no existe en el sistema', {
       hint: comunes.router
-        ? `El archivo dice "${comunes.router}". Volvé a generar la plantilla con un router actual.`
-        : 'Volvé a generar la plantilla.',
+        ? `El archivo dice "${comunes.router}". Vuelve a generar la plantilla con un router actual.`
+        : 'Vuelve a generar la plantilla.',
     })
   }
 
@@ -581,7 +581,7 @@ export async function importar({ texto, archivo, ajustes, filas, sistema_origen 
   // existe para el sistema.
   if (revision.comunes.falta_router) {
     throw badRequest('Falta decir a qué router pertenecen estos abonados', {
-      hint: 'Generá la plantilla desde esta pantalla —el router viaja adentro— o elegilo antes de importar.',
+      hint: 'Genera la plantilla desde esta pantalla —el router viaja adentro— o elígelo antes de importar.',
     })
   }
 

@@ -70,11 +70,11 @@ export default function NodoForm({ nodo, nodos, routers, puntos, tecnicos, onGua
       {error && <Aviso tipo="alerta">{error}</Aviso>}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Nombre">
+        <Field campo="nombre" label="Nombre">
           <Input value={form.nombre} onChange={set('nombre')} placeholder="BASE SAN AGUSTIN" required />
         </Field>
 
-        <Field label="Tipo" hint={TIPOS_NODO[form.tipo]?.ayuda}>
+        <Field campo="tipo" label="Tipo" hint={TIPOS_NODO[form.tipo]?.ayuda}>
           <Select value={form.tipo} onChange={set('tipo')}>
             {Object.entries(TIPOS_NODO).map(([valor, t]) => (
               <option key={valor} value={valor}>
@@ -84,15 +84,15 @@ export default function NodoForm({ nodo, nodos, routers, puntos, tecnicos, onGua
           </Select>
         </Field>
 
-        <Field label="Equipo" hint="Qué repuesto llevar si hay que subir">
+        <Field campo="equipo" label="Equipo" hint="Qué repuesto llevar si hay que subir">
           <Input value={form.equipo} onChange={set('equipo')} placeholder="RB912UAG-5HPnD" />
         </Field>
 
-        <Field label="IP a monitorear">
+        <Field campo="ip" label="IP a monitorear">
           <Input value={form.ip} onChange={set('ip')} placeholder="10.10.8.246" required spellCheck={false} />
         </Field>
 
-        <Field label="Sondear desde" hint="El router con ruta hasta esa IP">
+        <Field campo="router_id" label="Sondear desde" hint="El router con ruta hasta esa IP">
           <Select value={form.router_id} onChange={set('router_id')}>
             <option value="">Sin asignar</option>
             {routers.map((r) => (
@@ -103,7 +103,7 @@ export default function NodoForm({ nodo, nodos, routers, puntos, tecnicos, onGua
           </Select>
         </Field>
 
-        <Field label="Depende de" hint="Si este cae, sus hijos no alertan aparte">
+        <Field campo="padre_id" label="Depende de" hint="Si este cae, sus hijos no alertan aparte">
           <Select value={form.padre_id} onChange={set('padre_id')}>
             <option value="">Ninguno (es cabecera)</option>
             {posiblesPadres.map((n) => (
@@ -114,7 +114,7 @@ export default function NodoForm({ nodo, nodos, routers, puntos, tecnicos, onGua
           </Select>
         </Field>
 
-        <Field label="Sitio" hint="De acá salen los abonados que se le cuentan">
+        <Field campo="punto_id" label="Sitio" hint="De acá salen los abonados que se le cuentan">
           <Select value={form.punto_id} onChange={set('punto_id')}>
             <option value="">Sin asignar</option>
             {puntos.map((p) => (
@@ -125,7 +125,7 @@ export default function NodoForm({ nodo, nodos, routers, puntos, tecnicos, onGua
           </Select>
         </Field>
 
-        <Field label="Técnico" hint="A quién se le avisa">
+        <Field campo="tecnico_id" label="Técnico" hint="A quién se le avisa">
           <Select value={form.tecnico_id} onChange={set('tecnico_id')}>
             <option value="">Al destino general</option>
             {tecnicos.map((t) => (
@@ -136,8 +136,8 @@ export default function NodoForm({ nodo, nodos, routers, puntos, tecnicos, onGua
           </Select>
         </Field>
 
-        <Field label="Latencia máxima (ms)" hint="Por encima queda degradado, no caído">
-          <Input
+        <Field campo="latencia_warning_ms" label="Latencia máxima (ms)" hint="Por encima queda degradado, no caído">
+          <Input placeholder="Ej.: 50"
             type="number"
             min={1}
             value={form.latencia_warning_ms}
@@ -145,8 +145,8 @@ export default function NodoForm({ nodo, nodos, routers, puntos, tecnicos, onGua
           />
         </Field>
 
-        <Field label="Pérdida máxima (%)">
-          <Input
+        <Field campo="perdida_warning_pct" label="Pérdida máxima (%)">
+          <Input placeholder="Ej.: 2"
             type="number"
             min={1}
             max={100}
@@ -155,8 +155,8 @@ export default function NodoForm({ nodo, nodos, routers, puntos, tecnicos, onGua
           />
         </Field>
 
-        <Field label="Notas" className="sm:col-span-2">
-          <Textarea rows={2} value={form.notas} onChange={set('notas')} />
+        <Field campo="notas" label="Notas" className="sm:col-span-2">
+          <Textarea placeholder="Ej.: Llamar antes de ir" rows={2} value={form.notas} onChange={set('notas')} />
         </Field>
       </div>
 

@@ -125,7 +125,7 @@ function Importar({ router, onError }) {
   return (
     <div className="space-y-4">
       <Aviso>
-        El escaneo es de solo lectura. Elegí de dónde leer según cómo administre los clientes este
+        El escaneo es de solo lectura. Elige de dónde leer según cómo administre los clientes este
         router: con colas simples sobre IP fija, con PPPoE, o ambas.
       </Aviso>
 
@@ -159,7 +159,7 @@ function Importar({ router, onError }) {
           hint="La que ya usa este equipo, ej. Moroso"
           className="sm:col-span-2"
         >
-          <Input value={lista} onChange={(e) => setLista(e.target.value)} />
+          <Input placeholder="Ej.: morosos" value={lista} onChange={(e) => setLista(e.target.value)} />
         </Field>
         <div className="pb-2">
           <Button
@@ -179,7 +179,7 @@ function Importar({ router, onError }) {
 
       {escaneo && !escaneando && (
         <>
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="t-kpis">
             <Stat label="Encontrados" valor={escaneo.resumen.total} />
             <Stat
               label="Cortados"
@@ -308,7 +308,7 @@ function Exportar({ router, onError }) {
       </Aviso>
 
       <div className="grid items-end gap-3 sm:grid-cols-3">
-        <Field label="Qué crear" className="sm:col-span-2">
+        <Field hint="Lo que se va a crear en el router para estos clientes." label="Qué crear" className="sm:col-span-2">
           <Select value={modo} onChange={(e) => setModo(e.target.value)}>
             <option value="simple-queue">Colas simples (necesita IP y velocidad)</option>
             <option value="ppp-secret">Usuarios PPPoE (necesita usuario PPPoE)</option>
@@ -418,7 +418,7 @@ function Morosos({ router, onError }) {
 
       <div className="grid items-end gap-3 sm:grid-cols-3">
         <Field label="Address-list de cortes" className="sm:col-span-2">
-          <Input value={lista} onChange={(e) => setLista(e.target.value)} />
+          <Input placeholder="Ej.: morosos" value={lista} onChange={(e) => setLista(e.target.value)} />
         </Field>
         <div className="pb-2">
           <Button
@@ -435,11 +435,11 @@ function Morosos({ router, onError }) {
 
       {plan && (
         <>
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Stat label="A cortar" valor={plan.agregar.length} color="text-red-400" />
-            <Stat label="A restaurar" valor={plan.quitar.length} color="text-emerald-400" />
-            <Stat label="Ya coinciden" valor={plan.yaCoinciden} />
-            <Stat label="Sin IP" valor={plan.sinIp.length} color="text-amber-400" />
+          <div className="t-kpis">
+            <Stat cargando={cargando} label="A cortar" valor={plan.agregar.length} color="text-red-400" />
+            <Stat cargando={cargando} label="A restaurar" valor={plan.quitar.length} color="text-emerald-400" />
+            <Stat cargando={cargando} label="Ya coinciden" valor={plan.yaCoinciden} />
+            <Stat cargando={cargando} label="Sin IP" valor={plan.sinIp.length} color="text-amber-400" />
           </div>
 
           {plan.sinCambios ? (

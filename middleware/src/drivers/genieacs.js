@@ -41,7 +41,7 @@ export async function pedir(ruta, opciones = {}) {
   if (!hayAcs()) {
     throw new AppError('No hay servidor TR-069 configurado.', {
       status: 503,
-      hint: 'Definí GENIEACS_URL en middleware/.env apuntando al NBI de GenieACS (puerto 7557).',
+      hint: 'Define GENIEACS_URL en middleware/.env apuntando al NBI de GenieACS (puerto 7557).',
     })
   }
 
@@ -55,7 +55,7 @@ export async function pedir(ruta, opciones = {}) {
   } catch (err) {
     throw new AppError(`No se pudo contactar al servidor TR-069: ${err.message}`, {
       status: 502,
-      hint: 'Verificá que GenieACS esté corriendo y que el middleware llegue a su puerto 7557.',
+      hint: 'Verifica que GenieACS esté corriendo y que el middleware llegue a su puerto 7557.',
     })
   }
 

@@ -127,7 +127,7 @@ async function despachar({ destino, texto, whatsapp }) {
     if (!automatico(whatsapp.via)) {
       return {
         ok: false,
-        error: `La vía de WhatsApp es "${whatsapp.via}", que no envía sola. Elegí Evolution API, Meta o Twilio en Ajustes → Mensajería.`,
+        error: `La vía de WhatsApp es "${whatsapp.via}", que no envía sola. Elige Evolution API, Meta o Twilio en Ajustes → Mensajería.`,
       }
     }
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { ArrowLeft, Building2, Check, ExternalLink, Info, Save, ShieldCheck } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Aviso, Button, Card, Cargando, ErrorBanner, Field, Input, Select, Textarea } from '../../components/ui'
 import ClausulasContrato from '../../components/contratos/ClausulasContrato'
 
@@ -82,7 +82,7 @@ export default function PrestadorPage() {
     setCargando(true)
     // De `v_prestadores_listos` y no de la tabla: trae además qué le falta y si
     // sus datos de identidad se mantienen solos desde Empresa.
-    const { data: todos, error: err } = await supabase
+    const { data: todos, error: err } = await django
       .from('v_prestadores_listos')
       .select('*')
       .order('predeterminado', { ascending: false })
@@ -128,7 +128,7 @@ export default function PrestadorPage() {
     setError(null)
 
     try {
-      const { error: err } = await supabase
+      const { error: err } = await django
         .from('prestadores')
         .update({
           provincia: form.provincia.trim() || null,
@@ -173,11 +173,11 @@ export default function PrestadorPage() {
           <ArrowLeft size={16} /> Ajustes
         </Link>
         <Aviso>
-          Todavía no hay ningún prestador. Cargá los datos de la empresa en{' '}
+          Todavía no hay ningún prestador. Carga los datos de la empresa en{' '}
           <Link to="/ajustes/empresa" className="font-medium underline">
             Ajustes → Empresa
           </Link>{' '}
-          y el sistema crea uno con esos datos; después volvé acá a completar lo que falta.
+          y el sistema crea uno con esos datos; después vuelve acá a completar lo que falta.
         </Aviso>
       </div>
     )
@@ -289,16 +289,16 @@ export default function PrestadorPage() {
           subtitle="La cláusula primera lo pide desglosado, no como un texto suelto"
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Provincia">
+            <Field campo="provincia" label="Provincia">
               <Input value={form.provincia} onChange={set('provincia')} placeholder="Cotopaxi" />
             </Field>
-            <Field label="Cantón">
+            <Field campo="canton" label="Cantón">
               <Input value={form.canton} onChange={set('canton')} placeholder="La Maná" />
             </Field>
-            <Field label="Ciudad">
+            <Field campo="ciudad" label="Ciudad">
               <Input value={form.ciudad} onChange={set('ciudad')} placeholder="La Maná" />
             </Field>
-            <Field label="Parroquia">
+            <Field campo="parroquia" label="Parroquia">
               <Input value={form.parroquia} onChange={set('parroquia')} placeholder="La Maná" />
             </Field>
           </div>
@@ -309,7 +309,7 @@ export default function PrestadorPage() {
           subtitle="Cláusula décima: por dónde el abonado reclama cuando algo sale mal"
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field
+            <Field campo="reclamos_email"
               label="Correo de reclamos"
               hint="Puede ser distinto del de facturación"
             >
@@ -320,20 +320,20 @@ export default function PrestadorPage() {
                 placeholder="soporte@miisp.ec"
               />
             </Field>
-            <Field label="Teléfono de reclamos">
-              <Input value={form.reclamos_telefono} onChange={set('reclamos_telefono')} />
+            <Field campo="reclamos_telefono" label="Teléfono de reclamos">
+              <Input placeholder="Ej.: 1800 123 456" value={form.reclamos_telefono} onChange={set('reclamos_telefono')} />
             </Field>
-            <Field label="Oficinas de atención">
-              <Input value={form.reclamos_oficinas} onChange={set('reclamos_oficinas')} />
+            <Field campo="reclamos_oficinas" label="Oficinas de atención">
+              <Input placeholder="Ej.: Av. Quito 456, Guayaquil" value={form.reclamos_oficinas} onChange={set('reclamos_oficinas')} />
             </Field>
-            <Field label="Horario de atención">
+            <Field campo="reclamos_horario" label="Horario de atención">
               <Input
                 value={form.reclamos_horario}
                 onChange={set('reclamos_horario')}
                 placeholder="08:00am a 18:00pm"
               />
             </Field>
-            <Field
+            <Field campo="web"
               label="Sitio web"
               hint="El anexo 1f lo pide dos veces: tarifas y calidad del servicio"
               className="sm:col-span-2"
@@ -348,7 +348,7 @@ export default function PrestadorPage() {
           subtitle="Lo que hace que el contrato sea verificable"
         >
           <div className="grid gap-3 sm:grid-cols-3">
-            <Field
+            <Field campo="modelo_inscrito_el"
               label="Inscrito ante la ARCOTEL el"
               hint="Se imprime al pie de cada hoja"
             >
@@ -358,16 +358,16 @@ export default function PrestadorPage() {
                 onChange={set('modelo_inscrito_el')}
               />
             </Field>
-            <Field label="Vigencia (meses)" hint="Cláusula cuarta">
-              <Input
+            <Field campo="vigencia_meses" label="Vigencia (meses)" hint="Cláusula cuarta">
+              <Input placeholder="Ej.: 24"
                 type="number"
                 min={0}
                 value={form.vigencia_meses}
                 onChange={set('vigencia_meses')}
               />
             </Field>
-            <Field label="Permanencia mínima (meses)" hint="Cláusula quinta">
-              <Input
+            <Field campo="permanencia_meses" label="Permanencia mínima (meses)" hint="Cláusula quinta">
+              <Input placeholder="Ej.: 12"
                 type="number"
                 min={0}
                 value={form.permanencia_meses}
@@ -401,8 +401,8 @@ export default function PrestadorPage() {
 
         <Card title="Tarifas y permanencia" subtitle="Anexo 1f">
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Valor de instalación (USD)" hint="Se cobra una sola vez">
-              <Input
+            <Field campo="valor_instalacion" label="Valor de instalación (USD)" hint="Se cobra una sola vez">
+              <Input placeholder="Ej.: 30.00"
                 type="number"
                 step="0.01"
                 min={0}
@@ -410,7 +410,7 @@ export default function PrestadorPage() {
                 onChange={set('valor_instalacion')}
               />
             </Field>
-            <Field label="Plazo para instalar / activar">
+            <Field campo="plazo_instalacion" label="Plazo para instalar / activar">
               <Input
                 value={form.plazo_instalacion}
                 onChange={set('plazo_instalacion')}
@@ -418,7 +418,7 @@ export default function PrestadorPage() {
               />
             </Field>
 
-            <Field
+            <Field campo="beneficios_permanencia"
               label="Beneficios de la permanencia"
               hint="Uno por línea. Se numeran en la cláusula quinta"
               className="sm:col-span-2"
@@ -431,14 +431,14 @@ export default function PrestadorPage() {
               />
             </Field>
 
-            <Field label="Beneficio que acredita el anexo 1f">
+            <Field campo="beneficio_anexo" label="Beneficio que acredita el anexo 1f">
               <Input
                 value={form.beneficio_anexo}
                 onChange={set('beneficio_anexo')}
                 placeholder="INSTALACIÓN GRATIS"
               />
             </Field>
-            <Field label="Si no cumple la permanencia">
+            <Field campo="costo_no_permanencia" label="Si no cumple la permanencia">
               <Input
                 value={form.costo_no_permanencia}
                 onChange={set('costo_no_permanencia')}

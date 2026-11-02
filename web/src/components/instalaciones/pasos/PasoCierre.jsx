@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useConfirmar } from '../../../lib/confirmar'
 import { Camera, CheckCircle2, Trash2 } from 'lucide-react'
-import { supabase } from '../../../lib/supabaseClient'
+import { django } from '../../../lib/djangoClient'
 import { comprimirImagen } from '../../../lib/soporte'
 import { faltantes } from '../../../lib/instalaciones'
 import { campoApi } from '../../../lib/colaCampo'
@@ -90,7 +90,7 @@ export default function PasoCierre({ orden, onError, onFinalizado, onEncolado })
   const set = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
 
   const cargarFotos = useCallback(async () => {
-    const { data } = await supabase
+    const { data } = await django
       .from('instalacion_fotos')
       .select('*')
       .eq('instalacion_id', orden.id)
@@ -101,7 +101,7 @@ export default function PasoCierre({ orden, onError, onFinalizado, onEncolado })
     // abierta.
     const conUrl = await Promise.all(
       (data ?? []).map(async (f) => {
-        const { data: url } = await supabase.storage
+        const { data: url } = await django.storage
           .from('instalaciones')
           .createSignedUrl(f.ruta, 3600)
         return { ...f, url: url?.signedUrl ?? null }
@@ -123,7 +123,7 @@ export default function PasoCierre({ orden, onError, onFinalizado, onEncolado })
     onError?.(null)
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
+      const { data: sesion } = await django.auth.getUser()
 
       for (const archivo of archivos) {
         // Se achica antes de subir: el técnico está con datos móviles y una
@@ -131,12 +131,12 @@ export default function PasoCierre({ orden, onError, onFinalizado, onEncolado })
         const blob = await comprimirImagen(archivo)
         const ruta = `${orden.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
 
-        const { error: errSubida } = await supabase.storage
+        const { error: errSubida } = await django.storage
           .from('instalaciones')
           .upload(ruta, blob, { contentType: 'image/jpeg' })
         if (errSubida) throw errSubida
 
-        const { error } = await supabase.from('instalacion_fotos').insert({
+        const { error } = await django.from('instalacion_fotos').insert({
           instalacion_id: orden.id,
           tipo: form.tipo_foto,
           ruta,
@@ -156,8 +156,8 @@ export default function PasoCierre({ orden, onError, onFinalizado, onEncolado })
 
   async function borrarFoto(f) {
     if (!await confirmar('¿Borrar esta foto?')) return
-    await supabase.storage.from('instalaciones').remove([f.ruta])
-    await supabase.from('instalacion_fotos').delete().eq('id', f.id)
+    await django.storage.from('instalaciones').remove([f.ruta])
+    await django.from('instalacion_fotos').delete().eq('id', f.id)
     await cargarFotos()
   }
 
@@ -242,11 +242,11 @@ export default function PasoCierre({ orden, onError, onFinalizado, onEncolado })
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Quién firma" hint="El nombre de quien recibe el servicio">
-          <Input value={form.firmante_nombre} onChange={set('firmante_nombre')} />
+        <Field campo="firmante_nombre" label="Quién firma" hint="El nombre de quien recibe el servicio">
+          <Input placeholder="Ej.: Juan Pérez" value={form.firmante_nombre} onChange={set('firmante_nombre')} />
         </Field>
-        <Field label="Cédula de quien firma">
-          <Input
+        <Field campo="firmante_identificacion" label="Cédula de quien firma">
+          <Input placeholder="Ej.: 0912345678"
             value={form.firmante_identificacion}
             onChange={set('firmante_identificacion')}
             inputMode="numeric"
@@ -265,10 +265,10 @@ export default function PasoCierre({ orden, onError, onFinalizado, onEncolado })
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Metros de cable usados">
-          <Input type="number" min={0} value={form.metros_cable} onChange={set('metros_cable')} />
+        <Field campo="metros_cable" label="Metros de cable usados">
+          <Input placeholder="Ej.: 80" type="number" min={0} value={form.metros_cable} onChange={set('metros_cable')} />
         </Field>
-        <Field label="Qué se va a fotografiar">
+        <Field campo="tipo_foto" hint="Elige qué muestra la foto antes de subirla." label="Qué se va a fotografiar">
           {/* En el orden en que se sacan: se llega, se tiende, se conecta
               adentro, se mide, se prueba. */}
           <Select value={form.tipo_foto} onChange={set('tipo_foto')}>
@@ -331,7 +331,7 @@ export default function PasoCierre({ orden, onError, onFinalizado, onEncolado })
         )}
       </div>
 
-      <Field label="Observaciones">
+      <Field campo="observaciones" label="Observaciones">
         <Textarea
           rows={3}
           value={form.observaciones}

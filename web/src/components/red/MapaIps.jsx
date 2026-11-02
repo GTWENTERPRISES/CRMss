@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ESTADOS_IP, MAXIMO_MAPA, mapaDe } from '../../lib/red'
 import { Aviso } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * El bloque entero, una celda por dirección.
@@ -24,7 +25,7 @@ export default function MapaIps({ cidr, direcciones = [], onElegir }) {
       <Aviso tipo="alerta">
         {cidr} tiene {mapa.total.toLocaleString()} direcciones. El mapa se dibuja hasta{' '}
         {MAXIMO_MAPA.toLocaleString()}: más que eso el navegador tarda en pintar algo que nadie
-        puede recorrer con la vista. Dividí el bloque en subredes más chicas.
+        puede recorrer con la vista. Divide el bloque en subredes más chicas.
       </Aviso>
     )
   }
@@ -97,7 +98,7 @@ export default function MapaIps({ cidr, direcciones = [], onElegir }) {
                 <>
                   <dt className="text-slate-500">Vista por última vez</dt>
                   <dd className="text-slate-200">
-                    {new Date(detalle.datos.visto_at).toLocaleString()}
+                    {fmtFechaHora(detalle.datos.visto_at)}
                   </dd>
                 </>
               )}

@@ -10,9 +10,10 @@ import {
   User,
   Wrench,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Aviso, Button, Field, Input, Select, Textarea } from '../ui'
 import { FRANJAS, INCIDENCIAS } from '../../lib/soporte'
+import { SoloTecnico } from '../../lib/tecnico'
 
 /**
  * Alta de un ticket, en cuatro pasos.
@@ -90,9 +91,9 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
   useEffect(() => {
     async function cargar() {
       const [p, t, c] = await Promise.all([
-        supabase.from('puntos_red').select('id, nombre, tipo').eq('activo', true).order('nombre'),
-        supabase.from('tecnicos').select('id, nombre, especialidad').eq('activo', true).order('nombre'),
-        supabase.from('cuadrillas').select('id, nombre, zona').eq('activo', true).order('nombre'),
+        django.from('puntos_red').select('id, nombre, tipo').eq('activo', true).order('nombre'),
+        django.from('tecnicos').select('id, nombre, especialidad').eq('activo', true).order('nombre'),
+        django.from('cuadrillas').select('id, nombre, zona').eq('activo', true).order('nombre'),
       ])
       setPuntos(p.data ?? [])
       setTecnicos(t.data ?? [])
@@ -125,7 +126,7 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
     if (q.length < 3) return
 
     setBuscando(true)
-    const { data } = await supabase
+    const { data } = await django
       .from('v_clientes_ficha')
       .select(
         'id, nombre, identificacion, telefono, telefono_movil, email, direccion, latitud, longitud, ' +
@@ -179,7 +180,7 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
     onError?.(null)
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
+      const { data: sesion } = await django.auth.getUser()
 
       const fila = {
         client_id: form.client_id || null,
@@ -226,7 +227,7 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
             }),
       }
 
-      const { data, error } = await supabase.from('tickets').insert(fila).select().single()
+      const { data, error } = await django.from('tickets').insert(fila).select().single()
       if (error) throw error
 
       onCreado?.(data)
@@ -305,10 +306,7 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
                 variante="secundario"
                 icon={Search}
                 onClick={buscarCliente}
-                cargando={buscando}
-              >
-                Buscar
-              </Button>
+                cargando={buscando} title="Buscar" />
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
               Si ya es abonado, al elegirlo se completan la dirección y los datos del servicio.
@@ -348,24 +346,24 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Cédula / RUC">
-              <Input value={form.identificacion} onChange={set('identificacion')} />
+            <Field campo="identificacion" label="Cédula / RUC">
+              <Input placeholder="Ej.: 0912345678" value={form.identificacion} onChange={set('identificacion')} />
             </Field>
-            <Field label="Nombre completo" hint="Es lo único obligatorio">
-              <Input value={form.nombre} onChange={set('nombre')} required />
+            <Field campo="nombre" label="Nombre completo" hint="Es lo único obligatorio">
+              <Input placeholder="Ej.: María José Andrade" value={form.nombre} onChange={set('nombre')} required />
             </Field>
-            <Field label="Teléfono principal">
-              <Input type="tel" value={form.telefono} onChange={set('telefono')} />
+            <Field campo="telefono" label="Teléfono principal">
+              <Input placeholder="Ej.: 0991234567" type="tel" value={form.telefono} onChange={set('telefono')} />
             </Field>
-            <Field label="WhatsApp" hint="Por acá se le avisa cuando el técnico sale">
-              <Input
+            <Field campo="telefono_whatsapp" label="WhatsApp" hint="Por acá se le avisa cuando el técnico sale">
+              <Input placeholder="Ej.: 0991234567"
                 type="tel"
                 value={form.telefono_whatsapp}
                 onChange={set('telefono_whatsapp')}
               />
             </Field>
-            <Field label="Email" className="sm:col-span-2" hint="Para mandarle el acta de cierre">
-              <Input type="email" value={form.email} onChange={set('email')} />
+            <Field campo="email" label="Email" className="sm:col-span-2" hint="Para mandarle el acta de cierre">
+              <Input placeholder="Ej.: cliente@correo.com" type="email" value={form.email} onChange={set('email')} />
             </Field>
           </div>
         </div>
@@ -374,32 +372,32 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
       {/* ---------------------------------------------------- Paso 2 */}
       {paso === 1 && (
         <div className="space-y-4">
-          <Field label="Dirección" className="sm:col-span-2">
+          <Field campo="direccion" label="Dirección" className="sm:col-span-2">
             <Input value={form.direccion} onChange={set('direccion')} placeholder="Calle principal y transversal, número" />
           </Field>
 
-          <Field
+          <Field campo="referencia"
             label="Referencia del domicilio"
             hint="Lo que se ve desde la calle: el color de la casa, el negocio de la esquina"
           >
-            <Textarea rows={2} value={form.referencia} onChange={set('referencia')} />
+            <Textarea placeholder="Ej.: Casa esquinera, portón negro" rows={2} value={form.referencia} onChange={set('referencia')} />
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Sector / barrio">
-              <Input value={form.sector} onChange={set('sector')} />
+            <Field campo="sector" label="Sector / barrio">
+              <Input placeholder="Ej.: Urdesa Central" value={form.sector} onChange={set('sector')} />
             </Field>
-            <Field label="Cantón">
-              <Input value={form.canton} onChange={set('canton')} />
+            <Field campo="canton" label="Cantón">
+              <Input placeholder="Ej.: Guayaquil" value={form.canton} onChange={set('canton')} />
             </Field>
           </div>
 
           <div className="t-card-sm p-3">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Latitud">
+              <Field campo="latitud" label="Latitud">
                 <Input value={form.latitud} onChange={set('latitud')} placeholder="-0.9312500" />
               </Field>
-              <Field label="Longitud">
+              <Field campo="longitud" label="Longitud">
                 <Input value={form.longitud} onChange={set('longitud')} placeholder="-78.6155000" />
               </Field>
             </div>
@@ -430,6 +428,13 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
       {/* ---------------------------------------------------- Paso 3 */}
       {paso === 2 && (
         <div className="space-y-4">
+          {/* Los datos de la red (NAP, ONT, CPE, señal): los carga el técnico.
+              A quien no opera la red no se le piden. */}
+          <SoloTecnico
+            envezDe={
+              <Aviso>Los datos técnicos (equipo, señal, caja NAP) los completa el técnico al atender el ticket. Puedes seguir.</Aviso>
+            }
+          >
           <div className="grid grid-cols-2 gap-3">
             {[
               { valor: 'ftth', label: 'FTTH — Fibra', detalle: 'NAP, puerto, ONT, potencia' },
@@ -453,7 +458,7 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
 
           {form.tecnologia === 'ftth' ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Caja NAP">
+              <Field campo="nap_id" hint="La caja de la que sale su fibra." label="Caja NAP">
                 <Select value={form.nap_id} onChange={set('nap_id')}>
                   <option value="">— sin definir —</option>
                   {napsFtth.map((n) => (
@@ -463,16 +468,16 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
                   ))}
                 </Select>
               </Field>
-              <Field label="Puerto">
-                <Input value={form.puerto_nap} onChange={set('puerto_nap')} />
+              <Field campo="puerto_nap" label="Puerto">
+                <Input placeholder="Ej.: 1" value={form.puerto_nap} onChange={set('puerto_nap')} />
               </Field>
-              <Field label="Modelo de ONT">
+              <Field campo="ont_modelo" label="Modelo de ONT">
                 <Input value={form.ont_modelo} onChange={set('ont_modelo')} placeholder="HG8145V5" />
               </Field>
-              <Field label="Serie de ONT">
-                <Input value={form.ont_serie} onChange={set('ont_serie')} />
+              <Field campo="ont_serie" label="Serie de ONT">
+                <Input placeholder="Ej.: HWTC1A2B3C4D" value={form.ont_serie} onChange={set('ont_serie')} />
               </Field>
-              <Field label="Potencia (dBm)" hint="La que se leyó al reportar la falla">
+              <Field campo="potencia_dbm" label="Potencia (dBm)" hint="La que se leyó al reportar la falla">
                 <Input
                   type="number"
                   step="0.01"
@@ -484,7 +489,7 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nodo / torre">
+              <Field campo="torre_id" hint="De dónde sale su conexión." label="Nodo / torre">
                 <Select value={form.torre_id} onChange={set('torre_id')}>
                   <option value="">— sin definir —</option>
                   {torres.map((n) => (
@@ -494,13 +499,13 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
                   ))}
                 </Select>
               </Field>
-              <Field label="IP del CPE">
+              <Field campo="cpe_ip" label="IP del CPE">
                 <Input value={form.cpe_ip} onChange={set('cpe_ip')} placeholder="10.10.0.25" />
               </Field>
-              <Field label="Frecuencia">
+              <Field campo="frecuencia" label="Frecuencia">
                 <Input value={form.frecuencia} onChange={set('frecuencia')} placeholder="5180 MHz" />
               </Field>
-              <Field label="Señal (dBm)">
+              <Field campo="senal_dbm" label="Señal (dBm)">
                 <Input
                   type="number"
                   step="0.01"
@@ -509,11 +514,12 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
                   placeholder="-65"
                 />
               </Field>
-              <Field label="Modelo de antena">
+              <Field campo="antena_modelo" label="Modelo de antena">
                 <Input value={form.antena_modelo} onChange={set('antena_modelo')} placeholder="LiteBeam 5AC" />
               </Field>
             </div>
           )}
+          </SoloTecnico>
         </div>
       )}
 
@@ -521,7 +527,7 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
       {paso === 3 && (
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Tipo de incidencia">
+            <Field campo="tipo_incidencia" hint="Lo que el cliente dice que le pasa." label="Tipo de incidencia">
               <Select value={form.tipo_incidencia} onChange={set('tipo_incidencia')}>
                 {incidencias.map((i) => (
                   <option key={i.valor} value={i.valor}>
@@ -553,18 +559,18 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
             </Field>
           </div>
 
-          <Field
+          <Field campo="descripcion"
             label="Qué reporta el abonado"
             hint="Con las palabras del cliente: al técnico le sirve más que un diagnóstico apurado"
           >
-            <Textarea rows={3} value={form.descripcion} onChange={set('descripcion')} />
+            <Textarea placeholder="Ej.: Sin internet desde ayer en la noche" rows={3} value={form.descripcion} onChange={set('descripcion')} />
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Fecha de visita">
+            <Field campo="fecha_visita" hint="Cuándo va el técnico." label="Fecha de visita">
               <Input type="date" value={form.fecha_visita} onChange={set('fecha_visita')} />
             </Field>
-            <Field label="Franja horaria">
+            <Field campo="franja" hint="En qué parte del día se hace la visita." label="Franja horaria">
               <Select value={form.franja} onChange={set('franja')}>
                 {Object.entries(FRANJAS).map(([v, label]) => (
                   <option key={v} value={v}>
@@ -574,14 +580,14 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
               </Select>
             </Field>
             {form.franja === 'exacta' && (
-              <Field label="Hora">
+              <Field campo="hora_visita" label="Hora">
                 <Input type="time" value={form.hora_visita} onChange={set('hora_visita')} />
               </Field>
             )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Técnico" hint="O dejalo sin asignar y se decide después">
+            <Field campo="tecnico_id" label="Técnico" hint="O déjalo sin asignar y se decide después">
               <Select
                 value={form.tecnico_id}
                 onChange={(e) => setForm((f) => ({ ...f, tecnico_id: e.target.value, cuadrilla_id: '' }))}
@@ -597,7 +603,7 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
               </Select>
             </Field>
 
-            <Field label="O cuadrilla">
+            <Field campo="cuadrilla_id" hint="O un equipo completo en lugar de una persona." label="O cuadrilla">
               <Select
                 value={form.cuadrilla_id}
                 onChange={(e) => setForm((f) => ({ ...f, cuadrilla_id: e.target.value, tecnico_id: '' }))}

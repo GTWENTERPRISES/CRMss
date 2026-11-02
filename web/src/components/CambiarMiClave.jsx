@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
-import { useAuth } from '../lib/AuthContext'
+import { django } from '../lib/djangoClient'
 import { modoDemo } from '../lib/demo'
 import { Aviso, Button, ErrorBanner, Field, Input } from './ui'
 
@@ -15,7 +14,7 @@ import { Aviso, Button, ErrorBanner, Field, Input } from './ui'
  *
  * ── Por qué se pide la contraseña actual ──
  *
- * Supabase no la exige: con la sesión abierta alcanza para cambiarla. Se pide
+ * Django no la exige: con la sesión abierta alcanza para cambiarla. Se pide
  * igual, y se comprueba entrando con ella.
  *
  * El motivo es concreto, y en la app de campo todavía más: el teléfono del
@@ -27,7 +26,6 @@ import { Aviso, Button, ErrorBanner, Field, Input } from './ui'
 const MINIMO = 8
 
 export default function CambiarMiClave({ compacto = false }) {
-  const { usuario } = useAuth()
 
   const [actual, setActual] = useState('')
   const [nueva, setNueva] = useState('')
@@ -54,18 +52,13 @@ export default function CambiarMiClave({ compacto = false }) {
       if (modoDemo) throw new Error('En modo demo no se cambian contraseñas.')
 
       /*
-        Se comprueba la actual entrando con ella. Es el mismo usuario, así que
-        la sesión que devuelve reemplaza a la que ya había sin efecto visible.
-        Si la contraseña está mal, falla acá y no se toca nada.
+        El servidor comprueba la actual y guarda la nueva en un solo paso
+        (/auth/change-password). Antes se comprobaba "entrando" con el correo
+        de la sesión, que el token no trae: fallaba siempre con "la contraseña
+        actual no es correcta", aunque lo fuera.
       */
-      const { error: errEntrar } = await supabase.auth.signInWithPassword({
-        email: usuario?.email,
-        password: actual,
-      })
-      if (errEntrar) throw new Error('La contraseña actual no es correcta.')
-
-      const { error: errCambio } = await supabase.auth.updateUser({ password: nueva })
-      if (errCambio) throw new Error(errCambio.message)
+      const { error: errCambio } = await django.auth.cambiarMiClave(actual, nueva)
+      if (errCambio) throw Object.assign(new Error(errCambio.message), { hint: errCambio.hint })
 
       setListo(true)
       setActual('')
@@ -83,14 +76,14 @@ export default function CambiarMiClave({ compacto = false }) {
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
       {listo && (
-        <Aviso tipo="exito">Contraseña cambiada. La próxima vez que entres, usá la nueva.</Aviso>
+        <Aviso tipo="exito">Contraseña cambiada. La próxima vez que entres, usa la nueva.</Aviso>
       )}
 
       <Field
         label="Contraseña actual"
-        hint="Se pide para confirmar que sos vos, no solo que la sesión está abierta."
+        hint="Se pide para confirmar que eres tú, no solo que la sesión está abierta."
       >
-        <Input
+        <Input placeholder="Tu contraseña de hoy"
           type="password"
           value={actual}
           onChange={(e) => setActual(e.target.value)}
@@ -100,7 +93,7 @@ export default function CambiarMiClave({ compacto = false }) {
 
       <div className={compacto ? 'space-y-4' : 'grid gap-4 sm:grid-cols-2'}>
         <Field label="Contraseña nueva" hint={`Mínimo ${MINIMO} caracteres.`}>
-          <Input
+          <Input placeholder="Mínimo 8 caracteres"
             type="password"
             value={nueva}
             onChange={(e) => setNueva(e.target.value)}
@@ -108,8 +101,8 @@ export default function CambiarMiClave({ compacto = false }) {
           />
         </Field>
 
-        <Field label="Repetila">
-          <Input
+        <Field label="Repítela">
+          <Input placeholder="Escríbela de nuevo"
             type="password"
             value={repetida}
             onChange={(e) => setRepetida(e.target.value)}
@@ -121,7 +114,7 @@ export default function CambiarMiClave({ compacto = false }) {
       {corta && <Aviso tipo="alerta">La contraseña necesita al menos {MINIMO} caracteres.</Aviso>}
       {distinta && <Aviso tipo="alerta">Las dos contraseñas no coinciden.</Aviso>}
       {igualALaActual && (
-        <Aviso tipo="alerta">La nueva es igual a la actual. Poné una distinta.</Aviso>
+        <Aviso tipo="alerta">La nueva es igual a la actual. Pon una distinta.</Aviso>
       )}
 
       <Button
@@ -137,7 +130,7 @@ export default function CambiarMiClave({ compacto = false }) {
 
       <p className="text-xs leading-snug text-slate-500">
         Nadie más va a poder verla, tampoco quien administra el sistema: solo se guarda su huella.
-        Si la olvidás, pedí el enlace desde <b>¿Olvidaste tu contraseña?</b> en la pantalla de
+        Si la olvidas, pide el enlace desde <b>¿Olvidaste tu contraseña?</b> en la pantalla de
         entrada.
       </p>
     </form>

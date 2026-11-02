@@ -1,6 +1,9 @@
 import { Router } from 'express'
 import * as reparar from '../services/repararRouter.js'
+import { moraDelRouter } from '../services/corteMora.js'
+import { config } from '../config.js'
 import * as configurar from '../services/configurarRouter.js'
+import * as portal from '../services/portalCorte.js'
 import * as ipv6 from '../services/ipv6Router.js'
 import { asyncHandler, badRequest } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
@@ -15,7 +18,7 @@ const router = Router()
 // el mapa de la red. Un técnico de campo no lo necesita para instalar.
 router.use(requireAuth, exigePermiso('red.routers'))
 
-/** Carga el router de Supabase y lo deja en req.equipo (credenciales descifradas). */
+/** Carga el router de la base y lo deja en req.equipo (credenciales descifradas). */
 const conRouter = asyncHandler(async (req, _res, next) => {
   req.equipo = await cargarRouter(req.params.id)
   next()
@@ -150,7 +153,51 @@ router.delete(
   conRouter,
   asyncHandler(async (req, res) => {
     await mt.desbloquear(req.equipo, req.params.entradaId)
+
+    /**
+     * Y el registro del corte en el sistema, si lo había.
+     *
+     * Cobrar desde la ficha, reactivar desde Herramientas o restaurar desde
+     * "Cortes / morosos" sacaban la IP del router pero dejaban el bloqueo
+     * registrado como activo. La reconexión automática lo seguía viendo y
+     * reintentaba quitar una entrada que ya no estaba, cada cinco segundos.
+     * Se cierra por el id de la entrada y, si viene, por la IP.
+     */
+    const ip = String(req.query.ip ?? '').split('/')[0] || null
+    // Entre comillas: los id de RouterOS empiezan con `*` y PostgREST los
+    // tiene que leer como texto literal.
+    const id = String(req.params.entradaId).replace(/"/g, '')
+    const filtro = ip
+      ? `routeros_id.eq."${id}",cliente_ip.eq."${ip.replace(/"/g, '')}"`
+      : `routeros_id.eq."${id}"`
+    await db()
+      .from('firewall_bloqueos')
+      .update({ activo: false })
+      .eq('router_id', req.params.id)
+      .eq('activo', true)
+      .or(filtro)
+
     res.json({ ok: true })
+  }),
+)
+
+/**
+ * Con qué se llenan las tarjetas de la página del cortado.
+ *
+ * La IP del servidor vista desde este router la sabe el sistema —sale del
+ * túnel que armó `openvpn-server.sh`—, así que no se le pide a nadie que la
+ * escriba de memoria: llega puesta y solo se edita si hace falta.
+ */
+router.get(
+  '/:id/redireccion-pago',
+  conRouter,
+  asyncHandler(async (req, res) => {
+    res.json({
+      destino: portal.destinoSugerido(req.equipo),
+      puerto: config.portalCorte ?? null,
+      lista: req.equipo.lista_morosos || mt.LISTA_MOROSOS,
+      listaAviso: portal.listaAvisoDe(req.equipo),
+    })
   }),
 )
 
@@ -158,8 +205,34 @@ router.post(
   '/:id/redireccion-pago',
   conRouter,
   asyncHandler(async (req, res) => {
-    const { destino, puerto, lista } = req.body ?? {}
+    const { puerto, lista } = req.body ?? {}
+    const destino = req.body?.destino || portal.destinoSugerido(req.equipo)
     if (!destino) throw badRequest('Falta la IP destino de la página de aviso de pago')
+
+    /**
+     * La lista del aviso previo, si la mandan, queda guardada en la ficha.
+     *
+     * Vacía quiere decir "este router no muestra aviso previo". Se guarda
+     * antes de tocar el router porque la sincronización de cada día la lee de
+     * ahí: con la regla puesta y la ficha sin lista, nadie entraría nunca.
+     */
+    if (req.body?.listaAviso !== undefined) {
+      const listaAviso = String(req.body.listaAviso ?? '').trim()
+      if (listaAviso && !/^[\w.-]{1,50}$/.test(listaAviso)) {
+        throw badRequest('El nombre de la lista solo puede tener letras, números, punto, guion y guion bajo.')
+      }
+      if (listaAviso && listaAviso.toLowerCase() === String(req.equipo.lista_morosos ?? mt.LISTA_MOROSOS).toLowerCase()) {
+        throw badRequest('La lista del aviso no puede ser la misma que la del corte.')
+      }
+      const { error } = await db()
+        .from('routers_mikrotik')
+        // Vacía y no NULL: NULL es "sin decidir" y al configurar se volvería a
+        // encender sola. Vacía es "lo apagaron", y se respeta.
+        .update({ lista_aviso: listaAviso })
+        .eq('id', req.equipo.id)
+      if (error) throw error
+      req.equipo.lista_aviso = listaAviso
+    }
 
     /**
      * La lista sale de la ficha del router si no la mandan.
@@ -169,11 +242,19 @@ router.post(
      * crearía apuntando a una lista vacía: el cortado no vería la página y nadie
      * entendería por qué, porque la regla se creó sin error.
      */
+    /**
+     * No solo la redirección: también los permisos que la dejan funcionar
+     * (ver `portalCorte`). Antes se creaba la regla sola, al puerto 80 si no se
+     * decía otro, y el drop del corte se comía el pedido igual.
+     */
     res.json(
-      await mt.asegurarRedireccionPago(req.equipo, {
+      await portal.aplicar(req.equipo, {
         destino,
-        puerto,
-        lista: lista || req.equipo.lista_morosos || undefined,
+        puerto: Number(puerto) || undefined,
+        lista: lista || req.equipo.lista_morosos || mt.LISTA_MOROSOS,
+        // Sin lista de aviso en la ficha, el router no muestra aviso previo y
+        // no se le escribe nada de eso.
+        listaAviso: await portal.fijarListaAviso(req.equipo),
       }),
     )
   }),
@@ -284,7 +365,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { clientes } = req.body ?? {}
     if (!Array.isArray(clientes) || clientes.length === 0) {
-      throw badRequest('Mandá un array "clientes" con al menos uno')
+      throw badRequest('Manda un array "clientes" con al menos uno')
     }
 
     const routerId = req.equipo.id
@@ -507,7 +588,7 @@ router.delete(
 router.get(
   '/:id/configurar',
   asyncHandler(async (req, res) => {
-    res.json(await configurar.revisar(req.params.id, { red: req.query?.red }))
+    res.json(await configurar.revisar(req.params.id, { red: req.query?.red, destino: req.query?.destino }))
   }),
 )
 
@@ -528,18 +609,31 @@ router.post(
 router.get(
   '/:id/reparar',
   asyncHandler(async (req, res) => {
-    res.json(await reparar.revisar(req.params.id))
+    // Y lo que el corte por mora le debe a este router: los que la corrida no
+    // pudo cortar (o reconectar) porque el router no respondía.
+    const plan = await reparar.revisar(req.params.id)
+    res.json({ ...plan, mora: await moraDelRouter(req.params.id) })
   }),
 )
 
 router.post(
   '/:id/reparar',
   asyncHandler(async (req, res) => {
-    res.json(
-      await reparar.reparar(req.params.id, {
-        borrarDesconocidos: req.body?.borrarDesconocidos === true,
-      }),
-    )
+    const hecho = await reparar.reparar(req.params.id, {
+      borrarDesconocidos: req.body?.borrarDesconocidos === true,
+    })
+
+    // Después de sincronizar, los cortes y reconexiones pendientes de este
+    // router. Si el router sigue sin responder, quedan en `fallos`.
+    const mora = await moraDelRouter(req.params.id, { aplicar: true })
+    res.json({
+      ...hecho,
+      mora: { cortados: mora.cortados.length, reconectados: mora.reconectados.length },
+      fallos: [
+        ...(hecho.fallos ?? []),
+        ...mora.fallidos.map((f) => `${f.cliente ?? '—'}: ${f.error ?? f.motivo ?? 'no se pudo aplicar'}`),
+      ],
+    })
   }),
 )
 

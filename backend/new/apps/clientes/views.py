@@ -1,10 +1,9 @@
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.fields import get_blind_hash
 from .models import Cliente, Contrato, Servicio
 from .serializers import (
     ClienteResumenSerializer,
@@ -15,11 +14,11 @@ from .serializers import (
 
 
 class ClienteViewSet(viewsets.ModelViewSet):
-    queryset = Cliente.objects.prefetch_related('contratos', 'servicios').all()
+    queryset = Cliente.objects.prefetch_related('servicios').all()
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ['estado_servicio']
-    search_fields = ['nombre', 'codigo_pago']
+    filterset_fields = ['estado']
+    search_fields = ['nombre', 'identificacion', 'codigo_pago']
     ordering_fields = ['nombre', 'created_at']
 
     @action(detail=False, methods=['get'], url_path='consultar-deuda')
@@ -34,40 +33,36 @@ class ClienteViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        filtro = {}
         if cliente_id:
-            filtro['id'] = cliente_id
+            filtro = Q(id=cliente_id)
         elif cedula:
-            filtro['cedula_hash'] = get_blind_hash(cedula)
+            filtro = Q(identificacion=cedula)
         else:
-            filtro['telefono_hash'] = get_blind_hash(telefono)
+            filtro = Q(telefono=telefono) | Q(telefono_movil=telefono)
 
-        cliente = Cliente.objects.filter(**filtro).first()
+        cliente = Cliente.objects.filter(filtro).first()
         if cliente is None:
             return Response(
                 {'detail': 'Cliente no encontrado.'},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        from apps.facturacion.models import Factura
         from apps.soporte.utils import detectar_falla_masiva_sector
 
-        pendientes = Factura.objects.filter(
-            cliente=cliente,
-            estado__in=[Factura.Estado.PENDIENTE, Factura.Estado.VENCIDA],
-        ).order_by('fecha_vencimiento')
+        from apps.pagos.cobros import facturas_con_saldo
 
-        deuda = pendientes.aggregate(total=Sum('total'))['total'] or 0
+        pendientes = facturas_con_saldo(cliente)
+        deuda = sum((saldo for _, saldo in pendientes), 0)
         facturas = [
             {
                 'factura_id': str(f.id),
-                'numero': f.numero,
-                'mes': f.mes,
-                'monto': float(f.total),
+                'numero': f'{f.numero or 0:08d}',
+                'mes': f.concepto,
+                'monto': float(saldo),
                 'fecha_vencimiento': f.fecha_vencimiento.isoformat(),
                 'estado': f.estado,
             }
-            for f in pendientes
+            for f, saldo in pendientes
         ]
 
         # Detectar falla masiva en el sector del cliente
@@ -84,10 +79,10 @@ class ClienteViewSet(viewsets.ModelViewSet):
 
 
 class ContratoViewSet(viewsets.ModelViewSet):
-    queryset = Contrato.objects.select_related('cliente').all()
+    queryset = Contrato.objects.select_related('client').all()
     serializer_class = ContratoSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ['cliente', 'estado']
+    filterset_fields = ['client', 'estado', 'firma_estado']
     search_fields = ['numero']
 
 

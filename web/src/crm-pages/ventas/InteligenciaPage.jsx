@@ -10,13 +10,14 @@ import {
 } from 'lucide-react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Aviso, Badge, Card, Cargando, ErrorBanner, Table } from '../../components/ui'
 import BotonTema from '../../components/ventas/BotonTema'
 import { useTemaCampo } from '../../lib/temaCampo'
 import { dineroCero as dinero } from '../../lib/formato'
 import { paleta } from '../../lib/comercial'
 import { ORIGENES } from '../../lib/ventas'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Inteligencia comercial.
@@ -61,14 +62,14 @@ export default function InteligenciaPage() {
     setCargando(true)
     try {
       const [sectores, puntos, origenes, perdidos, cajas, naps] = await Promise.all([
-        supabase.from('v_demanda_por_sector').select('*').order('prioridad', { ascending: false }),
-        supabase.from('v_puntos_sin_cobertura').select('*').limit(500),
-        supabase.from('v_cierre_por_origen').select('*').order('total', { ascending: false }),
-        supabase.from('v_perdidos_recientes').select('*').limit(20),
-        supabase.from('v_cajas_al_limite').select('*'),
+        django.from('v_demanda_por_sector').select('*').order('prioridad', { ascending: false }),
+        django.from('v_puntos_sin_cobertura').select('*').limit(500),
+        django.from('v_cierre_por_origen').select('*').order('total', { ascending: false }),
+        django.from('v_perdidos_recientes').select('*').limit(20),
+        django.from('v_cajas_al_limite').select('*'),
         // Las cajas que sí tienen lugar, para que el mapa muestre el contraste
         // entre dónde llegamos y dónde nos piden.
-        supabase.from('v_cajas_nap').select('nombre, latitud, longitud, libres, llena').not('latitud', 'is', null),
+        django.from('v_cajas_nap').select('nombre, latitud, longitud, libres, llena').not('latitud', 'is', null),
       ])
       if (sectores.error) throw sectores.error
       setDatos({
@@ -166,7 +167,7 @@ export default function InteligenciaPage() {
             Inteligencia comercial
           </h1>
           <p className="campo-suave text-sm">
-            Dónde te piden servicio y no llegás, y por dónde se te escapan las ventas.
+            Dónde te piden servicio y no llegas, y por dónde se te escapan las ventas.
           </p>
         </div>
         <BotonTema tema={tema} onAlternar={alternar} />
@@ -257,7 +258,7 @@ export default function InteligenciaPage() {
                 {Number(s.valor_mensual_perdido) > 0 ? dinero(s.valor_mensual_perdido) : '—'}
               </td>
               <td className="campo-tenue px-3 py-2 text-[12px]">
-                {s.ultima_consulta ? new Date(s.ultima_consulta).toLocaleDateString('es-EC') : '—'}
+                {s.ultima_consulta ? fmtFecha(s.ultima_consulta) : '—'}
               </td>
             </tr>
           )}
@@ -351,7 +352,7 @@ export default function InteligenciaPage() {
                   {p.cobertura === 'no_factible' && <Badge color="rojo">sin cobertura</Badge>}
                   {p.sector && <span className="campo-tenue text-[11px]">{p.sector}</span>}
                   <span className="campo-tenue ml-auto text-[11px]">
-                    {new Date(p.perdido_en).toLocaleDateString('es-EC')}
+                    {fmtFecha(p.perdido_en)}
                   </span>
                 </div>
                 <p className="campo-suave mt-0.5 text-[12px]">{p.motivo_perdida}</p>

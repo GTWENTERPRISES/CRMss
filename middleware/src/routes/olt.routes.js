@@ -37,7 +37,7 @@ router.use(
 // duplicarla sería garantizar que un día se cambie en un solo lado.
 export { UMBRAL_RX_DBM }
 
-/** Carga la OLT de Supabase y la deja en req.equipo (credenciales descifradas). */
+/** Carga la OLT de la base y la deja en req.equipo (credenciales descifradas). */
 const conOlt = asyncHandler(async (req, _res, next) => {
   req.equipo = await cargarOlt(req.params.id)
   next()
@@ -831,7 +831,7 @@ router.post(
 
     if (req.body?.confirmar !== true) {
       throw badRequest('Falta la confirmación explícita', {
-        hint: 'Mandá { "confirmar": true }. Esto cambia el troncal de la OLT.',
+        hint: 'Manda { "confirmar": true }. Esto cambia el troncal de la OLT.',
       })
     }
 
@@ -911,7 +911,7 @@ router.post(
 
     if (req.body?.confirmar !== true) {
       throw badRequest('Falta la confirmación explícita', {
-        hint: 'Mandá { "confirmar": true }. Estas acciones escriben en el equipo.',
+        hint: 'Manda { "confirmar": true }. Estas acciones escriben en el equipo.',
       })
     }
     if (!Number.isFinite(Number(slot))) throw badRequest('Falta el slot')
@@ -939,7 +939,7 @@ router.post(
   asyncHandler(async (req, res) => {
     if (req.body?.confirmar !== true) {
       throw badRequest('Falta la confirmación explícita', {
-        hint: 'Mandá { "confirmar": true }. Esto corta el servicio de todos los abonados del puerto.',
+        hint: 'Manda { "confirmar": true }. Esto corta el servicio de todos los abonados del puerto.',
       })
     }
 
@@ -1315,7 +1315,7 @@ router.post(
     const { profile_id, modo, ip, vlan, mascara, gateway, dns1, dns2 } = req.body ?? {}
     if (profile_id == null && !ip && modo !== 'dhcp' && modo !== 'inactive') {
       throw badRequest('No se indicó nada que cambiar', {
-        hint: 'Elegí un perfil TR-069, un modo de IP de gestión (estática, DHCP o inactiva), o las dos cosas.',
+        hint: 'Elige un perfil TR-069, un modo de IP de gestión (estática, DHCP o inactiva), o las dos cosas.',
       })
     }
     res.json(
@@ -1353,7 +1353,7 @@ router.post(
     const line = req.body?.line_profile_id
     if (srv == null && line == null) {
       throw badRequest('No se indicó ningún perfil', {
-        hint: 'Elegí el de servicio, el de línea, o los dos.',
+        hint: 'Elige el de servicio, el de línea, o los dos.',
       })
     }
 
@@ -1461,7 +1461,7 @@ router.post(
   asyncHandler(async (req, res) => {
     if (req.body?.confirmar !== true) {
       throw badRequest('Falta confirmar el reinicio', {
-        hint: 'Deja al abonado sin servicio un par de minutos. Mandá confirmar: true.',
+        hint: 'Deja al abonado sin servicio un par de minutos. Manda confirmar: true.',
       })
     }
     res.json(await ficha.reiniciarOnu(req.equipo, req.params.onuId))
@@ -1474,7 +1474,7 @@ router.post(
   asyncHandler(async (req, res) => {
     if (req.body?.confirmar !== true) {
       throw badRequest('Falta la confirmación explícita', {
-        hint: 'Mandá { "confirmar": true }. Mover una ONT la borra y la recrea: corta el servicio.',
+        hint: 'Manda { "confirmar": true }. Mover una ONT la borra y la recrea: corta el servicio.',
       })
     }
 
@@ -1529,7 +1529,7 @@ router.delete(
   asyncHandler(async (req, res) => {
     if (req.query.confirmar !== 'true') {
       throw badRequest('Falta la confirmación explícita', {
-        hint: 'Agregá ?confirmar=true. Para un corte temporal usá suspender, que es reversible.',
+        hint: 'Agrega ?confirmar=true. Para un corte temporal usa suspender, que es reversible.',
       })
     }
     res.json(await ficha.darDeBajaOnt(req.equipo, { onuId: req.params.onuId }))
@@ -1770,10 +1770,10 @@ router.get(
 // --- Aprovisionamiento ------------------------------------------------------
 
 /**
- * Registra la ONU en la OLT y, si sale bien, la guarda en Supabase.
+ * Registra la ONU en la OLT y, si sale bien, la guarda en la base.
  *
  * El orden importa: primero el equipo, después la base. Si la OLT rechaza el
- * registro no queremos una fila fantasma en Supabase que no existe en la fibra.
+ * registro no queremos una fila fantasma en la base que no existe en la fibra.
  */
 router.post(
   '/:id/onus',
@@ -1868,7 +1868,7 @@ router.post(
   }),
 )
 
-/** Elimina la ONU de la OLT y, si estaba, la borra de Supabase. */
+/** Elimina la ONU de la OLT y, si estaba, la borra de la base. */
 router.delete(
   '/:id/onus/:onuId',
   conOlt,
@@ -1957,7 +1957,7 @@ router.get(
 
 // --- Perfiles y planes ------------------------------------------------------
 
-/** Crea el line profile en la OLT y lo guarda en Supabase. */
+/** Crea el line profile en la OLT y lo guarda en la base. */
 router.post(
   '/:id/line-profiles',
   conOlt,
@@ -2140,7 +2140,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { comandos } = req.body ?? {}
     if (!Array.isArray(comandos) || comandos.length === 0) {
-      throw badRequest('Mandá un array "comandos" con al menos un comando')
+      throw badRequest('Manda un array "comandos" con al menos un comando')
     }
     res.json({ resultados: await olts.ejecutarCrudo(req.equipo, comandos) })
   }),

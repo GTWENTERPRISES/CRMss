@@ -9,10 +9,11 @@ import {
   Send,
   Upload,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { usePermisos } from '../../lib/AuthContext'
 import { Aviso, Badge, Button, Card, Field, Input, Modal, Textarea } from '../ui'
+import { fecha as fmtFecha, fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * La firma del contrato, en la orden de venta o en la ficha del abonado.
@@ -39,7 +40,7 @@ const ESTADOS = {
   fallido: { label: 'No se pudo enviar', color: 'rojo', icon: AlertTriangle },
 }
 
-const fecha = (f) => (f ? new Date(f).toLocaleString() : '—')
+const fecha = (f) => (f ? fmtFechaHora(f) : '—')
 
 export default function FirmaContrato({ instalacion = null, cliente = null, onError }) {
   const { puede, rol, esSuperAdmin } = usePermisos()
@@ -97,7 +98,7 @@ export default function FirmaContrato({ instalacion = null, cliente = null, onEr
       if (r.motivo) {
         alert(
           `No se pudo mandar a firmar electrónicamente:\n\n${r.motivo}\n\n`
-          + 'Podés imprimir el contrato y hacerlo firmar a mano. El botón para habilitarlo está abajo.',
+          + 'Puedes imprimir el contrato y hacerlo firmar a mano. El botón para habilitarlo está abajo.',
         )
       }
       await recargar()
@@ -134,7 +135,7 @@ export default function FirmaContrato({ instalacion = null, cliente = null, onEr
       const carpeta = clienteId ?? instalacionId
       const ruta = `${clienteId ? '' : 'ordenes/'}${carpeta}/contrato-firmado-${Date.now()}.${extension}`
 
-      const { error: errSubida } = await supabase.storage
+      const { error: errSubida } = await django.storage
         .from('documentos')
         .upload(ruta, archivo, { contentType: archivo.type })
       if (errSubida) throw errSubida
@@ -145,12 +146,12 @@ export default function FirmaContrato({ instalacion = null, cliente = null, onEr
        * Es el papel firmado: tiene que estar donde alguien lo va a buscar dentro
        * de dos años, no solo colgando del trámite de firma.
        */
-      const { data: sesion } = await supabase.auth.getUser()
-      await supabase.from('documentos').insert({
+      const { data: sesion } = await django.auth.getUser()
+      await django.from('documentos').insert({
         client_id: clienteId,
         instalacion_id: instalacionId,
         categoria: 'contrato',
-        nombre: `Contrato firmado — ${new Date().toLocaleDateString()}.${extension}`,
+        nombre: `Contrato firmado — ${fmtFecha(new Date())}.${extension}`,
         ruta,
         mime: archivo.type,
         tamano: archivo.size,
@@ -286,10 +287,7 @@ export default function FirmaContrato({ instalacion = null, cliente = null, onEr
                     <Button
                       variante="fantasma"
                       icon={Copy}
-                      onClick={() => navigator.clipboard?.writeText(t.enlace_firma)}
-                    >
-                      Copiar
-                    </Button>
+                      onClick={() => navigator.clipboard?.writeText(t.enlace_firma)} title="Copiar" />
                   </div>
                 )}
 
@@ -386,7 +384,7 @@ function ModalAutorizar({ tramite, trabajando, onCerrar, onConfirmar }) {
       <div className="space-y-4">
         <Aviso>
           El abonado va a firmar sin verificación de huella ni de rostro. Queda registrado que lo
-          habilitaste vos.
+          habilitaste tú.
         </Aviso>
 
         <Field label="Por qué" hint="Se guarda con tu nombre y la fecha">

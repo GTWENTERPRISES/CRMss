@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useConfirmar } from '../lib/confirmar'
-import { Link } from '@/lib/nextNavigation'
+import { Link, useSearchParams } from '@/lib/nextNavigation'
 import {
   Cpu,
   MemoryStick,
@@ -82,7 +82,12 @@ export default function MikrotikPage() {
 
   // null = cerrado | {} = alta | {id,…} = edición de ese router
   const [enFormulario, setEnFormulario] = useState(null)
-  const [routerId, setRouterId] = useState('')
+  // `?router=<id>` lo abre directo: es a donde manda el aviso del panel cuando
+  // la corrida no pudo cortar en ese router.
+  const [params] = useSearchParams()
+  const [routerId, setRouterId] = useState(() => params.get('router') ?? '')
+  // El que se acaba de registrar: se configura solo apenas aparece.
+  const [recienCreado, setRecienCreado] = useState(null)
   const [salud, setSalud] = useState({})
   const [consultando, setConsultando] = useState(false)
 
@@ -147,15 +152,15 @@ export default function MikrotikPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Routers" valor={routers.length} icon={RouterIcon} />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Routers" valor={routers.length} icon={RouterIcon} />
+        <Stat cargando={cargando}
           label="En línea"
           valor={online.length}
           sub={`${Math.max(routers.length - online.length, 0)} sin responder`}
           color="text-emerald-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Con carga alta"
           valor={cargados.length}
           sub="CPU sobre 60% o memoria sobre 85%"
@@ -254,9 +259,9 @@ export default function MikrotikPage() {
 
       {routers.length > 0 && (
         <Card title="Clientes del router">
-          <Field label="Router">
+          <Field hint="El MikroTik que le da servicio." label="Router">
             <Select value={routerId} onChange={(e) => setRouterId(e.target.value)}>
-              <option value="">— elegí un router —</option>
+              <option value="">— elige un router —</option>
               {routers.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.nombre} ({r.ip_host})
@@ -273,7 +278,13 @@ export default function MikrotikPage() {
         Antes que Reparar, a propósito: configurar es lo primero que se hace con
         un equipo nuevo, y reparar solo tiene sentido cuando ya tiene abonados.
       */}
-      {router && <ConfigurarRouter key={`configurar-${router.id}`} router={router} />}
+      {router && (
+        <ConfigurarRouter
+          key={`configurar-${router.id}`}
+          router={router}
+          automatico={recienCreado === router.id}
+        />
+      )}
       {router && <RepararRouter key={`reparar-${router.id}`} router={router} />}
 
       {/* Va al final: es opcional y la mayoría de los ISP todavía no lo usa. */}
@@ -303,7 +314,17 @@ export default function MikrotikPage() {
                 return resto
               })
             } else {
-              await insertar(datos)
+              /**
+               * Recién registrado, se lo deja elegido y se lo configura solo:
+               * la regla de corte, la página del cortado y sus permisos. Antes
+               * había que acordarse de bajar hasta "Configurar el equipo", y un
+               * router sin eso corta a los morosos sin explicarles nada.
+               */
+              const nuevo = await insertar(datos)
+              if (nuevo?.id) {
+                setRecienCreado(nuevo.id)
+                setRouterId(nuevo.id)
+              }
             }
             setEnFormulario(null)
           }}

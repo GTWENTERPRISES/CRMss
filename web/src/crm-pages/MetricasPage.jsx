@@ -53,7 +53,7 @@ export default function MetricasPage() {
         {cargandoOlts ? (
           <Cargando />
         ) : olts.length === 0 ? (
-          <Aviso tipo="alerta">Registrá una OLT primero para poder leer métricas.</Aviso>
+          <Aviso tipo="alerta">Registra una OLT primero para poder leer métricas.</Aviso>
         ) : (
           <SelectorOlt
             olts={olts}

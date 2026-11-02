@@ -241,7 +241,7 @@ export class SshSession {
       if (Date.now() - inicio >= timeoutMs) {
         throw new AppError(`Timeout esperando la respuesta de "${comando || '<enter>'}"`, {
           status: 504,
-          hint: 'El equipo tardó demasiado o quedó esperando input. Revisá si el comando abre un prompt interactivo.',
+          hint: 'El equipo tardó demasiado o quedó esperando input. Revisa si el comando abre un prompt interactivo.',
           detalle: this.buffer.slice(-500),
         })
       }
@@ -555,7 +555,7 @@ function traducirErrorSsh(err, { host, port }) {
   if (err?.code === 'ECONNREFUSED') {
     return new AppError(`La OLT ${host}:${port} rechazó la conexión SSH`, {
       status: 502,
-      hint: 'Verificá que el servicio SSH esté habilitado y que el puerto sea el correcto.',
+      hint: 'Verifica que el servicio SSH esté habilitado y que el puerto sea el correcto.',
     })
   }
   if (err?.code === 'ETIMEDOUT' || /timed? out/i.test(msg)) {
@@ -570,7 +570,7 @@ function traducirErrorSsh(err, { host, port }) {
   if (/All configured authentication methods failed/i.test(msg)) {
     return new AppError('Usuario o contraseña incorrectos para la OLT', {
       status: 401,
-      hint: 'Revisá las credenciales guardadas para esta OLT.',
+      hint: 'Revisa las credenciales guardadas para esta OLT.',
     })
   }
   if (/no matching/i.test(msg)) {
@@ -591,9 +591,9 @@ function traducirErrorSsh(err, { host, port }) {
       hint:
         'El equipo rechaza conexiones nuevas hasta liberar las abiertas ("exceed max sessions"). ' +
         'Estas OLTs suelen tener Max Sessions = 3 como tope del firmware. ' +
-        'Cerrá las sesiones que tengas abiertas (PuTTY, otra pestaña, otro operador). ' +
+        'Cierra las sesiones que tengas abiertas (PuTTY, otra pestaña, otro operador). ' +
         'Si el equipo no tiene timeout de inactividad, las sesiones colgadas NO se liberan solas: ' +
-        'desde la interfaz web, en System Configuration → SSH, poné SSH en Disable, Submit, y volvé a Enable. ' +
+        'desde la interfaz web, en System Configuration → SSH, pon SSH en Disable, Submit, y vuelve a Enable. ' +
         'Eso corta las sesiones sin afectar el tráfico de los clientes.',
       detalle: msg,
     })
@@ -601,14 +601,14 @@ function traducirErrorSsh(err, { host, port }) {
   if (/exceed max sessions/i.test(msg)) {
     return new AppError(`La OLT llegó a su máximo de sesiones SSH (${host})`, {
       status: 503,
-      hint: 'Esperá a que se liberen las sesiones abiertas, o cerralas desde la consola del equipo.',
+      hint: 'Espera a que se liberen las sesiones abiertas, o cerralas desde la consola del equipo.',
       detalle: msg,
     })
   }
   if (/too many|resource shortage|channel open failure/i.test(msg)) {
     return new AppError(`La OLT no acepta más sesiones SSH (${host})`, {
       status: 502,
-      hint: 'Cerrá las sesiones abiertas contra el equipo y reintentá.',
+      hint: 'Cierra las sesiones abiertas contra el equipo y reintenta.',
       detalle: msg,
     })
   }

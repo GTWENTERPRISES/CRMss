@@ -38,7 +38,7 @@ function parametrosDe(valores = []) {
     const limpio = String(v ?? '').replace(/[\r\n\t]+/g, ' ').replace(/ {4,}/g, '   ').trim()
     if (!limpio) {
       throw new Error(
-        `La plantilla necesita el valor {{${i + 1}}} y llegó vacío. Revisá las variables del aviso.`,
+        `La plantilla necesita el valor {{${i + 1}}} y llegó vacío. Revisa las variables del aviso.`,
       )
     }
     return { type: 'text', text: limpio }
@@ -108,7 +108,7 @@ function explicar(error) {
   const detalle = error?.error_data?.details || error?.message || 'Meta rechazó el mensaje'
 
   if (codigo === 131047) {
-    return 'Pasaron más de 24 horas desde el último mensaje del abonado: fuera de esa ventana solo se puede mandar una plantilla aprobada. Registrala en Ajustes → Plantillas de WhatsApp.'
+    return 'Pasaron más de 24 horas desde el último mensaje del abonado: fuera de esa ventana solo se puede mandar una plantilla aprobada. Regístrala en Ajustes → Plantillas de WhatsApp.'
   }
   if (codigo === 132001) {
     return `Esa plantilla no existe en Meta o está en otro idioma: ${detalle}`
@@ -123,7 +123,7 @@ function explicar(error) {
     return 'Ese número no tiene WhatsApp o no puede recibir mensajes.'
   }
   if (codigo === 130472) {
-    return 'El abonado está en una experiencia donde Meta no entrega mensajes de marketing. Verificá que la plantilla esté registrada como UTILITY.'
+    return 'El abonado está en una experiencia donde Meta no entrega mensajes de marketing. Verifica que la plantilla esté registrada como UTILITY.'
   }
   if (codigo === 131048 || codigo === 130429) {
     return 'Se alcanzó el límite de envíos del número. Meta lo levanta solo a medida que sube la calificación de calidad.'

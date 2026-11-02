@@ -1,0 +1,30 @@
+{
+  "pages": {
+    "/inventario/stock/page": [
+      "static/chunks/src_index_8b6fca74.css",
+      "static/chunks/src_a854d2aa._.js",
+      "static/chunks/node_modules_next_dist_b47712da._.js",
+      "static/chunks/node_modules_zod_v4_core_78091ee2._.js",
+      "static/chunks/node_modules_zod_v4_locales_f9e9b356._.js",
+      "static/chunks/node_modules_zod_v4_classic_a4d93882._.js",
+      "static/chunks/node_modules_tailwind-merge_dist_bundle-mjs_mjs_56b6fd65._.js",
+      "static/chunks/node_modules_0540a371._.js",
+      "static/chunks/app_layout_jsx_0a548d63._.js",
+      "static/chunks/app_error_jsx_60242091._.js",
+      "static/chunks/app_error_jsx_32b97ee3._.js",
+      "static/chunks/node_modules_next_dist_client_components_builtin_global-error_32b97ee3.js",
+      "static/chunks/_aa3f529f._.js",
+      "static/chunks/node_modules_106c65c7._.js",
+      "static/chunks/app_inventario_stock_page_jsx_32b97ee3._.js",
+      "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_57d40746._.js",
+      "static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js",
+      "static/chunks/node_modules_next_dist_compiled_next-devtools_index_a9cb0712.js",
+      "static/chunks/node_modules_next_dist_compiled_5150ccfd._.js",
+      "static/chunks/node_modules_next_dist_client_cf1d9188._.js",
+      "static/chunks/node_modules_next_dist_b0daae9a._.js",
+      "static/chunks/node_modules_@swc_helpers_cjs_b3dc30d6._.js",
+      "static/chunks/_a0ff3932._.js",
+      "static/chunks/turbopack-_cdba956c._.js"
+    ]
+  }
+}

@@ -29,10 +29,11 @@ import {
   Stat,
   Table,
   Tabs,
+  MenuAcciones,
 } from '../components/ui'
 import { personalApi } from '../lib/personal'
 import { api } from '../lib/apiNetwork'
-import { supabase } from '../lib/supabaseClient'
+import { django } from '../lib/djangoClient'
 import {
   GRUPOS_PERMISOS,
   ROLES,
@@ -46,6 +47,7 @@ import {
   nombrePermiso,
 } from '../lib/permisos'
 import { usePermisos } from '../lib/AuthContext'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Gestión de personal: quién entra al sistema y qué puede tocar.
@@ -78,13 +80,7 @@ const VACIO = {
 
 const fecha = (v) =>
   v
-    ? new Date(v).toLocaleString('es-EC', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+    ? fmtFechaHora(v)
     : '—'
 
 /**
@@ -174,7 +170,7 @@ export default function PersonalPage() {
       const [lista, log, tec] = await Promise.all([
         personalApi.listar(),
         personalApi.auditoria({ limite: 300 }).catch(() => []),
-        supabase.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre'),
+        django.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre'),
       ])
       setUsuarios(lista)
       setAuditoria(log)
@@ -303,7 +299,7 @@ export default function PersonalPage() {
   if (!puede('usuarios.ver')) {
     return (
       <div className="mx-auto max-w-2xl p-6">
-        <Aviso tipo="alerta">No tenés permiso para ver la gestión de personal.</Aviso>
+        <Aviso tipo="alerta">No tienes permiso para ver la gestión de personal.</Aviso>
       </div>
     )
   }
@@ -338,21 +334,21 @@ export default function PersonalPage() {
 
       {sinLegajo && !cargando && (
         <Aviso tipo="alerta">
-          Tu sesión no tiene un legajo de personal asociado, así que podés mirar pero no guardar.
-          Corré la migración 66 en Supabase y pedile a un Super Administrador que te dé de alta.
+          Tu sesión no tiene un legajo de personal asociado, así que puedes mirar pero no guardar.
+          Pídele a un Super Administrador que te dé de alta en Gestión de personal.
         </Aviso>
       )}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Usuarios" valor={usuarios.length} icon={Users} />
-        <Stat label="Activos" valor={activos} icon={ShieldCheck} color="text-emerald-400" />
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando} label="Usuarios" valor={usuarios.length} icon={Users} />
+        <Stat cargando={cargando} label="Activos" valor={activos} icon={ShieldCheck} color="text-emerald-400" />
+        <Stat cargando={cargando}
           label="Inactivos"
           valor={usuarios.length - activos}
           icon={UserX}
           color="text-slate-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Con 2FA"
           valor={usuarios.filter((u) => u.dos_factores).length}
           icon={Shield}
@@ -465,9 +461,9 @@ export default function PersonalPage() {
                         </>
                       )}
                       {puede('usuarios.eliminar') && gestionable(u) && u.id !== perfil?.id && (
-                        <Button variante="peligro" onClick={() => eliminar(u)} title="Eliminar">
-                          <Trash2 size={15} />
-                        </Button>
+                        <MenuAcciones
+                          acciones={[{ label: 'Eliminar el usuario', icon: Trash2, peligro: true, onClick: () => eliminar(u) }]}
+                        />
                       )}
                     </div>
                   </td>
@@ -521,32 +517,32 @@ export default function PersonalPage() {
         {editando && (
           <div className="space-y-5">
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Nombre">
-                <Input
+              <Field campo="nombre" label="Nombre">
+                <Input placeholder="Ej.: Juan Pérez"
                   value={editando.nombre}
                   onChange={(e) => setEditando({ ...editando, nombre: e.target.value })}
                 />
               </Field>
-              <Field label="Apellido">
-                <Input
+              <Field campo="apellido" label="Apellido">
+                <Input placeholder="Ej.: Pérez Mora"
                   value={editando.apellido}
                   onChange={(e) => setEditando({ ...editando, apellido: e.target.value })}
                 />
               </Field>
-              <Field label="Usuario" hint="Con el que inicia sesión. No distingue mayúsculas.">
-                <Input
+              <Field campo="usuario" label="Usuario" hint="Con el que inicia sesión. No distingue mayúsculas.">
+                <Input placeholder="Ej.: jperez"
                   value={editando.usuario}
                   onChange={(e) => setEditando({ ...editando, usuario: e.target.value })}
                 />
               </Field>
-              <Field label="Correo electrónico" hint="Es la credencial de acceso.">
-                <Input
+              <Field campo="email" label="Correo electrónico" hint="Es la credencial de acceso.">
+                <Input placeholder="Ej.: usuario@tuempresa.com"
                   type="email"
                   value={editando.email}
                   onChange={(e) => setEditando({ ...editando, email: e.target.value })}
                 />
               </Field>
-              <Field
+              <Field campo="celular"
                 label="Teléfono celular"
                 hint="En un vendedor es además el número con el que firma sus mensajes al cliente. Sin esto, el cliente recibe un precio de un desconocido."
               >
@@ -557,8 +553,8 @@ export default function PersonalPage() {
                 />
               </Field>
               {esNuevo && (
-                <Field label="Contraseña" hint="Mínimo 8 caracteres. Después se cambia desde la lista.">
-                  <Input
+                <Field campo="clave" label="Contraseña" hint="Mínimo 8 caracteres. Después se cambia desde la lista.">
+                  <Input placeholder="Mínimo 8 caracteres"
                     type="password"
                     value={editando.clave}
                     onChange={(e) => setEditando({ ...editando, clave: e.target.value })}
@@ -569,12 +565,12 @@ export default function PersonalPage() {
 
             {editandoseASiMismo ? (
               <Aviso tipo="alerta">
-                Estás editando tu propio usuario: podés corregir tus datos y tu contraseña, pero no
+                Estás editando tu propio usuario: puedes corregir tus datos y tu contraseña, pero no
                 tu rol ni tus permisos. Nadie se amplía a sí mismo — eso lo hace otra persona.
               </Aviso>
             ) : (
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Rol" hint="Marca los permisos recomendados. Después se ajustan abajo.">
+              <Field campo="rol" label="Rol" hint="Marca los permisos recomendados. Después se ajustan abajo.">
                 <Select value={editando.rol} onChange={(e) => cambiarRol(e.target.value)}>
                   {rolesAsignablesPor(miRol ?? 'super_admin').map((r) => (
                     <option key={r.clave} value={r.clave}>
@@ -583,19 +579,21 @@ export default function PersonalPage() {
                   ))}
                 </Select>
               </Field>
-              {/* El vínculo con el técnico ya cargado en Soporte. No es un dato
-                  administrativo: es lo que decide qué tickets ve al entrar. Sin
-                  elegirlo, su bandeja va a estar vacía. */}
-              {editando.rol === 'tecnico' && (
-                <Field
-                  label="Técnico vinculado"
-                  hint="De acá salen los tickets e instalaciones que va a ver. Sin esto no ve ninguno."
+              {/* El vínculo con su ficha de Soporte, que decide qué tickets ve.
+                  Desde la migración 208 no hace falta elegirlo: si queda vacío,
+                  la ficha se crea sola al guardar con su nombre, correo y
+                  celular. Elegir una sirve solo para enlazar una ficha que ya
+                  estaba cargada a mano, y no duplicarla. */}
+              {['tecnico', 'jefe_tecnico'].includes(editando.rol) && (
+                <Field campo="tecnico_id"
+                  label="Ficha en Soporte"
+                  hint="Vacío = se crea sola al guardar. Elige una solo si ya estaba cargada en Soporte → Técnicos."
                 >
                   <Select
                     value={editando.tecnico_id ?? ''}
                     onChange={(e) => setEditando({ ...editando, tecnico_id: e.target.value || null })}
                   >
-                    <option value="">— sin vincular —</option>
+                    <option value="">— crear automáticamente —</option>
                     {tecnicos.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.nombre}
@@ -898,10 +896,10 @@ function ClaveForm({ onGuardar, onCancelar }) {
   return (
     <div className="space-y-3">
       <Field label="Nueva contraseña" hint="Mínimo 8 caracteres.">
-        <Input type="password" value={clave} onChange={(e) => setClave(e.target.value)} autoFocus />
+        <Input placeholder="Mínimo 8 caracteres" type="password" value={clave} onChange={(e) => setClave(e.target.value)} autoFocus />
       </Field>
       <Field label="Repetir">
-        <Input type="password" value={repetida} onChange={(e) => setRepetida(e.target.value)} />
+        <Input placeholder="Escríbela de nuevo" type="password" value={repetida} onChange={(e) => setRepetida(e.target.value)} />
       </Field>
       {corta && <Aviso tipo="alerta">La contraseña necesita al menos 8 caracteres.</Aviso>}
       {distinta && <Aviso tipo="alerta">Las dos contraseñas no coinciden.</Aviso>}

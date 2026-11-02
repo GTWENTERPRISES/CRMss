@@ -1,4 +1,6 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
+import { fecha as fmtFecha } from '@/lib/formato'
+import { dineroCero } from '@/lib/formato'
 
 /**
  * Arma el mensaje de un número de transacción repetido.
@@ -8,7 +10,7 @@ import { supabase } from './supabaseClient'
  * verdad o si tipeó mal un dígito.
  */
 export async function errorTransaccionRepetida(numero) {
-  const { data } = await supabase
+  const { data } = await django
     .from('v_pagos')
     .select('numero, cliente, monto, fecha_pago, forma_pago')
     .eq('n_transaccion', numero)
@@ -19,11 +21,11 @@ export async function errorTransaccionRepetida(numero) {
     return new Error(`El N° de transacción ${numero} ya está registrado en otro cobro.`)
   }
 
-  const fecha = new Date(`${String(data.fecha_pago).slice(0, 10)}T12:00:00`).toLocaleDateString()
+  const fecha = fmtFecha(`${String(data.fecha_pago).slice(0, 10)}T12:00:00`)
 
   return new Error(
     `El N° ${numero} ya está registrado: recibo N° ${String(data.numero).padStart(6, '0')} ` +
-      `de ${data.cliente} por $${Number(data.monto).toFixed(2)} (${data.forma_pago}, ${fecha}). ` +
+      `de ${data.cliente} por ${dineroCero(data.monto)} (${data.forma_pago}, ${fecha}). ` +
       'Una transferencia o un recibo se registran una sola vez.',
   )
 }

@@ -272,7 +272,7 @@ export async function armarHojaInstalacion(instalacionId) {
       nombre: inst.firmante_nombre || variables.nombre,
       pie: inst.firmante_identificacion
         ? `C.I. ${inst.firmante_identificacion}`
-        : 'Recibí conforme',
+        : 'Recibe conforme',
       imagen_b64: inst.firma_b64 ?? null,
     },
   }
@@ -621,7 +621,7 @@ async function prestadorDe(clienteId, prestadorId) {
   if (error) throw new Error(`No se pudo leer el prestador: ${error.message}`)
   if (!data) {
     throw new Error(
-      'No hay ningún prestador configurado. Cargalo en Ajustes antes de imprimir un contrato: '
+      'No hay ningún prestador configurado. Cárgalo en Ajustes antes de imprimir un contrato: '
       + 'el contrato de adhesión lleva su razón social, su RUC y la fecha en que inscribió el '
       + 'modelo ante la ARCOTEL.',
     )

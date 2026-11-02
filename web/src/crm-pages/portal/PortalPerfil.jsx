@@ -1,3 +1,4 @@
+import { nombreDocumento, usePais } from '../../lib/pais'
 import { useState } from 'react'
 import { AlertTriangle, KeyRound, Loader2 } from 'lucide-react'
 import { portalApi } from '../../lib/portalApi'
@@ -16,6 +17,7 @@ import { Tarjeta } from './PortalApp'
  * propio portal y no hay forma de que lo resuelva solo.
  */
 export default function PortalPerfil({ cuenta, recargar }) {
+  const pais = usePais()
   const [form, setForm] = useState({ ...cuenta.contacto })
   const [cambiandoClave, setCambiandoClave] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -53,7 +55,10 @@ export default function PortalPerfil({ cuenta, recargar }) {
       <Tarjeta titulo="Tus datos">
         <div className="space-y-2.5 text-sm">
           <Fijo etiqueta="Nombre" valor={cuenta.nombre} />
-          <Fijo etiqueta="Cédula / RUC" valor={cuenta.identificacion} />
+          <Fijo
+            etiqueta={`${nombreDocumento(pais, '05')} / ${nombreDocumento(pais, '04')}`}
+            valor={cuenta.identificacion}
+          />
         </div>
         <p className="mt-3 text-xs leading-relaxed text-slate-500">
           El nombre y la cédula salen impresos en tus facturas. Si hay que corregirlos, escribinos.
@@ -62,10 +67,10 @@ export default function PortalPerfil({ cuenta, recargar }) {
 
       <Tarjeta titulo="Cómo contactarte">
         <div className="space-y-4">
-          <Campo etiqueta="Celular" valor={form.telefono_movil} onChange={set('telefono_movil')} tipo="tel" />
-          <Campo etiqueta="Otro teléfono" valor={form.telefono} onChange={set('telefono')} tipo="tel" />
-          <Campo etiqueta="Correo" valor={form.email} onChange={set('email')} tipo="email" />
-          <Campo etiqueta="Dirección" valor={form.direccion} onChange={set('direccion')} />
+          <Campo etiqueta="Celular" valor={form.telefono_movil} onChange={set('telefono_movil')} tipo="tel" placeholder="Ej.: 0991234567" />
+          <Campo etiqueta="Otro teléfono" valor={form.telefono} onChange={set('telefono')} tipo="tel" placeholder="Ej.: 042345678" />
+          <Campo etiqueta="Correo" valor={form.email} onChange={set('email')} tipo="email" placeholder="Ej.: tucorreo@gmail.com" />
+          <Campo etiqueta="Dirección" valor={form.direccion} onChange={set('direccion')} placeholder="Ej.: Av. 9 de Octubre 123 y Boyacá" />
         </div>
       </Tarjeta>
 
@@ -75,7 +80,7 @@ export default function PortalPerfil({ cuenta, recargar }) {
           <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-400" />
           <p className="text-xs leading-relaxed text-amber-200/90">
             Estás cambiando tu teléfono. El código para entrar a este portal va a llegar al número
-            nuevo: revisá que esté bien escrito antes de guardar.
+            nuevo: revisa que esté bien escrito antes de guardar.
           </p>
         </div>
       )}
@@ -151,7 +156,7 @@ function CambiarClave({ tiene, onListo }) {
     return (
       <div className="space-y-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
         <p className="text-sm text-emerald-300">
-          Listo. De ahora en adelante podés entrar con tu cédula y esta contraseña.
+          Listo. De ahora en adelante puedes entrar con tu cédula y esta contraseña.
         </p>
         <p className="text-xs leading-relaxed text-emerald-300/70">
           Si habías entrado desde otro teléfono o computadora, esa sesión se cerró.
@@ -181,6 +186,7 @@ function CambiarClave({ tiene, onListo }) {
             autoComplete="current-password"
             value={actual}
             onChange={(e) => setActual(e.target.value)}
+            placeholder="Tu contraseña de hoy"
             className="w-full t-card-sm px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
           />
         </div>
@@ -194,6 +200,7 @@ function CambiarClave({ tiene, onListo }) {
           minLength={8}
           value={nueva}
           onChange={(e) => setNueva(e.target.value)}
+          placeholder="Mínimo 8 caracteres"
           className="w-full t-card-sm px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
         />
         <p className="mt-1.5 text-xs text-slate-500">
@@ -232,13 +239,14 @@ const Fijo = ({ etiqueta, valor }) => (
   </div>
 )
 
-const Campo = ({ etiqueta, valor, onChange, tipo = 'text' }) => (
+const Campo = ({ etiqueta, valor, onChange, tipo = 'text', placeholder }) => (
   <div>
     <label className="mb-1.5 block text-sm text-slate-400">{etiqueta}</label>
     <input
       type={tipo}
       value={valor ?? ''}
       onChange={onChange}
+      placeholder={placeholder}
       className="w-full t-card-sm px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
     />
   </div>

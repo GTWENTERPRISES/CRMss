@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { comprimirImagen, distanciaEnMetros, ubicacionActual } from './soporte'
 
 /**
@@ -40,7 +40,7 @@ export async function subirFotoIngreso(jornadaId, archivo) {
     const blob = await comprimirImagen(archivo)
     const ruta = `${jornadaId}/ingreso-${Date.now()}.jpg`
 
-    const { error: errSubida } = await supabase.storage
+    const { error: errSubida } = await django.storage
       .from(BUCKET)
       .upload(ruta, blob, { contentType: 'image/jpeg' })
     if (errSubida) throw errSubida
@@ -53,7 +53,7 @@ export async function subirFotoIngreso(jornadaId, archivo) {
      * es un dato —dice dónde estuvo trabajando— y machacarla con una sola hora
      * la borraría.
      */
-    const { error: errFila } = await supabase
+    const { error: errFila } = await django
       .from('jornadas')
       .update({ foto_ingreso: ruta, foto_ingreso_at: new Date().toISOString() })
       .eq('id', jornadaId)
@@ -75,7 +75,7 @@ export async function subirFotoIngreso(jornadaId, archivo) {
  */
 export async function urlDeFoto(ruta, segundos = 300) {
   if (!ruta) return null
-  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(ruta, segundos)
+  const { data } = await django.storage.from(BUCKET).createSignedUrl(ruta, segundos)
   return data?.signedUrl ?? null
 }
 
@@ -121,7 +121,7 @@ export async function ubicacionDelIngreso(tecnicoId, hoy) {
    * compara contra la de las 10:00 — y por eso se guarda cuál fue. Comparar
    * contra una orden sin coordenada no da un cero: no da nada.
    */
-  const { data } = await supabase
+  const { data } = await django
     .from('v_instalaciones')
     .select('id, latitud, longitud, hora')
     .eq('tecnico_id', tecnicoId)
@@ -141,5 +141,35 @@ export async function ubicacionDelIngreso(tecnicoId, hoy) {
       { lat: donde.lat, lng: donde.lng },
       { lat: primera.latitud, lng: primera.longitud },
     ),
+  }
+}
+
+/**
+ * La foto de una salida de emergencia (migración 210).
+ *
+ * Mismo bucket que la del ingreso, en `emergencia/<id>/`, y el mismo trato: no
+ * lanza, devuelve `{ ok, error }`. La emergencia se abre igual sin foto.
+ */
+export async function subirFotoEmergencia(emergenciaId, archivo) {
+  if (!emergenciaId || !archivo) return { ok: false, error: new Error('Falta la emergencia o la foto') }
+
+  try {
+    const blob = await comprimirImagen(archivo)
+    const ruta = `emergencia/${emergenciaId}/ingreso-${Date.now()}.jpg`
+
+    const { error: errSubida } = await django.storage
+      .from(BUCKET)
+      .upload(ruta, blob, { contentType: 'image/jpeg' })
+    if (errSubida) throw errSubida
+
+    const { error: errFila } = await django
+      .from('salidas_emergencia')
+      .update({ foto_ingreso: ruta })
+      .eq('id', emergenciaId)
+    if (errFila) throw errFila
+
+    return { ok: true, ruta }
+  } catch (error) {
+    return { ok: false, error }
   }
 }

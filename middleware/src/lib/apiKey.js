@@ -9,7 +9,7 @@ import { AppError } from './errors.js'
  *
  * Quién entra por acá: el CRM, el bot de WhatsApp, el webhook de la pasarela.
  * No son personas y por eso no pueden usar `requireAuth`, que valida la sesión
- * de Supabase de alguien del personal. Un bot con el usuario de un empleado
+ * de Django de alguien del personal. Un bot con el usuario de un empleado
  * deja cada cosa que hace firmada por un humano que no la hizo — y el día que
  * ese empleado renuncia, el bot deja de funcionar.
  *
@@ -64,7 +64,7 @@ function llaveDe(req) {
   if (/^Bearer\s+/i.test(auth)) {
     const valor = auth.replace(/^Bearer\s+/i, '').trim()
     // Solo si parece una llave nuestra: el header Authorization también lo usa
-    // el personal con su token de Supabase, y confundirlos haría que un token
+    // el personal con su el token de Django, y confundirlos haría que un token
     // vencido se lea como "llave inválida" y mande a buscar el problema al
     // proveedor del CRM.
     if (valor.startsWith(PREFIJO)) return valor
@@ -150,7 +150,7 @@ export function requireApiKey(permiso = null) {
 
     if (!llave) {
       return rechazar('Falta la llave de API', {
-        hint: 'Mandá la llave en el header X-API-Key.',
+        hint: 'Manda la llave en el header X-API-Key.',
       })
     }
 
@@ -180,7 +180,7 @@ export function requireApiKey(permiso = null) {
       return rechazar('La llave de API fue revocada', {
         status: 403,
         llaveFila: fila,
-        hint: fila.motivo_revocacion || 'Pedí una llave nueva en Ajustes → Integraciones.',
+        hint: fila.motivo_revocacion || 'Pide una llave nueva en Ajustes → Integraciones.',
       })
     }
 
@@ -188,7 +188,7 @@ export function requireApiKey(permiso = null) {
       return rechazar(`La llave no está habilitada para la IP ${ip}`, {
         status: 403,
         llaveFila: fila,
-        hint: 'Agregá esa IP en Ajustes → Integraciones, o dejá la lista vacía para permitir cualquiera.',
+        hint: 'Agrega esa IP en Ajustes → Integraciones, o deja la lista vacía para permitir cualquiera.',
       })
     }
 

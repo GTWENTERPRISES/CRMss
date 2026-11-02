@@ -30,7 +30,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const token = req.body?.token
     if (!token || typeof token !== 'string') {
-      throw badRequest('Pegá el código de licencia que te pasó el proveedor.')
+      throw badRequest('Pega el código de licencia que te pasó el proveedor.')
     }
     res.json(await activar(token))
   }),

@@ -131,7 +131,7 @@ export async function crear(datos) {
   if (error) {
     throw new AppError(
       error.code === '23505'
-        ? `Ya existe un tipo ${fila.marca} ${fila.modelo}. Editá ese en vez de crear otro: dos tipos con el mismo modelo hacen que la propuesta al autorizar dependa de cuál se lea primero.`
+        ? `Ya existe un tipo ${fila.marca} ${fila.modelo}. Edita ese en vez de crear otro: dos tipos con el mismo modelo hacen que la propuesta al autorizar dependa de cuál se lea primero.`
         : error.message,
       { status: 400 },
     )
@@ -169,7 +169,7 @@ export async function borrar(id, { forzar = false } = {}) {
   if (tipo.onus > 0 && !forzar) {
     throw new AppError(`El tipo ${tipo.marca} ${tipo.modelo} lo usan ${tipo.onus} ONUs`, {
       status: 409,
-      hint: 'Borrarlo las deja sin modelo. Confirmá si querés hacerlo igual.',
+      hint: 'Borrarlo las deja sin modelo. Confirma si quieres hacerlo igual.',
       onus_enlazadas: tipo.onus_enlazadas,
       onus_por_modelo: tipo.onus_por_modelo,
     })

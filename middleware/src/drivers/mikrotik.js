@@ -1,4 +1,5 @@
-import { AppError } from '../lib/errors.js'
+import { AppError } from '../lib/errors.js'
+
 import { comentario, esNuestra, hayQueRenombrar, MARCA } from '../lib/marcaReglas.js'
 
 /**
@@ -60,7 +61,7 @@ async function request(router, metodo, ruta, body) {
         : `El router respondió con un Content-Type inesperado (${contentType || 'sin definir'})`,
       {
         status: 502,
-        hint: 'La REST API no está habilitada o no es alcanzable en esa ruta. Habilitá el servicio "www" en /ip/service y verificá el puerto configurado para este router.',
+        hint: 'La REST API no está habilitada o no es alcanzable en esa ruta. Habilita el servicio "www" en /ip/service y verifica el puerto configurado para este router.',
         detalle: texto.slice(0, 300),
       },
     )
@@ -80,7 +81,7 @@ async function request(router, metodo, ruta, body) {
     if (res.status === 401) {
       throw new AppError('Usuario o contraseña incorrectos para el MikroTik', {
         status: 401,
-        hint: 'Revisá las credenciales guardadas para este router.',
+        hint: 'Revisa las credenciales guardadas para este router.',
       })
     }
     throw new AppError(datos?.message || datos?.detail || `RouterOS devolvió ${res.status}`, {
@@ -102,7 +103,7 @@ function traducirErrorRed(err, router) {
   }
   return new AppError(`No se pudo conectar con ${router.ip_host}: ${err?.message || err}`, {
     status: 502,
-    hint: 'Verificá IP, puerto y que el servicio www/www-ssl esté habilitado en /ip/service.',
+    hint: 'Verifica IP, puerto y que el servicio www/www-ssl esté habilitado en /ip/service.',
   })
 }
 
@@ -151,11 +152,13 @@ export const listarInterfaces = (router) => request(router, 'GET', '/interface')
 export const listarBloqueos = (router, lista = LISTA_MOROSOS) =>
   request(router, 'GET', `/ip/firewall/address-list?list=${encodeURIComponent(lista)}`)
 
-export const bloquearIp = (router, { address, comment, lista = LISTA_MOROSOS }) =>
+export const bloquearIp = (router, { address, comment, lista = LISTA_MOROSOS, timeout }) =>
   request(router, 'PUT', '/ip/firewall/address-list', {
     list: lista,
     address,
     ...(comment ? { comment } : {}),
+    // La entrada se borra sola cuando vence: "6h", "30m".
+    ...(timeout ? { timeout } : {}),
   })
 
 export const desbloquear = (router, id) =>
@@ -304,6 +307,24 @@ export async function asegurarRedireccionPago(router, { destino, puerto = 80, li
   return { creada: true, mensaje: 'Regla de redirección de pago creada' }
 }
 
+const RUTA_REGLA = { filter: '/ip/firewall/filter', nat: '/ip/firewall/nat' }
+
+/** Ver el driver binario: las piezas con las que `portalCorte` arma sus reglas. */
+export async function agregarRegla(router, { tipo, campos }) {
+  const creada = await request(router, 'PUT', RUTA_REGLA[tipo], campos)
+  return { id: creada?.['.id'] ?? null }
+}
+
+export async function editarRegla(router, { tipo, id, campos }) {
+  await request(router, 'PATCH', `${RUTA_REGLA[tipo]}/${encodeURIComponent(id)}`, campos)
+  return { id }
+}
+
+export async function moverRegla(router, { tipo, id, antesDe }) {
+  await request(router, 'POST', `${RUTA_REGLA[tipo]}/move`, { numbers: id, destination: antesDe })
+  return { id }
+}
+
 /**
  * Simple Queue a partir de un plan de velocidad.
  * max-limit va en "subida/bajada" (upload/download desde la perspectiva del cliente).
@@ -421,7 +442,7 @@ export async function asegurarPppProfile(router, { nombre, rateLimit = '', comen
     if (previos[0].default === 'true' || previos[0].default === true) {
       throw new AppError(`"${nombre}" es un perfil por defecto de RouterOS y no se modifica`, {
         status: 400,
-        hint: 'Usá un nombre propio para el plan, distinto de default y default-encryption.',
+        hint: 'Usa un nombre propio para el plan, distinto de default y default-encryption.',
       })
     }
     await request(router, 'PATCH', `/ppp/profile/${encodeURIComponent(previos[0]['.id'])}`, cuerpo)

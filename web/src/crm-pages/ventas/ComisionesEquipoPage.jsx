@@ -199,21 +199,21 @@ export default function ComisionesEquipoPage() {
 
       {sinPermiso && (
         <Aviso tipo="alerta">
-          No tenés permiso para ver las comisiones del equipo. Con{' '}
+          No tienes permiso para ver las comisiones del equipo. Con{' '}
           <code className="text-slate-300">comisiones.ver_todas</code> se habilita esta pantalla.
         </Aviso>
       )}
 
       {/* --------------------------------------------------- El mes */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat
+      <div className="t-kpis">
+        <Stat cargando={cargando}
           label="Solicitudes ingresadas"
           valor={delMes?.solicitudes ?? 0}
           sub={`${delMes?.ganadas ?? 0} cerradas por el vendedor`}
           icon={Layers}
           color="text-sky-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Ventas comisionables"
           valor={delMes?.comisionables ?? 0}
           sub={
@@ -224,14 +224,14 @@ export default function ComisionesEquipoPage() {
           icon={BadgeCheck}
           color="text-emerald-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Comisión proyectada"
           valor={dinero(proyectada)}
           sub={`cerrada: ${dinero(delMes?.comision_cerrada)} · bonos: ${dinero(delMes?.bonos)}`}
           icon={Wallet}
           color="text-amber-400"
         />
-        <Stat
+        <Stat cargando={cargando}
           label="Ticket promedio"
           valor={dinero(delMes?.ticket_promedio)}
           sub={`base comisionable: ${dinero(delMes?.base_total)}`}

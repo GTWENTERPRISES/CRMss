@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { HardDrive, Save } from 'lucide-react'
-import { supabase } from '../../../lib/supabaseClient'
+import { django } from '../../../lib/djangoClient'
 import { TECNOLOGIAS, leerEtiqueta, normalizarMac } from '../../../lib/instalaciones'
 import EscanerCodigo from '../EscanerCodigo'
 import { Aviso, Button, Field, Input, Select } from '../../ui'
+import { completarIngreso } from '../../../lib/servicio'
+import { usePrepararIngreso } from '../../tecnico/IngresoGrupal'
 
 /**
  * Paso 1 — qué equipo se está dejando puesto.
@@ -16,6 +18,7 @@ import { Aviso, Button, Field, Input, Select } from '../../ui'
  * o el CPE en el registro del router— no se parece en nada a la causa.
  */
 export default function PasoEquipo({ orden, onError, onGuardado }) {
+  const prepararIngreso = usePrepararIngreso()
   const esFibra = orden.tecnologia !== 'wireless'
 
   const [form, setForm] = useState({
@@ -66,7 +69,10 @@ export default function PasoEquipo({ orden, onError, onGuardado }) {
     onError?.(null)
 
     try {
-      const { error } = await supabase
+      // Leer el equipo pasa la orden a "en curso": si es el primer trabajo del
+      // día, marca el ingreso (migración 212).
+      const foto = orden.estado === 'agendada' ? await prepararIngreso({ tipo: 'instalacion', id: orden.id, lat: orden.latitud, lng: orden.longitud }) : null
+      const { error } = await django
         .from('instalaciones')
         .update({
           equipo_tipo: form.equipo_tipo,
@@ -86,11 +92,12 @@ export default function PasoEquipo({ orden, onError, onGuardado }) {
         throw error.code === '23505'
           ? Object.assign(
               new Error(`La serie ${form.equipo_sn.toUpperCase()} ya está usada en otra instalación`),
-              { hint: 'Es un equipo que ya se instaló en otro domicilio. Verificá la etiqueta.' },
+              { hint: 'Es un equipo que ya se instaló en otro domicilio. Verifica la etiqueta.' },
             )
           : error
       }
 
+      await completarIngreso(foto)
       await onGuardado?.()
     } catch (err) {
       onError?.(err)
@@ -102,8 +109,8 @@ export default function PasoEquipo({ orden, onError, onGuardado }) {
   return (
     <div className="space-y-4">
       <Aviso>
-        Se instala una <b>{TECNOLOGIAS[orden.tecnologia ?? 'ftth'].equipo}</b>. Escaneá el código de
-        la etiqueta o escribí los datos a mano.
+        Se instala una <b>{TECNOLOGIAS[orden.tecnologia ?? 'ftth'].equipo}</b>. Escanea el código de
+        la etiqueta o escribe los datos a mano.
       </Aviso>
 
       <EscanerCodigo onLeer={escaneado} />
@@ -115,7 +122,7 @@ export default function PasoEquipo({ orden, onError, onGuardado }) {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Tipo de equipo">
+        <Field campo="equipo_tipo" hint="ONT para fibra, antena CPE para radio." label="Tipo de equipo">
           <Select value={form.equipo_tipo} onChange={set('equipo_tipo')}>
             <option value="ont">ONT (fibra)</option>
             <option value="cpe">Antena CPE</option>
@@ -123,7 +130,7 @@ export default function PasoEquipo({ orden, onError, onGuardado }) {
           </Select>
         </Field>
 
-        <Field label="Modelo">
+        <Field campo="equipo_modelo" label="Modelo">
           <Input
             value={form.equipo_modelo}
             onChange={set('equipo_modelo')}
@@ -131,7 +138,7 @@ export default function PasoEquipo({ orden, onError, onGuardado }) {
           />
         </Field>
 
-        <Field
+        <Field campo="equipo_sn"
           label="Serie (SN)"
           hint={esFibra ? 'Es con lo que la OLT la reconoce' : 'Opcional en radio'}
         >
@@ -144,7 +151,7 @@ export default function PasoEquipo({ orden, onError, onGuardado }) {
           />
         </Field>
 
-        <Field
+        <Field campo="equipo_mac"
           label="MAC Address"
           hint={esFibra ? 'Opcional en fibra' : 'Es con lo que el router la reconoce'}
         >

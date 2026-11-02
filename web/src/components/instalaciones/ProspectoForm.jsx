@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Crosshair, UserPlus, X } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { ubicacionActual } from '../../lib/soporte'
 import { TECNOLOGIAS, TIPOS } from '../../lib/instalaciones'
 import BuscadorCliente from '../pagos/BuscadorCliente'
@@ -87,11 +87,11 @@ export default function ProspectoForm({ onError, onCreado }) {
     onError?.(null)
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
+      const { data: sesion } = await django.auth.getUser()
       const numero = (v) => (v === '' || v == null ? null : Number(v))
       const texto = (v) => (String(v ?? '').trim() || null)
 
-      const { data, error } = await supabase
+      const { data, error } = await django
         .from('instalaciones')
         .insert({
           client_id: cliente?.id ?? null,
@@ -160,8 +160,8 @@ export default function ProspectoForm({ onError, onCreado }) {
           ) : (
             <>
               <p className="mb-2 text-[11px] text-slate-500">
-                Si ya es abonado, buscalo acá y el formulario se completa solo. Para alguien nuevo,
-                dejá esto vacío.
+                Si ya es abonado, búscalo acá y el formulario se completa solo. Para alguien nuevo,
+                deja esto vacío.
               </p>
               <BuscadorCliente onElegir={elegirCliente} autoFocus={false} />
             </>
@@ -169,7 +169,7 @@ export default function ProspectoForm({ onError, onCreado }) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Tipo de trabajo">
+          <Field campo="tipo" hint="Instalación nueva, traslado o cambio de equipo." label="Tipo de trabajo">
             <Select value={form.tipo} onChange={set('tipo')}>
               {TIPOS.map((t) => (
                 <option key={t.valor} value={t.valor}>
@@ -179,7 +179,7 @@ export default function ProspectoForm({ onError, onCreado }) {
             </Select>
           </Field>
 
-          <Field label="Tecnología" hint={`Se instala una ${TECNOLOGIAS[form.tecnologia].equipo}`}>
+          <Field campo="tecnologia" label="Tecnología" hint={`Se instala una ${TECNOLOGIAS[form.tecnologia].equipo}`}>
             <Select value={form.tecnologia} onChange={set('tecnologia')}>
               {Object.entries(TECNOLOGIAS).map(([valor, t]) => (
                 <option key={valor} value={valor}>
@@ -189,7 +189,7 @@ export default function ProspectoForm({ onError, onCreado }) {
             </Select>
           </Field>
 
-          <Field label="Nombres y apellidos" className="sm:col-span-2">
+          <Field campo="nombre" label="Nombres y apellidos" className="sm:col-span-2">
             <Input
               value={form.nombre}
               onChange={set('nombre')}
@@ -198,7 +198,7 @@ export default function ProspectoForm({ onError, onCreado }) {
             />
           </Field>
 
-          <Field label="Tipo de documento">
+          <Field campo="tipo_identificacion" hint="Cédula para personas, RUC para empresas." label="Tipo de documento">
             <Select value={form.tipo_identificacion} onChange={set('tipo_identificacion')}>
               <option value="05">Cédula</option>
               <option value="04">RUC</option>
@@ -206,7 +206,7 @@ export default function ProspectoForm({ onError, onCreado }) {
             </Select>
           </Field>
 
-          <Field label="Cédula / RUC">
+          <Field campo="identificacion" label="Cédula / RUC">
             <Input
               value={form.identificacion}
               onChange={set('identificacion')}
@@ -219,41 +219,41 @@ export default function ProspectoForm({ onError, onCreado }) {
               todo si quedó con un equipo sin devolver. Avisa, no bloquea. */}
           <AntecedentesAbonado identificacion={form.identificacion} />
 
-          <Field label="Teléfono">
+          <Field campo="telefono" label="Teléfono">
             <Input value={form.telefono} onChange={set('telefono')} inputMode="tel" placeholder="0991234567" />
           </Field>
 
-          <Field label="WhatsApp" hint="Vacío = el mismo teléfono">
-            <Input
+          <Field campo="telefono_whatsapp" label="WhatsApp" hint="Vacío = el mismo teléfono">
+            <Input placeholder="Ej.: 0991234567"
               value={form.telefono_whatsapp}
               onChange={set('telefono_whatsapp')}
               inputMode="tel"
             />
           </Field>
 
-          <Field label="Correo" className="sm:col-span-2">
-            <Input type="email" value={form.email} onChange={set('email')} />
+          <Field campo="email" label="Correo" className="sm:col-span-2">
+            <Input placeholder="Ej.: cliente@correo.com" type="email" value={form.email} onChange={set('email')} />
           </Field>
 
-          <Field label="Fecha del pedido">
+          <Field campo="fecha" hint="Cuándo el cliente pidió el servicio." label="Fecha del pedido">
             <Input type="date" value={form.fecha} onChange={set('fecha')} required />
           </Field>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Dirección" className="sm:col-span-2">
+          <Field campo="direccion" label="Dirección" className="sm:col-span-2">
             <Input value={form.direccion} onChange={set('direccion')} placeholder="Calle y número" />
           </Field>
 
-          <Field label="Sector / barrio">
-            <Input value={form.sector} onChange={set('sector')} />
+          <Field campo="sector" label="Sector / barrio">
+            <Input placeholder="Ej.: Urdesa Central" value={form.sector} onChange={set('sector')} />
           </Field>
 
-          <Field label="Cantón">
-            <Input value={form.canton} onChange={set('canton')} />
+          <Field campo="canton" label="Cantón">
+            <Input placeholder="Ej.: Guayaquil" value={form.canton} onChange={set('canton')} />
           </Field>
 
-          <Field
+          <Field campo="referencia"
             label="Referencia"
             className="sm:col-span-2"
             hint="Cómo se reconoce la casa. En un barrio sin nomenclatura es lo único que sirve."
@@ -261,11 +261,11 @@ export default function ProspectoForm({ onError, onCreado }) {
             <Input value={form.referencia} onChange={set('referencia')} placeholder="Portón verde, frente a la cancha" />
           </Field>
 
-          <Field label="Latitud">
+          <Field campo="latitud" label="Latitud">
             <Input value={form.latitud} onChange={set('latitud')} placeholder="-0.1806" inputMode="decimal" />
           </Field>
 
-          <Field label="Longitud">
+          <Field campo="longitud" label="Longitud">
             <Input value={form.longitud} onChange={set('longitud')} placeholder="-78.4678" inputMode="decimal" />
           </Field>
         </div>
@@ -281,7 +281,7 @@ export default function ProspectoForm({ onError, onCreado }) {
           </Aviso>
         )}
 
-        <Field label="Notas">
+        <Field campo="notas" label="Notas">
           <Textarea rows={2} value={form.notas} onChange={set('notas')} placeholder="Qué pidió, por dónde entró el pedido…" />
         </Field>
 

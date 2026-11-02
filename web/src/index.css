@@ -12,6 +12,99 @@
    Va DESPUÉS de tailwindcss para que su bloque `@theme` pise la paleta
    por defecto. Ver el encabezado de ese archivo para el porqué del enfoque. */
 @import './tema.css';
+@import 'tw-animate-css';
+
+/* ---------------------------------------------------------------------------
+   shadcn/ui: los tokens de color por FUNCIÓN (fondo, tarjeta, primario,
+   atenuado, borde...) que usan los componentes de src/components/shadcn.
+   El primario es el azul de la marca. El bloque .dark queda listo para el
+   modo oscuro.
+--------------------------------------------------------------------------- */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.75rem;
+  --background: #ffffff; /* fondo detrás de las tarjetas: blanco (las tarjetas se separan por el borde) */
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0369a1;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #dc2626;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #0284c7;
+  --chart-1: #0369a1;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ef4444;
+}
+
+.dark {
+  --background: #0b1220;
+  --foreground: #e2e8f0;
+  --card: #111a2e;
+  --card-foreground: #e2e8f0;
+  --popover: #111a2e;
+  --popover-foreground: #e2e8f0;
+  --primary: #38bdf8;
+  --primary-foreground: #0b1220;
+  --secondary: #1e293b;
+  --secondary-foreground: #e2e8f0;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #e2e8f0;
+  --destructive: #f87171;
+  --border: #1e293b;
+  --input: #273449;
+  --ring: #38bdf8;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+}
 
 html,
 body,
@@ -20,7 +113,7 @@ body,
 }
 
 body {
-  background-color: var(--tema-fondo);
+  background-color: var(--background);
   color: #0f172a;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -56,9 +149,11 @@ body {
    sistema.
 --------------------------------------------------------------------------- */
 .campo {
-  --campo-fondo: #e4e9f0;
+  /* El fondo y el borde, los mismos del resto del sistema (blanco y el borde
+     de shadcn): las pantallas comerciales no pueden verse de otro color. */
+  --campo-fondo: var(--background);
   --campo-sup: #ffffff;
-  --campo-borde: rgba(15, 23, 42, 0.08);
+  --campo-borde: var(--border);
   --campo-texto: #0f172a;
   --campo-suave: #475569;
   --campo-tenue: #64748b;
@@ -106,3 +201,279 @@ body {
    sería pisar el tema con valores que después habría que mantener en dos
    lugares.
 --------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   Validación en vivo (<Field> en components/ui): el control con error lleva
+   borde rojo y el motivo debajo, en lugar de la ayuda.
+--------------------------------------------------------------------------- */
+.campo-invalido :is(input, select, textarea) {
+  border-color: #dc2626;
+}
+.campo-invalido :is(input, select, textarea):focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 0.18);
+}
+.campo-error-texto {
+  color: #b91c1c;
+}
+
+/* ---------------------------------------------------------------------------
+   Pie fijo en las ventanas: en un formulario largo (sobre todo en el teléfono)
+   los botones Guardar / Cancelar quedan a la vista mientras se baja.
+--------------------------------------------------------------------------- */
+.t-modal-cuerpo form > :last-child:has(> button[type='submit']),
+.t-modal-cuerpo form > :last-child:has(> * > button[type='submit']) {
+  position: sticky;
+  /* -1rem: tapa el relleno de la capa oscura, si no asoma el formulario debajo. */
+  bottom: -1rem;
+  z-index: 2;
+  margin-inline: -1.5rem;
+  margin-bottom: -1.5rem;
+  padding: 0.75rem 1.5rem 1.5rem;
+  background: #fff;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+/* El "$" adelante de los montos (<Field> lo pone en las columnas de dinero). */
+.campo-dinero input {
+  padding-left: 1.6rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='16'%3E%3Ctext x='0' y='12.5' font-family='system-ui,sans-serif' font-size='13' font-weight='600' fill='%2364748b'%3E%24%3C/text%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0.7rem center;
+}
+
+/* ---------------------------------------------------------------------------
+   Tablas en el teléfono: cada fila es una tarjeta y cada dato lleva el nombre
+   de su columna adelante (<Table> pone data-label en cada celda).
+--------------------------------------------------------------------------- */
+@media (max-width: 639px) {
+  .t-tabla-adaptable {
+    min-width: 0 !important;
+  }
+  .t-tabla-adaptable thead {
+    display: none;
+  }
+  .t-tabla-adaptable,
+  .t-tabla-adaptable tbody {
+    display: block;
+  }
+  .t-tabla-adaptable tbody tr {
+    display: block;
+    margin-bottom: 0.625rem;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+    border-radius: 14px;
+    background: #fff;
+  }
+  .t-tabla-adaptable tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.35rem 0 !important;
+    text-align: right;
+    white-space: normal;
+  }
+  .t-tabla-adaptable tbody td + td {
+    border-top: 1px dashed rgba(15, 23, 42, 0.06);
+  }
+  .t-tabla-adaptable tbody td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-align: left;
+  }
+  .t-tabla-adaptable tbody td[data-label='']::before {
+    content: none;
+  }
+  .t-tabla-adaptable tbody td[data-label=''] {
+    justify-content: center;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Tarjetas de números con significado (<Stat tono> y la KpiCard del Panel):
+   la franja y el número toman el color del estado; un cero se atenúa.
+--------------------------------------------------------------------------- */
+/* La tarjeta de número como las "section cards" del dashboard de shadcn/ui:
+   borde fino, degradado suave desde abajo con el color del estado. */
+.t-kpi-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 4px);
+  background: var(--card);
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  color: var(--card-foreground);
+}
+.t-tono-critico.t-kpi-card { background: linear-gradient(to top, color-mix(in srgb, #ef4444 7%, var(--card)), var(--card)); }
+.t-tono-aviso.t-kpi-card { background: linear-gradient(to top, color-mix(in srgb, #f59e0b 8%, var(--card)), var(--card)); }
+.t-tono-ok.t-kpi-card { background: linear-gradient(to top, color-mix(in srgb, #10b981 6%, var(--card)), var(--card)); }
+.t-tono-critico .t-kpi-valor { color: #b91c1c; }
+.t-tono-aviso .t-kpi-valor { color: #b45309; }
+/* El cero pesa menos que cualquier dato: sin degradado y número tenue
+   (3,5:1, suficiente para un número grande). */
+.t-cero.t-kpi-card { background: var(--card); }
+.t-cero .t-kpi-valor { color: #7c8ba1; }
+
+/* "Reducir movimiento" del sistema: sin animaciones ni desplazamientos suaves
+   en ninguna parte (las tarjetas ya lo respetaban en tema.css). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* En el teléfono el número de las tarjetas es un poco menor: van de a dos. */
+@media (max-width: 639px) {
+  .t-kpi-valor { font-size: 22px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Fila de tarjetas de números (.t-kpis): del tamaño de su dato, no de la fila.
+   En el teléfono, de a dos y con su alto natural. Desde 640px cada una mide
+   entre 140 y 170px de ancho y 140 de alto (casi cuadrada); si sobra lugar
+   en la fila queda libre, en vez de estirar un "11" a 300px de ancho.
+--------------------------------------------------------------------------- */
+.t-kpis {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 640px) {
+  .t-kpis {
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 170px));
+  }
+  .t-kpis > * {
+    min-height: 140px;
+  }
+}
+
+/* Un monto largo ("$12,345.67") entra en la tarjeta con la letra un poco menor. */
+.t-kpi-valor.t-kpi-largo {
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Encabezado de página único: el título de cada pantalla (el h1 dentro del
+   contenido) y su línea de descripción se ven igual en todo el sistema, como
+   el del Panel. Va sin capa a propósito: pisa las clases que cada pantalla
+   traía (Sora, otros tamaños) sin tener que editar las 87.
+--------------------------------------------------------------------------- */
+main h1 {
+  font-family: var(--font-sans);
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+}
+main h1 + p {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--muted-foreground);
+}
+@media (max-width: 639px) {
+  main h1 { font-size: 1.25rem; line-height: 1.75rem; }
+}
+
+/* ---------------------------------------------------------------------------
+   Estados con la misma forma en todo el sistema: punto de color + palabra
+   ("● Cortado"). Se ve de lejos y no depende solo del color. Las insignias que
+   ya traen ícono no llevan punto.
+--------------------------------------------------------------------------- */
+.t-badge:not(:has(svg))::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+/* ===========================================================================
+   MODO OSCURO (html.dark, interruptor en la barra superior)
+
+   Los componentes de shadcn ya cambian con los tokens de .dark. El resto del
+   sistema usa la paleta "invertida" de tema.css (text-slate-100 = texto
+   fuerte, bg-slate-800 = superficie secundaria...): acá esa misma paleta se
+   reasigna para fondo oscuro, así las 87 pantallas cambian sin tocarlas.
+   ======================================================================== */
+.dark {
+  color-scheme: dark;
+  --color-slate-950: #111a2e;
+  --color-slate-900: #111a2e;
+  --color-slate-800: #1e293b;
+  --color-slate-700: #334155;
+  --color-slate-600: #8b9ab0;
+  --color-slate-500: #94a3b8;
+  --color-slate-400: #a8b4c6;
+  --color-slate-300: #cbd5e1;
+  --color-slate-200: #e2e8f0;
+  --color-slate-100: #f1f5f9;
+  --color-slate-50: #f8fafc;
+  --color-sky-950: #0c2a3f;
+  --color-sky-900: #0e3a56;
+  --color-sky-800: #bae6fd;
+  --color-sky-700: #7dd3fc;
+  --color-sky-600: #0284c7;
+  --color-sky-500: #38bdf8;
+  --color-sky-400: #38bdf8;
+  --color-sky-300: #7dd3fc;
+  --color-sky-200: #bae6fd;
+  --color-sky-100: #0e3a56;
+  --color-sky-50: #0c2a3f;
+  --color-emerald-400: #34d399;
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-200: #a7f3d0;
+  --color-emerald-100: #a7f3d0;
+  --color-amber-400: #fbbf24;
+  --color-amber-300: #fcd34d;
+  --color-amber-200: #fde68a;
+  --color-amber-100: #fde68a;
+  --color-red-400: #f87171;
+  --color-red-300: #fca5a5;
+  --color-red-200: #fecaca;
+  --color-red-100: #fecaca;
+  --color-rose-400: #f87171;
+  --color-rose-300: #fca5a5;
+  --color-rose-200: #fecaca;
+  --tema-superficie-2: #16213a;
+}
+.dark body { color: var(--foreground); }
+.dark .t-tabla tbody td { color: #cbd5e1; }
+.dark .t-badge-ok { background: rgb(52 211 153 / 0.14); color: #6ee7b7; }
+.dark .t-badge-aviso { background: rgb(251 191 36 / 0.14); color: #fcd34d; }
+.dark .t-badge-critico { background: rgb(248 113 113 / 0.14); color: #fca5a5; }
+.dark .t-badge-marca { background: rgb(56 189 248 / 0.14); color: #7dd3fc; }
+.dark .t-badge-neutro { background: rgb(148 163 184 / 0.14); color: #cbd5e1; }
+.dark .campo-error-texto { color: #fca5a5; }
+.dark .t-tono-critico .t-kpi-valor { color: #f87171; }
+.dark .t-tono-aviso .t-kpi-valor { color: #fbbf24; }
+.dark .t-modal-cuerpo form > :last-child:has(> button[type='submit']),
+.dark .t-modal-cuerpo form > :last-child:has(> * > button[type='submit']) { background: var(--card); }
+
+/* Fondos claros escritos a mano en las pantallas (tintes y grises suaves). */
+.dark :is([class*='bg-[#F0F9FF]'], [class*='bg-[#f0f9ff]']) { background-color: rgb(56 189 248 / 0.1) !important; }
+.dark :is([class*='bg-[#FEF2F2]'], [class*='bg-[#fef2f2]']) { background-color: rgb(248 113 113 / 0.1) !important; }
+.dark :is([class*='bg-[#FFFBEB]'], [class*='bg-[#fffbeb]']) { background-color: rgb(251 191 36 / 0.1) !important; }
+.dark :is([class*='bg-[#ECFDF5]'], [class*='bg-[#ecfdf5]']) { background-color: rgb(52 211 153 / 0.1) !important; }
+.dark :is([class*='bg-[#F6F8FB]'], [class*='bg-[#f6f8fb]'], [class*='bg-[#fafafa]'], [class*='bg-[#F8FAFC]'], [class*='bg-[#f8fafc]']) { background-color: #16213a !important; }
+.dark :is([class*='bg-white'], [class*='bg-[#fff]'], [class*='bg-[#ffffff]']) { background-color: var(--card) !important; }
+.dark :is([class*='text-[#0c4a6e]']) { color: #bae6fd !important; }
+.dark :is([class*='text-[#78350f]']) { color: #fde68a !important; }
+.dark :is([class*='text-[#064e3b]']) { color: #a7f3d0 !important; }
+.dark :is([class*='text-[#0F172A]'], [class*='text-[#0f172a]']) { color: var(--foreground) !important; }
+.dark :is([class*='border-[#bae6fd]'], [class*='border-[#fde68a]'], [class*='border-[#a7f3d0]'], [class*='border-[#fecaca]']) { border-color: var(--border) !important; }
+.dark .bg-black\/\[0\.05\] { background-color: rgb(255 255 255 / 0.08); }
+.dark .t-panel { background: #16213a; border-color: var(--border); }
+.dark .t-panel-hover:hover, .dark .t-lift:hover { box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.4); }

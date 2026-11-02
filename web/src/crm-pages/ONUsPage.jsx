@@ -80,7 +80,7 @@ export default function ONUsPage() {
           <Cargando />
         ) : olts.length === 0 ? (
           <Aviso tipo="alerta">
-            No hay ninguna OLT cargada todavía. Registrá una en la sección <b>OLTs</b> para poder
+            No hay ninguna OLT cargada todavía. Registra una en la sección <b>OLTs</b> para poder
             operar sobre ella.
           </Aviso>
         ) : (
@@ -118,7 +118,7 @@ export default function ONUsPage() {
               <Cargando texto="Consultando la OLT…" />
             ) : onusEnOlt === null ? (
               <p className="py-6 text-center text-sm text-slate-500">
-                Pulsá “Leer de la OLT” para traer el estado real del puerto.
+                Pulsa “Leer de la OLT” para traer el estado real del puerto.
               </p>
             ) : (
               <Table

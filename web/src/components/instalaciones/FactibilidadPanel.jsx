@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { MapPin, Radar, Save } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { FACTIBILIDAD, TECNOLOGIAS } from '../../lib/instalaciones'
 import { Aviso, Badge, Button, Card, Cargando, Field, Input, Select, Textarea } from '../ui'
 
@@ -40,7 +40,7 @@ export default function FactibilidadPanel({ instalacion, onError, onGuardado }) 
     if (!tieneCoordenadas) return
 
     setBuscando(true)
-    const { data, error } = await supabase.rpc('cobertura_cercana', {
+    const { data, error } = await django.rpc('cobertura_cercana', {
       p_lat: Number(instalacion.latitud),
       p_lng: Number(instalacion.longitud),
       p_tecnologia: instalacion.tecnologia ?? 'ftth',
@@ -98,7 +98,7 @@ export default function FactibilidadPanel({ instalacion, onError, onGuardado }) 
         cambios.estado = 'prospecto'
       }
 
-      const { error } = await supabase.from('instalaciones').update(cambios).eq('id', instalacion.id)
+      const { error } = await django.from('instalaciones').update(cambios).eq('id', instalacion.id)
       if (error) throw error
 
       await onGuardado?.()
@@ -128,7 +128,7 @@ export default function FactibilidadPanel({ instalacion, onError, onGuardado }) 
         {!tieneCoordenadas ? (
           <Aviso tipo="alerta">
             El pedido no tiene coordenadas cargadas, así que la cobertura no se puede calcular.
-            Cargalas en el pedido o marcá la factibilidad a mano con lo que sepa el técnico de zona.
+            Cargalas en el pedido o marca la factibilidad a mano con lo que sepa el técnico de zona.
           </Aviso>
         ) : buscando ? (
           <Cargando texto="Buscando puntos de red cercanos…" />
@@ -186,7 +186,7 @@ export default function FactibilidadPanel({ instalacion, onError, onGuardado }) 
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Resultado" hint={FACTIBILIDAD[form.factibilidad]?.ayuda}>
+          <Field campo="factibilidad" label="Resultado" hint={FACTIBILIDAD[form.factibilidad]?.ayuda}>
             <Select value={form.factibilidad} onChange={set('factibilidad')}>
               {Object.entries(FACTIBILIDAD).map(([valor, f]) => (
                 <option key={valor} value={valor}>
@@ -197,13 +197,13 @@ export default function FactibilidadPanel({ instalacion, onError, onGuardado }) 
           </Field>
 
           {esFibra && (
-            <Field label="Puerto de la caja" hint="En qué salida de la NAP queda">
+            <Field campo="puerto_nap" label="Puerto de la caja" hint="En qué salida de la NAP queda">
               <Input value={form.puerto_nap} onChange={set('puerto_nap')} placeholder="3" />
             </Field>
           )}
 
-          <Field label="Distancia al punto" hint="Metros de tendido estimados">
-            <Input
+          <Field campo="distancia_nodo_m" label="Distancia al punto" hint="Metros de tendido estimados">
+            <Input placeholder="Ej.: 150"
               type="number"
               min={0}
               value={form.distancia_nodo_m}
@@ -211,7 +211,7 @@ export default function FactibilidadPanel({ instalacion, onError, onGuardado }) 
             />
           </Field>
 
-          <Field label="Observaciones" className="sm:col-span-2 lg:col-span-4">
+          <Field campo="factibilidad_notas" label="Observaciones" className="sm:col-span-2 lg:col-span-4">
             <Textarea
               rows={2}
               value={form.factibilidad_notas}

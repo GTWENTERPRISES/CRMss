@@ -1,15 +1,20 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { modoDemo, demoApi } from './demo'
+import { errorDeValidacion, validarPorNombre } from './validacion/index.js'
+import { avisarErrores } from './validacion/enVivo.js'
 
 /**
- * Cliente del API Middleware (todo lo que toca la red: OLTs y MikroTik).
+ * Cliente del módulo de red: OLTs, MikroTik, TR-069, SRI, documentos, portal…
  *
- * Supabase se consulta directo desde el navegador (RLS protege los datos), pero
- * SSH y la REST API de RouterOS no son alcanzables desde el browser — eso pasa
- * siempre por acá.
+ * Todo pasa por Django, que es el único backend expuesto: el navegador llama a
+ * /api/v1/red/api/... y Django reenvía al servicio interno de red (el proceso
+ * middleware/), que ya no se le da al navegador. La sesión que viaja es la de
+ * Django — la misma del resto del sistema — y con ella el proxy identifica a
+ * quién pide, para que la auditoría siga diciendo quién hizo qué.
  */
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '')
+const DJANGO = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api/v1').replace(/\/$/, '')
+const BASE = (process.env.NEXT_PUBLIC_API_URL || `${DJANGO}/red`).replace(/\/$/, '')
 
 /** Error del middleware que conserva la pista de qué hacer. */
 export class ApiError extends Error {
@@ -26,18 +31,56 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Lo que va al servicio de red pasa por las mismas reglas que lo que va a las
+ * tablas (IP, VLAN, número de serie, horas, montos...). Con un dato mal escrito
+ * no sale el pedido: el error queda marcado en el campo, como al guardar.
+ */
+function validarCuerpo(body) {
+  const v = validarPorNombre(body)
+  if (v.ok) return
+  const error = errorDeValidacion(v.errores)
+  avisarErrores(error.campos)
+  throw new ApiError(error.message, { status: 0, hint: error.hint, code: error.code, campos: error.campos })
+}
+
+/**
+ * Qué decir cuando no llega JSON.
+ *
+ * Casi siempre es una página de error de Cloudflare o de nginx, no del
+ * middleware: el pedido ni llegó o no volvió a tiempo. Antes se mostraban los
+ * primeros 200 caracteres del HTML, que son comentarios para Internet Explorer,
+ * y el código —lo único que dice qué pasó— quedaba cortado.
+ */
+const PISTA_SIN_JSON = {
+  502: 'El servidor web no pudo hablar con el middleware: estaba caído o reiniciándose. Revisa journalctl -u smartolt-middleware.',
+  504: 'El middleware tardó demasiado en contestar.',
+  520: 'El middleware cortó la conexión sin contestar. Revisa journalctl -u smartolt-middleware.',
+  521: 'Cloudflare no pudo conectarse al servidor: nginx no está escuchando.',
+  522: 'Cloudflare no pudo conectarse al servidor: no contesta.',
+  524: 'El middleware tardó más de 100 segundos y Cloudflare cortó. Lo pedido puede haberse hecho igual: recargá antes de reintentar.',
+}
+
+function sinJson(status, texto) {
+  const titulo = /<title>([^<]*)<\/title>/i.exec(texto)?.[1]?.replace(/\s+/g, ' ').trim()
+  return titulo
+    ? `El servidor contestó una página de error (${status}): ${titulo}`
+    : `El middleware devolvió una respuesta que no es JSON (${status})`
+}
+
 async function request(metodo, ruta, body) {
+  if (body) validarCuerpo(body)
   if (modoDemo) {
     const respuesta = await demoApi(metodo, ruta, body)
     if (respuesta === undefined) {
       throw new ApiError(`El modo demo no simula ${metodo} ${ruta}`, {
-        hint: 'Configurá Supabase y el middleware para usar esta función de verdad.',
+        hint: 'Sal del modo demo (NEXT_PUBLIC_DEMO_MODE) y levanta Django con el servicio de red para usar esta función de verdad.',
       })
     }
     return respuesta
   }
 
-  const { data } = await supabase.auth.getSession()
+  const { data } = await django.auth.getSession()
   const token = data?.session?.access_token
 
   let res
@@ -51,8 +94,8 @@ async function request(metodo, ruta, body) {
       body: body ? JSON.stringify(body) : undefined,
     })
   } catch {
-    throw new ApiError(`No se puede contactar al middleware en ${BASE}`, {
-      hint: 'Verificá que esté corriendo (npm run dev en middleware/) y que NEXT_PUBLIC_API_URL apunte ahí.',
+    throw new ApiError(`No se puede contactar al backend en ${BASE}`, {
+      hint: 'Verifica que Django esté corriendo (puerto 8000) y con él el servicio de red (middleware/): el navegador habla con /api/v1/red/...',
     })
   }
 
@@ -61,8 +104,9 @@ async function request(metodo, ruta, body) {
   try {
     json = texto ? JSON.parse(texto) : null
   } catch {
-    throw new ApiError('El middleware devolvió una respuesta que no es JSON', {
+    throw new ApiError(sinJson(res.status, texto), {
       status: res.status,
+      hint: PISTA_SIN_JSON[res.status],
       detalle: texto.slice(0, 200),
     })
   }
@@ -85,18 +129,19 @@ async function request(metodo, ruta, body) {
 /**
  * Descarga binaria — el RIDE en PDF.
  *
- * No se puede resolver con un `<a href>`: el middleware exige el token de
- * Supabase en la cabecera y un enlace común no la manda. Se trae como blob y la
- * página decide si lo abre o lo baja.
+ * No se puede resolver con un `<a href>`: la ruta pasa por Django y exige el
+ * token de la sesión en la cabecera, y un enlace común no la manda. Se trae como
+ * blob y la página decide si lo abre o lo baja.
  */
 async function archivo(ruta, body) {
+  if (body) validarCuerpo(body)
   if (modoDemo) {
     throw new ApiError('El modo demo no genera archivos', {
-      hint: 'Configurá Supabase y el middleware para descargar el RIDE.',
+      hint: 'Sal del modo demo (NEXT_PUBLIC_DEMO_MODE) y levanta Django con el servicio de red para descargar el RIDE.',
     })
   }
 
-  const { data } = await supabase.auth.getSession()
+  const { data } = await django.auth.getSession()
   const token = data?.session?.access_token
 
   let res
@@ -112,8 +157,8 @@ async function archivo(ruta, body) {
       ...(body ? { body: JSON.stringify(body) } : {}),
     })
   } catch {
-    throw new ApiError(`No se puede contactar al middleware en ${BASE}`, {
-      hint: 'Verificá que esté corriendo (npm run dev en middleware/).',
+    throw new ApiError(`No se puede contactar al backend en ${BASE}`, {
+      hint: 'Verifica que Django esté corriendo (puerto 8000) y con él el servicio de red (middleware/).',
     })
   }
 
@@ -182,7 +227,7 @@ export const api = {
     importar: (datos) => post('/api/tipos-onu/importar', datos),
   },
 
-  /** Cifra una contraseña de equipo antes de guardarla en Supabase. */
+  /** Cifra una contraseña de equipo antes de guardarla en la base. */
   cifrar: (password) => post('/api/crypto/encrypt', { password }),
 
   /**
@@ -216,8 +261,12 @@ export const api = {
 
     bloqueos: (id) => get(`/api/mikrotik/${id}/bloqueos`),
     bloquear: (id, datos) => post(`/api/mikrotik/${id}/bloqueos`, datos),
-    desbloquear: (id, entradaId) =>
-      del(`/api/mikrotik/${id}/bloqueos/${encodeURIComponent(entradaId)}`),
+    // `ip`: la dirección de la entrada, para cerrar también el registro del
+    // corte en el sistema (sin eso, la reconexión lo seguía buscando).
+    desbloquear: (id, entradaId, ip = null) =>
+      del(`/api/mikrotik/${id}/bloqueos/${encodeURIComponent(entradaId)}${qs({ ip })}`),
+    /** La IP del servidor vista desde el router, el puerto y las listas: para llenar el formulario. */
+    datosRedireccion: (id) => get(`/api/mikrotik/${id}/redireccion-pago`),
     redireccionPago: (id, datos) => post(`/api/mikrotik/${id}/redireccion-pago`, datos),
 
     filter: (id) => get(`/api/mikrotik/${id}/firewall/filter`),
@@ -484,9 +533,20 @@ export const api = {
   },
 
   /** La marca del sistema. Se lee sin sesión: el login la necesita. */
+  facturacionElectronica: {
+    listar: () => get('/api/facturacion-electronica'),
+    guardar: (proveedor, datos) => put(`/api/facturacion-electronica/${proveedor}`, datos),
+    probar: (proveedor) => post(`/api/facturacion-electronica/${proveedor}/probar`, {}),
+  },
   general: {
     config: () => get('/api/general'),
     guardar: (datos) => put('/api/general', datos),
+    reloj: () => get('/api/general/reloj'),
+    guardarZona: (zona_horaria) => put('/api/general/reloj', { zona_horaria }),
+    iva: () => get('/api/general/iva'),
+    paises: () => get('/api/general/paises'),
+    guardarPais: (datos) => put('/api/general/pais', datos),
+    guardarIva: (iva_porcentaje) => put('/api/general/iva', { iva_porcentaje }),
   },
 
   /** Los automatismos. Guardar reprograma: no hace falta reiniciar. */
@@ -660,6 +720,12 @@ export const api = {
     /** Manda el XML autorizado y el RIDE al comprador. */
     email: (id, datos) => post(`/api/sri/documentos/${id}/email`, datos),
     probarSmtp: (datos) => post('/api/sri/probar-smtp', datos),
+  },
+
+  /** Reportes de gestión que se bajan como archivo (Excel o PDF). */
+  reportes: {
+    crecimientoRouters: (query = '') =>
+      archivo(`/api/reportes/crecimiento-routers${query ? `?${query}` : ''}`),
   },
 
   pagos: {

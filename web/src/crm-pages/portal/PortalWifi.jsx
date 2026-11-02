@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, Clock, Eye, EyeOff, Loader2, Wifi } from 'lucide-react'
 import { portalApi } from '../../lib/portalApi'
 import { Cargando, Tarjeta } from './PortalApp'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * El WiFi del abonado.
@@ -96,7 +97,7 @@ export default function PortalWifi({ cuenta }) {
             {equipo.ultimo_contacto && (
               <p className="text-[11px] text-slate-600">
                 Según lo último que reportó tu equipo:{' '}
-                {new Date(equipo.ultimo_contacto).toLocaleString('es-EC')}
+                {fmtFechaHora(equipo.ultimo_contacto)}
               </p>
             )}
           </div>
@@ -125,7 +126,7 @@ export default function PortalWifi({ cuenta }) {
               <p className="text-sm font-medium text-sky-200">Tu cambio está en camino</p>
               <p className="mt-1 text-xs leading-relaxed text-sky-200/80">
                 Lo aplicamos apenas tu equipo esté disponible. Mientras tanto,{' '}
-                <b>seguí usando la clave actual</b>: nada cambió todavía.
+                <b>sigue usando la clave actual</b>: nada cambió todavía.
               </p>
             </div>
           </div>
@@ -183,7 +184,7 @@ export default function PortalWifi({ cuenta }) {
         {error && <p className="text-sm text-rose-400">{error}</p>}
 
         {/* El resultado distingue los dos casos, porque son distintos para el
-            abonado: uno significa "andá a reconectar tus dispositivos" y el
+            abonado: uno significa "ve a reconectar tus dispositivos" y el
             otro "no toques nada todavía". */}
         {resultado && (
           <div
@@ -212,7 +213,7 @@ export default function PortalWifi({ cuenta }) {
         </button>
 
         <p className="px-2 text-center text-xs leading-relaxed text-slate-500">
-          Cuando se aplique, todos tus dispositivos van a pedirte la clave nueva. Anotala antes.
+          Cuando se aplique, todos tus dispositivos van a pedirte la clave nueva. Anótala antes.
         </p>
       </form>
     </div>

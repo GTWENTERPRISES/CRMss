@@ -221,7 +221,7 @@ export function parametros({
   if (!mapa) {
     throw new AppError('El equipo no reporta un modelo de datos conocido (ni TR-098 ni TR-181).', {
       status: 422,
-      hint: 'Pedile un inform al equipo y volvé a intentar: sin su árbol de parámetros no se sabe dónde escribir.',
+      hint: 'Pídele un inform al equipo y vuelve a intentar: sin su árbol de parámetros no se sabe dónde escribir.',
     })
   }
 
@@ -393,7 +393,7 @@ export async function aplicar(dispositivo, opciones = {}) {
   if (!modelo) {
     throw new AppError('El equipo no reporta un modelo de datos conocido (ni TR-098 ni TR-181).', {
       status: 422,
-      hint: 'Pedile un inform al equipo y volvé a intentar: sin su árbol de parámetros no se sabe dónde escribir.',
+      hint: 'Pídele un inform al equipo y vuelve a intentar: sin su árbol de parámetros no se sabe dónde escribir.',
     })
   }
 

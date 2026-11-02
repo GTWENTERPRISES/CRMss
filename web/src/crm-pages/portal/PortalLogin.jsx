@@ -1,3 +1,4 @@
+import { nombreDocumento, usePais } from '../../lib/pais'
 import { useState } from 'react'
 import { ArrowLeft, KeyRound, Loader2 } from 'lucide-react'
 import { portalApi, guardarToken } from '../../lib/portalApi'
@@ -20,6 +21,7 @@ import { useMarca } from '../../lib/useMarca'
  * teclado numérico, y el código se pega solo si el celular lo ofrece.
  */
 export default function PortalLogin({ onEntrar }) {
+  const pais = usePais()
   const marca = useMarca()
   const [paso, setPaso] = useState('cedula')
   const [identificacion, setIdentificacion] = useState('')
@@ -77,7 +79,7 @@ export default function PortalLogin({ onEntrar }) {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[#F6F8FB] p-5">
+    <div className="flex min-h-dvh items-center justify-center bg-background p-5">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           {/*
@@ -106,7 +108,7 @@ export default function PortalLogin({ onEntrar }) {
               <h1 className="text-xl font-semibold text-slate-100">{marca.nombre_sistema}</h1>
             </>
           )}
-          <p className="mt-1 text-sm text-slate-500">Consultá tu cuenta</p>
+          <p className="mt-1 text-sm text-slate-500">Consulta tu cuenta</p>
         </div>
 
         {paso === 'clave' ? (
@@ -126,6 +128,7 @@ export default function PortalLogin({ onEntrar }) {
                 autoComplete="current-password"
                 value={clave}
                 onChange={(e) => setClave(e.target.value)}
+                placeholder="La que te dimos al instalar"
                 required
                 autoFocus
                 className="w-full t-card-sm px-4 py-3.5 text-lg text-slate-100 outline-none focus:border-sky-500"
@@ -158,7 +161,9 @@ export default function PortalLogin({ onEntrar }) {
         ) : paso === 'cedula' ? (
           <form onSubmit={pedir} className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm text-slate-400">Tu cédula o RUC</label>
+              <label className="mb-1.5 block text-sm text-slate-400">
+                Tu {nombreDocumento(pais, '05')} o {nombreDocumento(pais, '04')}
+              </label>
               <input
                 // inputMode numérico: en el celular abre el teclado de números
                 // directo, sin que nadie tenga que cambiarlo.
@@ -196,7 +201,7 @@ export default function PortalLogin({ onEntrar }) {
             </button>
 
             <p className="text-center text-xs leading-relaxed text-slate-500">
-              ¿Primera vez? Pedí el código: te llega al celular que tenés registrado con nosotros.
+              ¿Primera vez? Pide el código: te llega al celular que tienes registrado con nosotros.
             </p>
           </form>
         ) : (

@@ -1,90 +1,88 @@
+"""
+Abonados, contratos y servicios.
+
+Las columnas de `clientes` y `contratos` son las de las tablas del dashboard
+(apps/dashboard/columnas.py, columnas.py).
+"""
+from decimal import Decimal
+
 from django.db import models
+from django.db.models import Sum
 
-from apps.core.fields import EncryptedCharField, EncryptedTextField
+from apps.core.fields import EncryptedCharField, EncryptedTextField, por_texto
 from apps.core.models import BaseModel
+from apps.dashboard import columnas
 
 
-class Cliente(BaseModel):
-    class EstadoServicio(models.TextChoices):
-        ACTIVO = 'ACTIVO', 'Activo'
-        SUSPENDIDO_CORTE = 'SUSPENDIDO_POR_CORTE', 'Suspendido por Corte'
-        SUSPENDIDO = 'SUSPENDIDO', 'Suspendido'
-        DADO_BAJA = 'DADO_DE_BAJA', 'Dado de Baja'
+class Cliente(columnas.ColumnasCliente):
+    """
+    Un abonado: una fila por servicio contratado (una persona con dos servicios
+    tiene dos filas con la misma identificación). La ONU, el plan y el router
+    del servicio van en la misma fila.
 
-    cedula = EncryptedCharField(max_length=255, unique=True, db_index=True)
-    cedula_hash = models.CharField(max_length=64, blank=True, db_index=True)
-    nombre = models.CharField(max_length=150, db_index=True)
-    telefono = EncryptedCharField(max_length=255, db_index=True)
-    telefono_hash = models.CharField(max_length=64, blank=True, db_index=True)
-    email = EncryptedCharField(max_length=255, blank=True)
-    direccion = EncryptedTextField()
+    `identificacion` y los teléfonos van en claro porque son claves de búsqueda:
+    el portal del abonado entra por identificación, el bot de WhatsApp encuentra
+    al cliente por los últimos dígitos del teléfono, y un valor cifrado no se
+    puede comparar. El correo y la dirección, que nadie busca, van cifrados.
+    """
 
-    latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    class Estado(models.TextChoices):
+        ACTIVO = 'activo', 'Activo'
+        CORTADO = 'cortado', 'Cortado'
+        SUSPENDIDO = 'suspendido', 'Suspendido'
+        BAJA = 'baja', 'Dado de baja'
 
-    estado_servicio = models.CharField(
-        max_length=30, choices=EstadoServicio.choices,
-        default=EstadoServicio.ACTIVO, db_index=True,
-    )
-    codigo_pago = models.CharField(max_length=20, blank=True, db_index=True)
+    email = EncryptedCharField(max_length=255, null=True, blank=True)
+    direccion = EncryptedTextField(null=True, blank=True)
 
-    class Meta:
+    class Meta(columnas.ColumnasCliente.Meta):
         db_table = 'clientes'
-        ordering = ['nombre']
+        ordering = [por_texto('nombre')]  # nombre va cifrado
         verbose_name = 'Cliente'
         verbose_name_plural = 'Clientes'
-        indexes = [
-            models.Index(fields=['estado_servicio']),
-            models.Index(fields=['telefono']),
-        ]
 
     def __str__(self):
-        return f'{self.nombre} ({self.cedula})'
-
-    def save(self, *args, **kwargs):
-        from apps.core.fields import get_blind_hash
-        if self.cedula:
-            self.cedula_hash = get_blind_hash(self.cedula)
-        if self.telefono:
-            self.telefono_hash = get_blind_hash(self.telefono)
-        super().save(*args, **kwargs)
+        return f'{self.nombre} ({self.identificacion or "sin identificación"})'
 
     def deuda_total(self):
-        from django.db.models import Sum
-
+        """Lo que debe: el saldo de sus facturas no anuladas (como v_saldo_clientes)."""
         from apps.facturacion.models import Factura
+        from apps.pagos.models import Pago
 
-        total = Factura.objects.filter(
-            cliente=self,
-            estado__in=[Factura.Estado.PENDIENTE, Factura.Estado.VENCIDA],
-        ).aggregate(total=Sum('total'))['total']
-        return total or 0
+        facturado = Factura.objects.filter(client=self, anulada=False).aggregate(
+            t=Sum('total'))['t'] or Decimal('0')
+        pagado = Pago.objects.filter(
+            factura__client=self, factura__anulada=False, anulado=False,
+        ).aggregate(t=Sum('monto'))['t'] or Decimal('0')
+        return max(facturado - pagado, Decimal('0'))
 
 
-class Contrato(BaseModel):
+class Contrato(columnas.ColumnasContrato):
     class Estado(models.TextChoices):
         VIGENTE = 'vigente', 'Vigente'
-        VENCIDO = 'vencido', 'Vencido'
-        CANCELADO = 'cancelado', 'Cancelado'
+        TERMINADO = 'terminado', 'Terminado'
+        ANULADO = 'anulado', 'Anulado'
+        SUSPENDIDO = 'suspendido', 'Suspendido'
 
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='contratos')
-    numero = models.CharField(max_length=20, unique=True)
-    fecha_inicio = models.DateField()
-    fecha_vencimiento = models.DateField()
-    estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.VIGENTE)
-    archivo_url = models.URLField(blank=True)
-
-    class Meta:
+    class Meta(columnas.ColumnasContrato.Meta):
         db_table = 'contratos'
-        ordering = ['-fecha_inicio']
+        ordering = ['-created_at']
         verbose_name = 'Contrato'
         verbose_name_plural = 'Contratos'
 
     def __str__(self):
-        return f'Contrato {self.numero} - {self.cliente.nombre}'
+        return f'Contrato {self.numero or self.id}'
 
 
 class Servicio(BaseModel):
+    """
+    El servicio de un cliente según el modelo anterior a la migración.
+
+    En el esquema del dashboard el servicio es la propia fila de `clientes`
+    (onu_id, plan_id, fecha_instalacion). Esta tabla se conserva por los datos
+    viejos; lo nuevo se escribe en `clientes`.
+    """
+
     class Estado(models.TextChoices):
         ACTIVO = 'activo', 'Activo'
         SUSPENDIDO = 'suspendido', 'Suspendido'

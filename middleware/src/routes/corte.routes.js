@@ -45,13 +45,13 @@ router.get(
 
     if (rConf.error && /does not exist/i.test(rConf.error.message)) {
       throw badRequest('Falta la migración de la página de corte', {
-        hint: 'Corré supabase/migracion-124-la-pagina-que-ve-el-cortado.sql',
+        hint: 'Actualiza la base: python manage.py migrate',
       })
     }
 
     if (!rAbonado.data) {
       throw notFound(`Ningún abonado tiene la IP ${ip}`, {
-        hint: 'Probá con la IP tal como está cargada en la ficha del abonado.',
+        hint: 'Prueba con la IP tal como está cargada en la ficha del abonado.',
       })
     }
 

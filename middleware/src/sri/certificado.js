@@ -30,7 +30,7 @@ export function leerCertificado(p12Base64, password) {
     // la práctica casi siempre es lo primero.
     throw new AppError('No se pudo abrir el certificado', {
       status: 400,
-      hint: 'Revisá que la contraseña sea la correcta y que el archivo sea un .p12 válido.',
+      hint: 'Revisa que la contraseña sea la correcta y que el archivo sea un .p12 válido.',
       detalle: String(err?.message ?? err),
     })
   }
@@ -47,7 +47,7 @@ export function leerCertificado(p12Base64, password) {
   if (!clavePrivada) {
     throw new AppError('El certificado no contiene una clave privada', {
       status: 400,
-      hint: 'Puede ser un archivo con el certificado público solamente. Necesitás el .p12 completo.',
+      hint: 'Puede ser un archivo con el certificado público solamente. Necesitas el .p12 completo.',
     })
   }
 

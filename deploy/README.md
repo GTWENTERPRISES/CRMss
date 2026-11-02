@@ -9,8 +9,8 @@ corresponde a algo que efectivamente salió mal la primera vez.
                          Servidor (Debian 12)
    ┌───────────────────────────────────────────────────────────┐
    │  nginx  :80/:443                                          │
-   │    ├── /            → web (archivos estáticos compilados) │
-   │    └── /api         → middleware (Node, :4000)            │
+   │    ├── /            → web (Next.js)                        │
+   │    └── /api         → Django (:8000) → middleware (:4000)  │
    │                                                           │
    │  OpenVPN server :1194/tcp        (solo si hace falta)     │
    │    └── un túnel por MikroTik sin IP pública               │
@@ -18,7 +18,7 @@ corresponde a algo que efectivamente salió mal la primera vez.
               │                              │
               │ internet                     │ túneles
               ▼                              ▼
-        Supabase (nube)            MikroTik ─── OLTs en su LAN
+        navegadores                MikroTik ─── OLTs en su LAN
 ```
 
 El middleware queda **dentro** de la red de la VPN, así que alcanza a los
@@ -109,8 +109,9 @@ Tarda unos minutos. El paso de compilación es el largo.
 Los `.env` se crean con los valores de ejemplo. Hay que completarlos con los de
 tu instalación.
 
-**No los copies a mano.** Las llaves de Supabase pasan los doscientos caracteres
-y un error de tipeo se manifiesta como un fallo de conexión que parece de red.
+**No los copies a mano.** Las claves (`FIELD_ENCRYPTION_KEY`, `CLAVE_INTERNA_MW`,
+`CREDENTIALS_KEY`) son largas y un error de tipeo se manifiesta como un fallo de
+conexión que parece de red.
 
 Desde **tu máquina**, con el proyecto clonado, armá el pegado de una sola vez:
 
@@ -338,6 +339,19 @@ Escribe las dos directivas que hacen falta —`route` en la configuración del
 servidor y `iroute` en la del cliente— y reinicia OpenVPN. Con una sola de las
 dos no funciona, y el síntoma es idéntico al de no haber hecho nada.
 
+Hacen falta también las redes de los **abonados**, no solo la de la OLT: la
+página que ve el cortado le contesta por el túnel, y sin la ruta OpenVPN
+descarta esos paquetes.
+
+> **Con menú.** Los pasos 5 a 7 se pueden hacer desde `menu-vpn` (queda como
+> comando después de la primera actualización; antes,
+> `bash /opt/smartolt/deploy/menu-vpn.sh`). Llama a estos mismos scripts, propone
+> la próxima IP libre del túnel y acepta las redes como están en el router
+> (`10.10.7.254/24`), hasta diez de una vez con un solo reinicio. También quita
+> redes cargadas por error, muestra qué MikroTik está conectado, abre en ufw el
+> puerto de la página del cortado y cambia la red del túnel (ver
+> [Corregir a mano](#corregir-a-mano)).
+
 Del lado del MikroTik, si tenés filtro en `forward`, dejá pasar lo que llega
 por la interfaz del túnel:
 
@@ -355,6 +369,56 @@ ping 10.11.105.2
 
 Sin argumentos, el script lista los clientes dados de alta y las redes ya
 publicadas.
+
+### Corregir a mano
+
+Todo lo que hacen los scripts y el menú queda en archivos de texto. Se pueden
+editar por SSH (`nano`) o con **WinSCP** (protocolo SFTP, usuario `root`, la IP
+del VPS). Después de tocar cualquiera:
+
+```bash
+systemctl restart openvpn-server@server
+```
+
+| Archivo | Qué tiene |
+|---|---|
+| `/etc/openvpn/ccd/<NOMBRE>` | Uno por MikroTik. `ifconfig-push 10.66.0.11 255.255.255.0` es su IP fija en el túnel; cada `iroute 10.10.7.0 255.255.255.0` es una red detrás de él. |
+| `/etc/openvpn/server/server.conf` | `server 10.66.0.0 255.255.255.0` es la red del túnel. Al final, bajo `# --- redes de clientes ---`, un `route` por cada red publicada. |
+| `/etc/openvpn/smartolt.env` | Lo que eligió el instalador: `PUBLICO`, `PUERTO`, `RED_VPN`, `PREFIJO`, `IP_VPS`. Lo leen los scripts, y el sistema para saber a dónde mandar al cortado. |
+| `/root/clientes-vpn/<NOMBRE>/` | Certificados y los `.rsc` para pegar en cada MikroTik. |
+| `/var/log/openvpn/status.log` | Quién está conectado ahora. |
+| `/var/log/openvpn/openvpn.log` | El registro del servidor, para errores. |
+
+Una red publicada lleva **siempre las dos líneas**: el `route` en
+`server.conf` y el `iroute` en el archivo de su MikroTik. Con una sola no
+funciona, y el síntoma es el mismo que no tener ninguna. Para quitar una red
+mal cargada, mejor que a mano:
+
+```bash
+./quitar-red-cliente.sh LOS_RIOS 10.10.7.0/24
+```
+
+### Cambiar la red del túnel
+
+Si la red elegida al instalar choca con una que existe dentro de algún
+MikroTik, se cambia en **dos pasos**, en este orden:
+
+```bash
+./cambiar-red-vpn.sh preparar 10.67.0.0/24   # no cambia nada
+./cambiar-red-vpn.sh aplicar  10.67.0.0/24   # recién acá
+```
+
+`preparar` deja en `/root/clientes-vpn/<NOMBRE>/cambio-red-<NOMBRE>.rsc` los
+comandos que le habilitan la red nueva a cada router, **además** de la vieja.
+Hay que pegarlos en todos antes de aplicar: cada MikroTik solo acepta su API
+desde la red del túnel, y si el servidor cambia primero, quedan inalcanzables
+para el sistema.
+
+`aplicar` respalda `/etc/openvpn` en `/root/respaldo-openvpn-<fecha>.tar.gz`,
+cambia la red y la IP de cada router (conserva el último número: `.11` sigue
+siendo `.11`) y reinicia OpenVPN. Al terminar lista las IP nuevas: hay que
+cambiarlas en el sistema (MikroTik → editar) y en cada router apretar
+**Revisar el equipo → aplicar**, que corrige la página del cortado.
 
 ---
 
@@ -375,36 +439,19 @@ publicadas.
 ## El correo de acceso
 
 Para que el personal pueda recuperar su contraseña solo, sin pedírsela a quien
-administra, hay que configurar dos cosas en el panel de Supabase. El sistema ya
-trae el "¿Olvidaste tu contraseña?" en la pantalla de entrada; esto es lo que
-falta del otro lado.
+administra, Django manda un código por correo. El sistema ya trae el "¿Olvidaste
+tu contraseña?" en la pantalla de entrada; falta decirle a Django con qué cuenta
+enviar, en `backend/new/.env`:
 
-**Project Settings → Authentication → SMTP Settings** → *Enable Custom SMTP*, con
-los mismos datos con los que el sistema ya manda las facturas:
-
-| Campo | Valor |
+| Variable | Valor |
 |---|---|
-| Host / Port | el de tu proveedor — con Gmail, `smtp.gmail.com` y `465` |
-| Username | la cuenta que envía |
-| Password | una **contraseña de aplicación**, no la del correo |
-| Sender email | la misma cuenta del Username |
+| `EMAIL_HOST` / `EMAIL_PORT` | el de tu proveedor — con Gmail, `smtp.gmail.com` y `465` |
+| `EMAIL_HOST_USER` | la cuenta que envía |
+| `EMAIL_HOST_PASSWORD` | una **contraseña de aplicación**, no la del correo |
+| `DEFAULT_FROM_EMAIL` | la misma cuenta |
 
-> Sin esto el envío igual funciona, pero lo hace el servidor de Supabase: tiene
-> un límite bajo de correos por hora y cae en spam seguido. Sirve para probar,
-> no para uso diario.
-
-> El puerto 465 habla TLS desde el saludo. Si hay una casilla de cifrado, va
-> activada: un 465 sin TLS no existe, y el error que devuelve —"Greeting never
-> received"— no lo dice.
-
-**Authentication → URL Configuration → Redirect URLs**, agregar:
-
-```
-https://TU-DOMINIO/nueva-clave
-```
-
-Sin eso Supabase rechaza el enlace por apuntar a una dirección no autorizada: el
-correo llega y no sirve.
+> El puerto 465 habla TLS desde el saludo: un 465 sin TLS no existe, y el error
+> que devuelve —"Greeting never received"— no lo dice.
 
 Y una condición que no es de configuración: **cada usuario necesita su correo
 cargado**, y que sea uno al que de verdad entre. Si dos comparten uno, o si
@@ -415,8 +462,21 @@ depender de quien administra.
 
 ## Actualizar
 
+Cualquiera de las dos hace lo mismo:
+
 ```bash
-/opt/smartolt/deploy/actualizar.sh
+actualizar                                  # el comando corto, desde cualquier carpeta
+bash /opt/smartolt/deploy/actualizar.sh     # la ruta completa: funciona siempre
+```
+
+El comando corto lo crea la propia actualización. En un servidor que todavía
+no lo tiene, usá la ruta completa, y si después de correrla `actualizar` sigue
+diciendo *command not found*, corréla **una vez más**: la primera vez arranca la
+versión vieja del script, que todavía no sabe crearlo. Si igual falta, se crea
+a mano:
+
+```bash
+ln -sf /opt/smartolt/deploy/actualizar.sh /usr/local/bin/actualizar
 ```
 
 Trae los cambios, reinstala dependencias **solo si cambiaron**, compila,
@@ -431,6 +491,40 @@ dice si quedó utilizable.
 ---
 
 ## Comandos útiles
+
+### Los dos de todos los días
+
+Cada uno se puede escribir corto o con su ruta completa. La ruta completa
+funciona siempre, aunque el comando corto todavía no exista:
+
+| Para qué | Corto | Con la ruta completa |
+|---|---|---|
+| Actualizar el sistema | `actualizar` | `bash /opt/smartolt/deploy/actualizar.sh` |
+| El menú del túnel VPN (MikroTik, redes, puerto del cortado) | `menu-vpn` | `bash /opt/smartolt/deploy/menu-vpn.sh` |
+
+Si un comando corto dice *command not found*, se crea así (una sola vez):
+
+```bash
+ln -sf /opt/smartolt/deploy/actualizar.sh /usr/local/bin/actualizar
+ln -sf /opt/smartolt/deploy/menu-vpn.sh   /usr/local/bin/menu-vpn
+```
+
+### Los scripts del túnel, sin menú
+
+Lo mismo que hace `menu-vpn`, escribiendo los datos a mano. Se corren desde
+`/opt/smartolt/deploy` (`cd /opt/smartolt/deploy` primero):
+
+```bash
+bash agregar-cliente-vpn.sh LOS_RIOS 10.66.0.11      # un MikroTik nuevo
+bash agregar-red-cliente.sh LOS_RIOS 10.10.7.0/24    # una red detrás de él
+bash quitar-red-cliente.sh  LOS_RIOS 10.10.7.0/24    # quitar una cargada por error
+bash cambiar-red-vpn.sh preparar 10.67.0.0/24        # cambiar la red del túnel (paso 1)
+bash cambiar-red-vpn.sh aplicar  10.67.0.0/24        # (paso 2)
+```
+
+Sin datos, cada uno muestra cómo se usa y lo que ya está cargado.
+
+### Diagnóstico
 
 ```bash
 systemctl status smartolt-middleware      # estado

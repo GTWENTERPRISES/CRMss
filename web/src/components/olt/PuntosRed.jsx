@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
 import { Antenna, Plus, Trash2 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { useTabla } from '../../lib/useTabla'
 import {
   Aviso,
@@ -53,7 +53,7 @@ export default function PuntosRed() {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const { data, error: err } = await supabase.from('v_puntos_red').select('*').order('nombre')
+    const { data, error: err } = await django.from('v_puntos_red').select('*').order('nombre')
     if (err) setError(err)
     setFilas(data ?? [])
     setCargando(false)
@@ -68,7 +68,7 @@ export default function PuntosRed() {
     setGuardando(true)
     setError(null)
     try {
-      const { error: err } = await supabase.from('puntos_red').insert({
+      const { error: err } = await django.from('puntos_red').insert({
         nombre: form.nombre.trim(),
         tipo: form.tipo,
         capacidad: form.capacidad === '' ? null : Number(form.capacidad),
@@ -90,19 +90,19 @@ export default function PuntosRed() {
     if (p.clientes > 0) {
       return setError(
         new Error(
-          `"${p.nombre}" tiene ${p.clientes} abonado(s) colgando. Movelos antes de borrarla, o desactivala.`,
+          `"${p.nombre}" tiene ${p.clientes} abonado(s) colgando. Movelos antes de borrarla, o desactívala.`,
         ),
       )
     }
     if (!await confirmar(`¿Eliminar "${p.nombre}"?`)) return
 
-    const { error: err } = await supabase.from('puntos_red').delete().eq('id', p.id)
+    const { error: err } = await django.from('puntos_red').delete().eq('id', p.id)
     if (err) setError(err)
     else await recargar()
   }
 
   async function alternarActivo(p) {
-    const { error: err } = await supabase
+    const { error: err } = await django
       .from('puntos_red')
       .update({ activo: !p.activo })
       .eq('id', p.id)
@@ -120,10 +120,10 @@ export default function PuntosRed() {
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
         <form onSubmit={agregar} className="grid items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <Field label="Nombre">
+          <Field campo="nombre" label="Nombre">
             <Input value={form.nombre} onChange={set('nombre')} placeholder="NAP-01 San Gerardo" required />
           </Field>
-          <Field label="Tipo">
+          <Field campo="tipo" label="Tipo">
             <Select value={form.tipo} onChange={set('tipo')}>
               {TIPOS.map((t) => (
                 <option key={t.valor} value={t.valor}>
@@ -132,10 +132,10 @@ export default function PuntosRed() {
               ))}
             </Select>
           </Field>
-          <Field label="Capacidad" hint="Puertos o abonados">
-            <Input type="number" min={1} value={form.capacidad} onChange={set('capacidad')} />
+          <Field campo="capacidad" label="Capacidad" hint="Puertos o abonados">
+            <Input placeholder="Ej.: 16" type="number" min={1} value={form.capacidad} onChange={set('capacidad')} />
           </Field>
-          <Field label="OLT" hint="Si es una caja de fibra">
+          <Field campo="olt_id" label="OLT" hint="Si es una caja de fibra">
             <Select value={form.olt_id} onChange={set('olt_id')}>
               <option value="">— ninguna —</option>
               {olts.map((o) => (
@@ -145,7 +145,7 @@ export default function PuntosRed() {
               ))}
             </Select>
           </Field>
-          <Field label="Puerto PON">
+          <Field campo="puerto_pon" label="Puerto PON">
             <Input value={form.puerto_pon} onChange={set('puerto_pon')} placeholder="0/1/2" />
           </Field>
           <div className="pb-2">
@@ -159,7 +159,7 @@ export default function PuntosRed() {
           <Cargando />
         ) : filas.length === 0 ? (
           <Aviso>
-            Todavía no hay puntos de red. Cargá las cajas NAP y las antenas para poder asignarlas en
+            Todavía no hay puntos de red. Carga las cajas NAP y las antenas para poder asignarlas en
             la ficha de cada abonado.
           </Aviso>
         ) : (

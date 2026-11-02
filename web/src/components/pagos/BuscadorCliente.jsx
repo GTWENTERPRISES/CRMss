@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Badge, Input } from '../ui'
+import { COLOR_ESTADO as COLORES } from '../../lib/estados'
 
 /**
  * Buscador de clientes para cobrar.
@@ -10,17 +11,13 @@ import { Badge, Input } from '../ui'
  * número de la factura que trae en la mano o la IP que le anotaron. Por eso se
  * busca por todo a la vez y no con un campo por criterio.
  *
- * Los resultados se piden a Supabase mientras se escribe, con una espera corta:
+ * Los resultados se piden a la base mientras se escribe, con una espera corta:
  * una consulta por tecla satura la conexión y devuelve resultados de una
  * búsqueda vieja después de la nueva.
  */
 
-const COLOR_ESTADO = {
-  activo: 'verde',
-  cortado: 'rojo',
-  suspendido: 'ambar',
-  baja: 'gris',
-}
+// Colores de estado: los mismos en todo el sistema (lib/estados).
+const COLOR_ESTADO = COLORES.abonado
 
 /** PostgREST separa los filtros con comas y paréntesis: hay que sacarlos. */
 const limpiar = (texto) => texto.replace(/[,()%*\\]/g, ' ').trim()
@@ -60,7 +57,7 @@ export default function BuscadorCliente({ onElegir, autoFocus = true }) {
   }, [texto, modo])
 
   async function buscarClientes(q) {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('clientes')
       .select('*')
       .or(
@@ -80,7 +77,7 @@ export default function BuscadorCliente({ onElegir, autoFocus = true }) {
 
   /** Buscar por el número que trae impreso la factura. */
   async function buscarPorComprobante(q) {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('v_facturas_por_cobrar')
       .select('client_id, numero, importe_total, saldo, razon_social_comprador')
       .ilike('numero', `%${q}%`)
@@ -91,7 +88,7 @@ export default function BuscadorCliente({ onElegir, autoFocus = true }) {
     const ids = [...new Set(data.map((f) => f.client_id).filter(Boolean))]
     if (!ids.length) return []
 
-    const { data: clientes, error: err2 } = await supabase.from('clientes').select('*').in('id', ids)
+    const { data: clientes, error: err2 } = await django.from('clientes').select('*').in('id', ids)
     if (err2) throw err2
     return clientes ?? []
   }
@@ -124,7 +121,7 @@ export default function BuscadorCliente({ onElegir, autoFocus = true }) {
         ))}
       </div>
 
-      <div className="relative mx-auto max-w-2xl">
+      <div className="relative mx-auto max-w-md">
         <Search
           size={16}
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"

@@ -65,9 +65,9 @@ export default function LineProfileForm() {
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
         <form onSubmit={crear} className="grid items-end gap-3 sm:grid-cols-6">
-          <Field label="OLT" className="sm:col-span-2">
+          <Field hint="La OLT a la que está conectada la ONU." label="OLT" className="sm:col-span-2">
             <Select value={oltId} onChange={(e) => setOltId(e.target.value)} required>
-              <option value="">— elegí —</option>
+              <option value="">— elige —</option>
               {olts.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.nombre} ({o.marca})
@@ -75,7 +75,7 @@ export default function LineProfileForm() {
               ))}
             </Select>
           </Field>
-          <Field label="Nombre">
+          <Field campo="nombre" label="Nombre">
             <Input
               value={form.nombre}
               onChange={set('nombre')}
@@ -83,11 +83,11 @@ export default function LineProfileForm() {
               required
             />
           </Field>
-          <Field label="VLAN">
-            <Input type="number" value={form.vlan_id} onChange={set('vlan_id')} min={1} max={4094} required />
+          <Field campo="vlan_id" label="VLAN">
+            <Input placeholder="Ej.: 100" type="number" value={form.vlan_id} onChange={set('vlan_id')} min={1} max={4094} required />
           </Field>
-          <Field label="GEM port">
-            <Input type="number" value={form.gemport_id} onChange={set('gemport_id')} min={1} />
+          <Field campo="gemport_id" label="GEM port">
+            <Input placeholder="Ej.: 1" type="number" value={form.gemport_id} onChange={set('gemport_id')} min={1} />
           </Field>
           <div className="pb-2">
             <Button
@@ -105,8 +105,8 @@ export default function LineProfileForm() {
 
         {oltId && !esHuawei && (
           <Aviso tipo="alerta">
-            La creación automática de line profiles está implementada para Huawei. En V-SOL creá el
-            perfil desde la CLI y después usá su nombre al confirmar las ONUs
+            La creación automática de line profiles está implementada para Huawei. En V-SOL crea el
+            perfil desde la CLI y después usa su nombre al confirmar las ONUs
             (<code>onu confirm line-profile &lt;nombre&gt;</code>).
           </Aviso>
         )}

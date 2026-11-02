@@ -18,8 +18,13 @@ import {
   Waves,
   X,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { campoApi } from '../../lib/colaCampo'
+import { enlaceWhatsApp, separarTelefonos } from '../../lib/telefono'
+import { completarIngreso } from '../../lib/servicio'
+import { usePrepararIngreso } from '../tecnico/IngresoGrupal'
+import { registrarLlamada } from '../tecnico/RutaDelDia'
+import NoSePudoTicket from './NoSePudoTicket'
 import AvisoIncidencia from '../tecnico/AvisoIncidencia'
 import { Aviso, Button, Card, Field, Input, Textarea } from '../ui'
 import FirmaDigital from './FirmaDigital'
@@ -39,6 +44,7 @@ import {
   haceCuanto,
   ubicacionActual,
 } from '../../lib/soporte'
+import { fecha as fmtFecha, fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * La orden de trabajo como la ve el técnico en la calle.
@@ -55,10 +61,10 @@ import {
  */
 
 const fecha = (f) =>
-  f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : '—'
+  f ? fmtFecha(`${String(f).slice(0, 10)}T12:00:00`) : '—'
 
 const fechaHora = (f) =>
-  f ? new Date(f).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '—'
+  f ? fmtFechaHora(f) : '—'
 
 function Dato({ etiqueta, valor, mono = false }) {
   if (valor === null || valor === undefined || valor === '') return null
@@ -72,6 +78,7 @@ function Dato({ etiqueta, valor, mono = false }) {
 
 export default function TicketFicha({ ticket, onCambio, onError }) {
   const confirmar = useConfirmar()
+  const prepararIngreso = usePrepararIngreso()
   const [t, setT] = useState(ticket)
   const [guardando, setGuardando] = useState(false)
   const [eventos, setEventos] = useState([])
@@ -90,8 +97,41 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
 
   const archivoRef = useRef(null)
   const [ubicando, setUbicando] = useState(false)
+  // Elegir técnico o cuadrilla al pasar un ticket abierto a asignado.
+  const [asignando, setAsignando] = useState(null)
+  const [personal, setPersonal] = useState(null)
 
   useEffect(() => setT(ticket), [ticket])
+
+  /**
+   * Un botón de los de abajo. Pasar a "asignado" sin técnico pide a quién: un
+   * ticket asignado a nadie no aparece en ninguna agenda y queda olvidado. Y
+   * cancelar se confirma, porque lo saca de la cola de todos.
+   */
+  async function transicion(e) {
+    if (e === 'asignado' && !t.tecnico_id && !t.cuadrilla_id) {
+      if (!personal) {
+        const [tec, cua] = await Promise.all([
+          django.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre'),
+          django.from('cuadrillas').select('id, nombre').eq('activo', true).order('nombre'),
+        ])
+        setPersonal({ tecnicos: tec.data ?? [], cuadrillas: cua.data ?? [] })
+      }
+      setAsignando({ tecnico_id: '', cuadrilla_id: '' })
+      return
+    }
+    if (e === 'cancelado' && !(await confirmar(`¿Cancelar el ticket N° ${t.numero ?? ''}? Sale de la agenda del técnico.`))) {
+      return
+    }
+    await cambiarEstado(e)
+  }
+
+  async function confirmarAsignacion(ev) {
+    ev.preventDefault()
+    const { tecnico_id, cuadrilla_id } = asignando
+    await cambiarEstado('asignado', { tecnico_id: tecnico_id || null, cuadrilla_id: cuadrilla_id || null })
+    setAsignando(null)
+  }
 
   const puntos = CHECKLIST[t.tecnologia] ?? CHECKLIST.ftth
   const estado = ESTADOS[t.estado] ?? ESTADOS.abierto
@@ -99,12 +139,12 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
 
   const recargar = useCallback(async () => {
     const [ev, ad] = await Promise.all([
-      supabase
+      django
         .from('ticket_eventos')
         .select('*')
         .eq('ticket_id', t.id)
         .order('created_at', { ascending: false }),
-      supabase.from('ticket_adjuntos').select('*').eq('ticket_id', t.id).order('created_at'),
+      django.from('ticket_adjuntos').select('*').eq('ticket_id', t.id).order('created_at'),
     ])
     setEventos(ev.data ?? [])
     setAdjuntos(ad.data ?? [])
@@ -113,7 +153,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
     // Duran una hora, que es más de lo que dura abierta esta pantalla.
     const mapa = {}
     for (const a of ad.data ?? []) {
-      const { data } = await supabase.storage.from('tickets').createSignedUrl(a.ruta, 3600)
+      const { data } = await django.storage.from('tickets').createSignedUrl(a.ruta, 3600)
       if (data?.signedUrl) mapa[a.id] = data.signedUrl
     }
     setUrls(mapa)
@@ -135,22 +175,30 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
     }))
   }, [t])
 
-  const wa = enlaceWhatsapp(
-    t.telefono_whatsapp || t.telefono,
-    `Hola ${String(t.nombre ?? '').split(' ')[0]}, le escribimos por su reporte N° ${t.codigo}.`,
-  )
+  const mensajeWa = `Hola ${String(t.nombre ?? '').split(' ')[0]}, le escribimos por su reporte N° ${t.codigo}.`
+  const wa = enlaceWhatsapp(t.telefono_whatsapp || t.telefono, mensajeWa)
 
-  async function cambiarEstado(nuevo) {
+  // Todos los números del abonado: muchos tienen dos en el mismo campo
+  // ("0991234567 / 0987654321"). Los botones grandes usan el primero; con más
+  // de uno, abajo se ofrece cada uno por separado.
+  const numeros = separarTelefonos([t.telefono_whatsapp, t.telefono].filter(Boolean).join(' / '))
+
+  async function cambiarEstado(nuevo, extra = {}) {
     setGuardando(true)
     onError?.(null)
     try {
+      // Iniciar el trabajo marca el ingreso si es el primero del día (212).
+      // Salir hacia el domicilio no pide nada: manejar no es empezar.
+      const foto = nuevo === 'en_proceso' ? await prepararIngreso({ tipo: 'ticket', id: t.id, lat: t.latitud, lng: t.longitud }) : null
+
       // `cerrado_por` solo cuando de verdad se está cerrando. Ponerlo en cada
       // cambio de estado hacía figurar como "cerrado por" a quien apenas salió
       // hacia el domicilio.
       const campos = {
         estado: nuevo,
+        ...extra,
         ...(nuevo === 'resuelto' || nuevo === 'cancelado'
-          ? { cerrado_por: (await supabase.auth.getUser()).data?.user?.id ?? null }
+          ? { cerrado_por: (await django.auth.getUser()).data?.user?.id ?? null }
           : {}),
         ...(nuevo === 'en_ruta' ? { salida_at: new Date().toISOString() } : {}),
       }
@@ -164,6 +212,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
       setT((v) => ({ ...v, ...campos }))
       if (r.encolado) return
 
+      await completarIngreso(foto)
       await recargar()
       await onCambio?.()
     } catch (err) {
@@ -237,6 +286,9 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
         // haría figurar como cerrador a alguien que recién está entrando.
       }
 
+      // Si es el primer trabajo del día, esta llegada es el ingreso (212).
+      const foto = await prepararIngreso({ tipo: 'ticket', id: t.id, lat: t.latitud, lng: t.longitud })
+
       // Pasa por la cola: llegar al domicilio es justo donde suele no haber
       // señal, y perder la marca de llegada obliga a rehacerla desde la
       // memoria — que es como se llena de horarios inventados.
@@ -245,6 +297,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
       setT((v) => ({ ...v, ...campos }))
       if (r.encolado) return
 
+      await completarIngreso(foto)
       await recargar()
       await onCambio?.()
     } catch (err) {
@@ -262,7 +315,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
     onError?.(null)
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
+      const { data: sesion } = await django.auth.getUser()
 
       for (const archivo of archivos) {
         // Se achica antes de subir: el técnico está con datos móviles y una foto
@@ -270,12 +323,12 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
         const blob = await comprimirImagen(archivo)
         const ruta = `${t.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
 
-        const { error: errSubida } = await supabase.storage
+        const { error: errSubida } = await django.storage
           .from('tickets')
           .upload(ruta, blob, { contentType: 'image/jpeg' })
         if (errSubida) throw errSubida
 
-        const { error } = await supabase.from('ticket_adjuntos').insert({
+        const { error } = await django.from('ticket_adjuntos').insert({
           ticket_id: t.id,
           tipo: 'foto',
           ruta,
@@ -295,8 +348,8 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
 
   async function borrarFoto(a) {
     if (!await confirmar('¿Borrar esta foto?')) return
-    await supabase.storage.from('tickets').remove([a.ruta])
-    await supabase.from('ticket_adjuntos').delete().eq('id', a.id)
+    await django.storage.from('tickets').remove([a.ruta])
+    await django.from('ticket_adjuntos').delete().eq('id', a.id)
     await recargar()
   }
 
@@ -310,7 +363,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
     onError?.(null)
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
+      const { data: sesion } = await django.auth.getUser()
       // Un solo botón, con o sin señal. Sin conexión el cierre queda en la cola
       // y sale solo; la franja de arriba dice que falta enviarlo.
       //
@@ -400,9 +453,10 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
       {/* ------------------------------------------------ Acciones rápidas */}
       <div className="grid grid-cols-3 gap-2">
         <a
-          href={t.telefono ? `tel:${t.telefono}` : undefined}
+          href={numeros[0] ? `tel:${numeros[0].local}` : undefined}
+          onClick={() => numeros.length && registrarLlamada('ticket', t.id, 'llamada')}
           className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs transition ${
-            t.telefono
+            numeros.length
               ? 'border-sky-500/40 bg-sky-500/10 text-sky-200 active:bg-sky-500/20'
               : 'pointer-events-none border-slate-800 text-slate-600'
           }`}
@@ -415,6 +469,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
           href={wa ?? undefined}
           target="_blank"
           rel="noreferrer"
+          onClick={() => wa && registrarLlamada('ticket', t.id, 'whatsapp')}
           className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs transition ${
             wa
               ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200 active:bg-emerald-500/20'
@@ -439,6 +494,36 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
           Navegar
         </a>
       </div>
+
+      {numeros.length > 1 && (
+        <div className="space-y-1.5 rounded-xl border border-slate-800 p-3">
+          <p className="text-[11px] text-slate-500">El abonado tiene {numeros.length} números:</p>
+          {numeros.map((n) => (
+            <div key={n.internacional} className="flex items-center gap-2 text-[13px]">
+              <span className="flex-1 tabular-nums text-slate-200">
+                {n.local}
+                {!n.movil && <span className="ml-1 text-[11px] text-slate-500">fijo</span>}
+              </span>
+              <a href={`tel:${n.local}`} onClick={() => registrarLlamada('ticket', t.id, 'llamada')} className="rounded-lg border border-sky-500/40 px-2.5 py-1 text-[12px] text-sky-300">
+                <Phone size={13} className="mr-1 inline" />
+                Llamar
+              </a>
+              {n.movil && (
+                <a
+                  href={enlaceWhatsApp(n.local, mensajeWa)}
+                  onClick={() => registrarLlamada('ticket', t.id, 'whatsapp')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg border border-emerald-500/40 px-2.5 py-1 text-[12px] text-emerald-300"
+                >
+                  <MessageCircle size={13} className="mr-1 inline" />
+                  WhatsApp
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {enlaceMapa(t, 'waze') && (
         <a
@@ -492,19 +577,67 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
           {TRANSICIONES[t.estado]
             .filter((e) => !(t.estado === 'asignado' && e === 'en_ruta'))
             .filter((e) => !(t.estado === 'en_ruta' && e === 'en_proceso'))
+            // Resolver va por el formulario de cierre (checklist, qué se hizo,
+            // firma): un atajo acá cerraba el ticket sin nada de eso.
+            .filter((e) => !(t.estado === 'en_proceso' && e === 'resuelto'))
             .map((e) => (
               <Button
                 key={e}
                 variante="fantasma"
                 icon={e === 'cancelado' ? X : CornerUpLeft}
-                onClick={() => cambiarEstado(e)}
+                onClick={() => transicion(e)}
                 cargando={guardando}
                 className="text-xs"
               >
-                {e === 'cancelado' ? 'Cancelar ticket' : `Volver a ${ESTADOS[e].label.toLowerCase()}`}
+                {etiquetaTransicion(t.estado, e)}
               </Button>
             ))}
         </div>
+      )}
+
+      {asignando && (
+        <form onSubmit={confirmarAsignacion} className="space-y-3 rounded-xl border border-slate-700 p-4">
+          <p className="text-sm font-semibold text-slate-200">¿Quién va?</p>
+          <Field hint="Quién va a hacer el trabajo." label="Técnico">
+            <select
+              value={asignando.tecnico_id}
+              onChange={(ev) => setAsignando({ tecnico_id: ev.target.value, cuadrilla_id: '' })}
+              className="w-full rounded-xl border border-slate-700 bg-white px-3 py-2 text-sm text-slate-100"
+            >
+              <option value="">— elige —</option>
+              {(personal?.tecnicos ?? []).map((x) => (
+                <option key={x.id} value={x.id}>{x.nombre}</option>
+              ))}
+            </select>
+          </Field>
+          {(personal?.cuadrillas ?? []).length > 0 && (
+            <Field hint="O un equipo completo en lugar de una persona." label="O cuadrilla">
+              <select
+                value={asignando.cuadrilla_id}
+                onChange={(ev) => setAsignando({ tecnico_id: '', cuadrilla_id: ev.target.value })}
+                className="w-full rounded-xl border border-slate-700 bg-white px-3 py-2 text-sm text-slate-100"
+              >
+                <option value="">— elige —</option>
+                {personal.cuadrillas.map((x) => (
+                  <option key={x.id} value={x.id}>{x.nombre}</option>
+                ))}
+              </select>
+            </Field>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variante="fantasma" onClick={() => setAsignando(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variante="primario"
+              cargando={guardando}
+              disabled={!asignando.tecnico_id && !asignando.cuadrilla_id}
+            >
+              Asignar
+            </Button>
+          </div>
+        </form>
       )}
 
       {/* ------------------------------------------------ Salida y llegada */}
@@ -674,6 +807,19 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
       </Card>
 
       {/* ------------------------------------------------ Cierre */}
+      {/* El trabajo que no se pudo hacer también termina (migración 216): vuelve
+          a la oficina para reprogramar y la ruta pasa al siguiente. */}
+      {t.estado === 'en_proceso' && (
+        <NoSePudoTicket
+          t={t}
+          onError={onError}
+          onHecho={async () => {
+            await recargar()
+            await onCambio?.()
+          }}
+        />
+      )}
+
       {t.estado === 'en_proceso' && (
         <Card title="Cerrar el ticket" icon={Check}>
           <form onSubmit={cerrarTicket} className="space-y-4">
@@ -709,7 +855,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
             </div>
 
             <Field label="Qué se hizo" hint="Lo que el próximo técnico necesita saber">
-              <Textarea
+              <Textarea placeholder="Ej.: Se limpiaron conectores y se reinició la ONT"
                 rows={3}
                 value={cierre.solucion}
                 onChange={(e) => setCierre((c) => ({ ...c, solucion: e.target.value }))}
@@ -717,7 +863,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
             </Field>
 
             <Field label="Material usado" hint="Metros de fibra, conectores, rosetas">
-              <Textarea
+              <Textarea placeholder="Ej.: 1 conector SC/APC"
                 rows={2}
                 value={cierre.material_usado}
                 onChange={(e) => setCierre((c) => ({ ...c, material_usado: e.target.value }))}
@@ -726,13 +872,13 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Quién firma">
-                <Input
+                <Input placeholder="Ej.: Juan Pérez"
                   value={cierre.firmante_nombre}
                   onChange={(e) => setCierre((c) => ({ ...c, firmante_nombre: e.target.value }))}
                 />
               </Field>
               <Field label="Cédula de quien firma">
-                <Input
+                <Input placeholder="Ej.: 0912345678"
                   value={cierre.firmante_cedula}
                   onChange={(e) => setCierre((c) => ({ ...c, firmante_cedula: e.target.value }))}
                 />
@@ -848,4 +994,15 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
       </Card>
     </div>
   )
+}
+
+const ORDEN_ESTADOS = ['abierto', 'asignado', 'en_ruta', 'en_proceso', 'resuelto']
+
+/** "Volver a" solo si de verdad es para atrás; si avanza, "Pasar a". */
+function etiquetaTransicion(actual, destino) {
+  if (destino === 'cancelado') return 'Cancelar ticket'
+  if (actual === 'cancelado') return 'Reabrir'
+  if (destino === 'asignado' && actual === 'abierto') return 'Asignar técnico'
+  const atras = ORDEN_ESTADOS.indexOf(destino) < ORDEN_ESTADOS.indexOf(actual)
+  return `${atras ? 'Volver a' : 'Pasar a'} ${ESTADOS[destino].label.toLowerCase()}`
 }

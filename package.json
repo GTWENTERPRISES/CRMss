@@ -9,21 +9,12 @@
     "dev:web": "npm --prefix web run dev",
     "build": "npm --prefix web run build",
     "test": "npm --prefix middleware test",
-    "check": "node supabase/verificar.mjs",
-    "check:migraciones": "node --env-file=middleware/.env supabase/verificar-migraciones.mjs",
-    "plantillas:crm": "node --env-file=middleware/.env supabase/generar-plantillas-crm.mjs",
     "check:routers": "node --env-file=middleware/.env middleware/diagnostico-routers.mjs",
     "install:all": "npm --prefix middleware install && npm --prefix web install",
     "tunel": "powershell -ExecutionPolicy Bypass -File deploy/tunel.ps1",
-    "migrar:prueba": "node supabase/aplicar-migraciones.mjs",
-    "dev:prueba": "node --env-file=middleware/.env.prueba middleware/src/server.js",
-    "check:prueba": "node --env-file=middleware/.env.prueba supabase/verificar-migraciones.mjs",
-    "prueba": "powershell -ExecutionPolicy Bypass -File deploy/ambiente-prueba.ps1",
-    "prueba:parar": "powershell -ExecutionPolicy Bypass -File deploy/ambiente-prueba.ps1 -Detener",
-    "prueba:reiniciar": "powershell -ExecutionPolicy Bypass -File deploy/ambiente-prueba.ps1 -Reiniciar"
+    "dev:prueba": "node --env-file=middleware/.env.prueba middleware/src/server.js"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0",
-    "pg": "^8.23.0"
+    "concurrently": "^9.1.0"
   }
 }

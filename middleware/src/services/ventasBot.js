@@ -48,7 +48,7 @@ export async function validarCobertura({ latitud, longitud, tecnologia = 'ftth' 
   if (lat === 0 && lng === 0) {
     throw badRequest('Las coordenadas llegaron vacías.', {
       codigo: 'DATOS_INVALIDOS',
-      hint: 'Pedile al prospecto que comparta su ubicación desde WhatsApp.',
+      hint: 'Pídele al prospecto que comparta su ubicación desde WhatsApp.',
     })
   }
   if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
@@ -225,7 +225,7 @@ export async function agendarInstalacion(datos = {}) {
     throw new AppError('Esa cédula ya tiene un servicio activo con nosotros.', {
       status: 409,
       codigo: 'YA_ES_ABONADO',
-      hint: 'Si quiere un traslado o un segundo servicio, derivalo a un asesor.',
+      hint: 'Si quiere un traslado o un segundo servicio, derívalo a un asesor.',
     })
   }
 

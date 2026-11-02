@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 
 /**
  * Vocabulario y utilidades de la ficha de OLT.
@@ -27,7 +27,7 @@ export const CAPACIDADES = {
     salud: false,
     placas: false,
     puertosPon: false,
-    nota: 'Falta relevar los comandos contra el equipo. Usá la pestaña de cada área para preguntarle qué acepta.',
+    nota: 'Falta relevar los comandos contra el equipo. Usa la pestaña de cada área para preguntarle qué acepta.',
   },
 }
 
@@ -36,13 +36,20 @@ export const capacidadesDe = (marca) =>
 
 // --- Escritura ---------------------------------------------------------------
 
+/** Alta de una OLT: a la tabla `olts` (la vista v_olts no se puede escribir). */
+export async function crearOlt(datos) {
+  const { data, error } = await django.from('olts').insert(datos).select('id').single()
+  if (error) throw traducir(error)
+  return data
+}
+
 export async function guardarOlt(id, cambios) {
-  const { error } = await supabase.from('olts').update(cambios).eq('id', id)
+  const { error } = await django.from('olts').update(cambios).eq('id', id)
   if (error) throw traducir(error)
 }
 
 export async function eliminarOlt(id) {
-  const { error } = await supabase.from('olts').delete().eq('id', id)
+  const { error } = await django.from('olts').delete().eq('id', id)
   if (error) throw traducir(error)
 }
 
@@ -51,7 +58,7 @@ function traducir(err) {
   e.hint = err.hint ?? err.details
   if (err.code === '23503') {
     e.message = 'La OLT tiene registros que dependen de ella'
-    e.hint = 'Eliminá o reasigná sus ONUs antes de borrarla.'
+    e.hint = 'Elimina o reasigna sus ONUs antes de borrarla.'
   }
   return e
 }

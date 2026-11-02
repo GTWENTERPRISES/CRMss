@@ -3,7 +3,7 @@ import { django } from './djangoClient'
 import { modoDemo, demoDb } from './demo'
 
 /**
- * CRUD sobre Django REST API (reemplazo de useTabla con Supabase).
+ * CRUD sobre Django REST API (reemplazo del useTabla anterior).
  * Mantiene la misma interfaz para facilitar la migración.
  * 
  * Uso:
@@ -58,7 +58,7 @@ export function useTablaDjango(tabla, { select = '*', orderBy = 'created_at', as
   )
 
   const actualizar = useCallback(
-    async (id, cambios) {
+    async (id, cambios) => {
       if (modoDemo) {
         await demoDb.actualizar(tabla, id, cambios)
       } else {
@@ -94,10 +94,10 @@ function traducir(err, tabla) {
   // Códigos HTTP comunes
   if (err.code === 404) {
     e.message = `La tabla "${tabla}" no existe o el registro no fue encontrado`
-    e.hint = 'Verificá que el modelo Django esté creado y migrado.'
+    e.hint = 'Verifica que el modelo Django esté creado y migrado.'
   } else if (err.code === 401 || err.code === 403) {
     e.message = `Sin permiso para operar sobre "${tabla}"`
-    e.hint = 'Verificá que estés autenticado y que tu usuario tenga permisos sobre este recurso.'
+    e.hint = 'Verifica que estés autenticado y que tu usuario tenga permisos sobre este recurso.'
   } else if (err.code === 400 && err.message.includes('unique')) {
     e.message = 'Ya existe un registro con esos datos'
     e.hint = err.details?.detail || 'Violación de constraint UNIQUE'
@@ -106,7 +106,7 @@ function traducir(err, tabla) {
     e.hint = err.details?.detail || 'Violación de constraint FOREIGN KEY'
   } else if (err.code === 500) {
     e.message = 'Error del servidor'
-    e.hint = 'Revisá los logs del backend Django para más detalles.'
+    e.hint = 'Revisa los logs del backend Django para más detalles.'
   }
 
   return e

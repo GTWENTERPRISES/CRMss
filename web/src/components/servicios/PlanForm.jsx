@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useIvaGeneral } from '../../lib/iva'
 import { Save } from 'lucide-react'
 import {
   CATEGORIAS,
@@ -91,6 +92,18 @@ export default function PlanForm({
       return nuevo
     })
 
+  const ivaGeneral = useIvaGeneral()
+
+  /**
+   * Un plan nuevo nace con el IVA general de Facturación, no con un 15 fijo.
+   * Llega un instante después de abrir el formulario (se pide al servidor), así
+   * que se ajusta solo mientras nadie haya tocado el campo.
+   */
+  useEffect(() => {
+    if (plan) return
+    setForm((f) => (f.ivaTocado ? f : { ...f, iva_porcentaje: ivaGeneral }))
+  }, [ivaGeneral, plan])
+
   const [form, setForm] = useState(() =>
     plan
       ? {
@@ -134,6 +147,14 @@ export default function PlanForm({
   }
   if (form.garantizado_subida !== '' && Number(form.garantizado_subida) > Number(form.subida_mbps || 0)) {
     problemas.push('El caudal garantizado de subida no puede superar la velocidad del plan.')
+  }
+  // La mínima efectiva va al anexo del contrato de ARCOTEL: prometer más de lo
+  // que el plan entrega es una cláusula que no se puede cumplir.
+  if (form.minima_bajada !== '' && Number(form.minima_bajada) > Number(form.bajada_mbps || 0)) {
+    problemas.push('La velocidad mínima efectiva de bajada no puede superar la del plan.')
+  }
+  if (form.minima_subida !== '' && Number(form.minima_subida) > Number(form.subida_mbps || 0)) {
+    problemas.push('La velocidad mínima efectiva de subida no puede superar la del plan.')
   }
 
   async function guardar(e) {
@@ -195,11 +216,11 @@ export default function PlanForm({
         </h3>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nombre del plan">
+          <Field campo="nombre" label="Nombre del plan">
             <Input value={form.nombre} onChange={set('nombre')} placeholder="Plan Hogar 100M" required />
           </Field>
 
-          <Field label="Categoría" hint={CATEGORIAS[form.categoria]?.ayuda}>
+          <Field campo="categoria" label="Categoría" hint={CATEGORIAS[form.categoria]?.ayuda}>
             <Select value={form.categoria} onChange={set('categoria')}>
               {Object.entries(CATEGORIAS).map(([valor, c]) => (
                 <option key={valor} value={valor}>
@@ -209,8 +230,8 @@ export default function PlanForm({
             </Select>
           </Field>
 
-          <Field label="Precio de lista">
-            <Input
+          <Field campo="precio" label="Precio de lista">
+            <Input placeholder="Ej.: 25.00"
               type="number"
               step="0.01"
               min={0}
@@ -220,7 +241,7 @@ export default function PlanForm({
             />
           </Field>
 
-          <Field label="IVA" hint={IMPUESTOS[form.tipo_impuesto]?.ayuda}>
+          <Field campo="tipo_impuesto" label="IVA" hint={IMPUESTOS[form.tipo_impuesto]?.ayuda}>
             <Select value={form.tipo_impuesto} onChange={set('tipo_impuesto')}>
               {Object.entries(IMPUESTOS).map(([valor, i]) => (
                 <option key={valor} value={valor}>
@@ -231,19 +252,19 @@ export default function PlanForm({
           </Field>
 
           {form.tipo_impuesto !== 'ninguno' && (
-            <Field label="Tarifa de IVA (%)">
-              <Input
+            <Field campo="iva_porcentaje" label="Tarifa de IVA (%)">
+              <Input placeholder="Ej.: 15"
                 type="number"
                 step="0.01"
                 min={0}
                 max={100}
                 value={form.iva_porcentaje}
-                onChange={set('iva_porcentaje')}
+                onChange={(e) => setForm((f) => ({ ...f, iva_porcentaje: e.target.value, ivaTocado: true }))}
               />
             </Field>
           )}
 
-          <Field label="Código de facturación" hint="Va en el detalle del comprobante">
+          <Field campo="codigo_facturacion" label="Código de facturación" hint="Va en el detalle del comprobante">
             <Input
               value={form.codigo_facturacion}
               onChange={set('codigo_facturacion')}
@@ -252,8 +273,8 @@ export default function PlanForm({
             />
           </Field>
 
-          <Field label="Descripción" className="sm:col-span-2" hint="Lo que se le dice al cliente">
-            <Textarea rows={2} value={form.descripcion} onChange={set('descripcion')} />
+          <Field campo="descripcion" label="Descripción" className="sm:col-span-2" hint="Lo que se le dice al cliente">
+            <Textarea placeholder="Ej.: Plan para hogares de hasta 5 dispositivos" rows={2} value={form.descripcion} onChange={set('descripcion')} />
           </Field>
         </div>
 
@@ -283,8 +304,8 @@ export default function PlanForm({
         </h3>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Bajada (Mbps)">
-            <Input
+          <Field campo="bajada_mbps" label="Bajada (Mbps)">
+            <Input placeholder="Ej.: 50"
               type="number"
               step="0.1"
               min={0.1}
@@ -293,8 +314,8 @@ export default function PlanForm({
               required
             />
           </Field>
-          <Field label="Subida (Mbps)">
-            <Input
+          <Field campo="subida_mbps" label="Subida (Mbps)">
+            <Input placeholder="Ej.: 10"
               type="number"
               step="0.1"
               min={0.1}
@@ -320,7 +341,7 @@ export default function PlanForm({
           </p>
 
           <div className="mt-3 grid gap-4 sm:grid-cols-3">
-            <Field label="Nivel de compartición">
+            <Field campo="comparticion" label="Nivel de compartición">
               <Input
                 list="niveles-comparticion"
                 value={form.comparticion}
@@ -336,7 +357,7 @@ export default function PlanForm({
                 ))}
               </datalist>
             </Field>
-            <Field label="Mínima efectiva bajada (Mbps)">
+            <Field campo="minima_bajada" label="Mínima efectiva bajada (Mbps)">
               <Input
                 type="number"
                 step="0.1"
@@ -346,7 +367,7 @@ export default function PlanForm({
                 placeholder={form.bajada_mbps || ''}
               />
             </Field>
-            <Field label="Mínima efectiva subida (Mbps)">
+            <Field campo="minima_subida" label="Mínima efectiva subida (Mbps)">
               <Input
                 type="number"
                 step="0.1"
@@ -387,7 +408,7 @@ export default function PlanForm({
           ) : (
             <>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <Field label="Tabla de bajada" hint="lo que baja el abonado">
+                <Field campo="traffic_table_bajada" label="Tabla de bajada" hint="lo que baja el abonado">
                   <Select value={form.traffic_table_bajada ?? ''} onChange={set('traffic_table_bajada')}>
                     <option value="">— sin límite en la OLT —</option>
                     {velocidades.map((t) => (
@@ -397,7 +418,7 @@ export default function PlanForm({
                     ))}
                   </Select>
                 </Field>
-                <Field label="Tabla de subida" hint="lo que sube">
+                <Field campo="traffic_table_subida" label="Tabla de subida" hint="lo que sube">
                   <Select value={form.traffic_table_subida ?? ''} onChange={set('traffic_table_subida')}>
                     <option value="">— sin límite en la OLT —</option>
                     {velocidades.map((t) => (
@@ -458,7 +479,7 @@ export default function PlanForm({
           </p>
 
           <div className="mt-3">
-            <Field
+            <Field campo="control_pppoe"
               label="El caudal lo controla"
               hint={CONTROL_PPPOE[form.control_pppoe]?.ayuda}
             >
@@ -473,10 +494,10 @@ export default function PlanForm({
           </div>
 
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
-            <Field label="Perfil PPP en el router" hint="Vacío = se usa el nombre del plan">
+            <Field campo="perfil_ppp" label="Perfil PPP en el router" hint="Vacío = se usa el nombre del plan">
               <Input value={form.perfil_ppp} onChange={set('perfil_ppp')} placeholder="PLAN HOME 100M" />
             </Field>
-            <Field
+            <Field campo="traffic_table_index"
               label="Traffic table de la OLT"
               hint={
                 form.control_pppoe === 'olt'
@@ -484,7 +505,7 @@ export default function PlanForm({
                   : 'No se usa: en este plan limita el router'
               }
             >
-              <Input
+              <Input placeholder="Ej.: 10"
                 type="number"
                 min={1}
                 value={form.traffic_table_index}
@@ -511,8 +532,8 @@ export default function PlanForm({
           <p className="mt-1 text-[11px] text-slate-500">{SHAPING.ip.aplica}</p>
 
           <div className="mt-3 grid gap-4 sm:grid-cols-3">
-            <Field label="Garantizado bajada (Mbps)" hint="limit-at">
-              <Input
+            <Field campo="garantizado_bajada" label="Garantizado bajada (Mbps)" hint="limit-at">
+              <Input placeholder="Ej.: 25"
                 type="number"
                 step="0.1"
                 min={0}
@@ -520,8 +541,8 @@ export default function PlanForm({
                 onChange={set('garantizado_bajada')}
               />
             </Field>
-            <Field label="Garantizado subida (Mbps)">
-              <Input
+            <Field campo="garantizado_subida" label="Garantizado subida (Mbps)">
+              <Input placeholder="Ej.: 5"
                 type="number"
                 step="0.1"
                 min={0}
@@ -529,7 +550,7 @@ export default function PlanForm({
                 onChange={set('garantizado_subida')}
               />
             </Field>
-            <Field label="Prioridad" hint="1 se atiende primero">
+            <Field campo="prioridad" label="Prioridad" hint="1 se atiende primero">
               <Select value={form.prioridad} onChange={set('prioridad')}>
                 <option value="">Sin definir (8)</option>
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
@@ -547,7 +568,7 @@ export default function PlanForm({
           </p>
         </div>
 
-        <Field label="Estado">
+        <Field campo="activo" label="Estado">
           <Select
             value={form.activo ? 'si' : 'no'}
             onChange={(e) => setForm((f) => ({ ...f, activo: e.target.value === 'si' }))}

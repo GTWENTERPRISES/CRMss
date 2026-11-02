@@ -189,14 +189,14 @@ export default function FirmaPage() {
           </label>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Field label="Proveedor" hint="Solo para reconocerlo en las pantallas">
+            <Field campo="proveedor" label="Proveedor" hint="Solo para reconocerlo en las pantallas">
               <Input
                 value={form.proveedor ?? ''}
                 onChange={set('proveedor')}
                 placeholder="Nombre del proveedor"
               />
             </Field>
-            <Field label="URL de la API" hint="A dónde se le pide el enlace de firma">
+            <Field campo="api_url" label="URL de la API" hint="A dónde se le pide el enlace de firma">
               <Input
                 value={form.api_url ?? ''}
                 onChange={set('api_url')}
@@ -208,7 +208,7 @@ export default function FirmaPage() {
               label="Clave de la API"
               hint={
                 form.tiene_clave
-                  ? 'Ya hay una cargada. Escribí una nueva solo si querés reemplazarla.'
+                  ? 'Ya hay una cargada. Escribe una nueva solo si quieres reemplazarla.'
                   : 'No hay ninguna cargada'
               }
               className="sm:col-span-2"
@@ -218,7 +218,7 @@ export default function FirmaPage() {
                   type="password"
                   value={clave}
                   onChange={(e) => setClave(e.target.value)}
-                  placeholder={form.tiene_clave ? '••••••••••••' : 'Pegá acá la clave'}
+                  placeholder={form.tiene_clave ? '••••••••••••' : 'Pega acá la clave'}
                   autoComplete="new-password"
                 />
                 <Button
@@ -260,11 +260,11 @@ export default function FirmaPage() {
 
         <Card title="Tiempos" icon={Clock} subtitle="Lo que evita que el sistema quede esperando">
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field
+            <Field campo="timeout_segundos"
               label="Espera de la llamada (segundos)"
               hint="Cuánto se aguanta al pedir el enlace. Pasado eso se ofrece el papel."
             >
-              <Input
+              <Input placeholder="Ej.: 30"
                 type="number"
                 min={5}
                 max={300}
@@ -272,11 +272,11 @@ export default function FirmaPage() {
                 onChange={set('timeout_segundos')}
               />
             </Field>
-            <Field
+            <Field campo="vigencia_horas"
               label="Vigencia del enlace (horas)"
               hint="Cuánto vale el enlace que ya se le mandó al abonado"
             >
-              <Input
+              <Input placeholder="Ej.: 72"
                 type="number"
                 min={1}
                 max={720}

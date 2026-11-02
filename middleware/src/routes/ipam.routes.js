@@ -44,7 +44,7 @@ async function cargarSubred(id) {
 async function routerDe(subred) {
   if (!subred.router_id) {
     throw badRequest(`La subred ${subred.nombre} no tiene router asignado`, {
-      hint: 'Elegí de qué MikroTik sale este bloque para poder consultarlo.',
+      hint: 'Elige de qué MikroTik sale este bloque para poder consultarlo.',
     })
   }
   return cargarRouter(subred.router_id)
@@ -237,7 +237,7 @@ router.post(
     if (hasta - desde + 1 > MAXIMO_HOSTS) {
       throw badRequest(
         `${subred.cidr} tiene más de ${MAXIMO_HOSTS} direcciones: es demasiado para barrer de una vez`,
-        { hint: 'Dividí el bloque en subredes más chicas para poder auditarlo.' },
+        { hint: 'Divide el bloque en subredes más chicas para poder auditarlo.' },
       )
     }
 
@@ -429,14 +429,14 @@ router.get(
     if (error) {
       throw new AppError(`No se pudo calcular la primera libre: ${error.message}`, {
         status: 502,
-        hint: 'Si dice que no existe la función, corré supabase/migracion-122-la-ip-que-ya-esta-en-uso.sql',
+        hint: 'Si dice que no existe la función, actualiza la base (python manage.py migrate)',
       })
     }
 
     if (!ip) {
       throw new AppError(`No queda ninguna dirección libre en ${subred.cidr}`, {
         status: 409,
-        hint: 'Liberá las direcciones de los abonados dados de baja o agregá otro bloque.',
+        hint: 'Libera las direcciones de los abonados dados de baja o agrega otro bloque.',
       })
     }
 
@@ -576,7 +576,7 @@ router.post(
      */
     if (modo === 'migrar' && confirmar !== true) {
       throw badRequest('Para migrar el corte hay que confirmar', {
-        hint: 'Esta operación toca el firewall del router. Mandá confirmar: true cuando estés seguro y con el respaldo hecho.',
+        hint: 'Esta operación toca el firewall del router. Manda confirmar: true cuando estés seguro y con el respaldo hecho.',
       })
     }
 

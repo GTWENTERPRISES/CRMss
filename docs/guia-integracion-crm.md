@@ -30,7 +30,8 @@ La primera funciona sola. La segunda es opcional.
 
 ### Las migraciones
 
-Se pegan en Supabase → SQL Editor → New query → Run, **en orden**:
+Ya vienen en el esquema de Django: `python manage.py migrate` (en `backend/new`)
+deja todo esto andando. Como referencia, lo que aporta cada parte:
 
 | | |
 |---|---|
@@ -43,10 +44,10 @@ Se pegan en Supabase → SQL Editor → New query → Run, **en orden**:
 | `179-el-comprobante-validado-por-su-qr` | `qr_validado` y cuenta de destino |
 | `180-el-whatsapp-que-sale-por-un-crm` | Salida por un CRM externo |
 
-Para comprobar que están todas:
+Para comprobar que la base está al día:
 
 ```bash
-npm run check:migraciones
+cd backend/new && python manage.py showmigrations | grep "\[ \]"   # nada pendiente = al día
 ```
 
 Lee la base y dice cuál falta, columna por columna. No modifica nada.

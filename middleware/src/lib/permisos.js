@@ -22,13 +22,13 @@ import { tienePermiso } from '../../../web/src/lib/permisos.js'
  * pero las ACCIONES estaban abiertas. Reiniciar un puerto PON no requiere ver la
  * contraseña de la OLT.
  *
- * RLS no cubre este caso: el middleware usa la service_role key justamente para
- * saltearse RLS. Acá el único control posible es este.
+ * RLS no cubre este caso: el middleware entra con la cuenta de servicio de Django, que
+ * se saltea la RLS. Acá el único control posible es este.
  *
  * ── Por qué el legajo faltante NO pasa ──
  *
  * Un usuario de Auth sin fila en `usuarios_sistema` es un huérfano: quedó de una
- * instalación vieja, o alguien lo creó directo en Supabase. Tratarlo como "sin
+ * instalación vieja, o alguien lo creó directo en la base. Tratarlo como "sin
  * permisos, pero adelante" sería la misma puerta por otro lado. Se rechaza y se
  * dice qué hacer.
  */
@@ -48,7 +48,7 @@ export async function actorObligatorio(req) {
   if (!actor) {
     throw new AppError('Tu usuario no tiene un legajo de personal asociado', {
       status: 403,
-      hint: 'Pedile a un Super Administrador que te cree el usuario en Ajustes → Gestión de personal.',
+      hint: 'Pídele a un Super Administrador que te cree el usuario en Ajustes → Gestión de personal.',
     })
   }
   if (!actor.activo) {
@@ -75,7 +75,7 @@ export function exigePermiso(permiso) {
     try {
       const actor = await actorObligatorio(req)
       if (!claves.some((c) => tienePermiso(actor, c))) {
-        throw new AppError('No tenés permiso para esta acción', {
+        throw new AppError('No tienes permiso para esta acción', {
           status: 403,
           hint: `Hace falta ${claves.length > 1 ? 'alguno de estos permisos' : 'el permiso'}: ${claves.join(', ')}.`,
         })
@@ -119,7 +119,7 @@ export async function exigir(req, permiso) {
   const actor = await actorObligatorio(req)
   const claves = Array.isArray(permiso) ? permiso : [permiso]
   if (permiso && !claves.some((c) => tienePermiso(actor, c))) {
-    throw new AppError('No tenés permiso para esta acción', {
+    throw new AppError('No tienes permiso para esta acción', {
       status: 403,
       hint: `Hace falta ${claves.length > 1 ? 'alguno de estos permisos' : 'el permiso'}: ${claves.join(', ')}.`,
     })

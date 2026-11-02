@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { api } from './apiNetwork'
 
 /**
@@ -49,7 +49,7 @@ export const reemplazosApi = {
    * almacén"), no códigos.
    */
   async registrar({ clienteId, serieNueva, motivo, destino, detalle, ticketId, instalacionId }) {
-    const { data, error } = await supabase.rpc('reemplazar_equipo_cliente', {
+    const { data, error } = await django.rpc('reemplazar_equipo_cliente', {
       p_cliente: clienteId,
       p_serie_nueva: serieNueva,
       p_motivo: motivo,
@@ -67,7 +67,7 @@ export const reemplazosApi = {
 
   /** Lo que quedó a medias. Mientras esté acá, el abonado no tiene servicio. */
   async pendientes() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_reemplazos_pendientes')
       .select('*')
       .order('creado_en')
@@ -77,7 +77,7 @@ export const reemplazosApi = {
 
   /** El historial de un abonado: qué equipo tuvo antes y por qué se cambió. */
   async delCliente(clienteId) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('reemplazos_equipo')
       .select('*')
       .eq('cliente_id', clienteId)

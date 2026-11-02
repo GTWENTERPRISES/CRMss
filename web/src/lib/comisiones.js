@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { personalApi } from './personal'
 
 /**
@@ -45,7 +45,7 @@ export const REQUISITOS = [
     campo: 'requiere_aprobacion',
     label: 'Aprobada por admisión',
     ayuda:
-      'Exige que alguien con permiso haya validado la solicitud. Encendelo cuando la admisión esté en régimen: hasta entonces ninguna venta comisionaría.',
+      'Exige que alguien con permiso haya validado la solicitud. Enciéndelo cuando la admisión esté en régimen: hasta entonces ninguna venta comisionaría.',
   },
   {
     campo: 'requiere_documentacion',
@@ -104,7 +104,7 @@ export const ESTADOS_PERIODO = {
 export const comisionesApi = {
   /** El esquema vigente con todo lo que cuelga de él. */
   async esquema() {
-    const { data: esquema, error } = await supabase
+    const { data: esquema, error } = await django
       .from('v_comision_esquema')
       .select('*')
       .eq('activo', true)
@@ -113,9 +113,9 @@ export const comisionesApi = {
     if (!esquema) return null
 
     const [niveles, bases, bonos] = await Promise.all([
-      supabase.from('comision_niveles').select('*').eq('esquema_id', esquema.id).order('orden'),
-      supabase.from('v_comision_bases').select('*').eq('esquema_id', esquema.id).order('bajada_kbps'),
-      supabase.from('comision_bonos_calidad').select('*').eq('esquema_id', esquema.id).order('orden'),
+      django.from('comision_niveles').select('*').eq('esquema_id', esquema.id).order('orden'),
+      django.from('v_comision_bases').select('*').eq('esquema_id', esquema.id).order('bajada_kbps'),
+      django.from('comision_bonos_calidad').select('*').eq('esquema_id', esquema.id).order('orden'),
     ])
 
     const fallo = [niveles, bases, bonos].find((r) => r.error)
@@ -131,7 +131,7 @@ export const comisionesApi = {
 
   /** Las versiones anteriores, para poder mirar con qué reglas se pagó cada mes. */
   async versiones() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_comision_esquema')
       .select('*')
       .order('vigente_desde', { ascending: false })
@@ -140,7 +140,7 @@ export const comisionesApi = {
   },
 
   async motivosBaja() {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('motivos_baja')
       .select('*')
       .order('afecta_calidad')
@@ -162,7 +162,7 @@ export const comisionesApi = {
     const anterior = await this.esquema()
 
     if (reglas) {
-      const { error } = await supabase
+      const { error } = await django
         .from('comision_reglas')
         .update({
           ...reglas,
@@ -174,7 +174,7 @@ export const comisionesApi = {
     }
 
     if (esquema.modo || esquema.nombre) {
-      const { error } = await supabase
+      const { error } = await django
         .from('comision_esquemas')
         .update({
           nombre: esquema.nombre,
@@ -187,7 +187,7 @@ export const comisionesApi = {
     }
 
     for (const n of niveles ?? []) {
-      const { error } = await supabase
+      const { error } = await django
         .from('comision_niveles')
         .update({
           nombre: n.nombre,
@@ -200,7 +200,7 @@ export const comisionesApi = {
     }
 
     for (const b of bases ?? []) {
-      const { error } = await supabase
+      const { error } = await django
         .from('comision_bases_plan')
         .update({ base: Number(b.base), comisiona: b.comisiona })
         .eq('esquema_id', esquema.id)
@@ -209,7 +209,7 @@ export const comisionesApi = {
     }
 
     for (const b of bonos ?? []) {
-      const { error } = await supabase
+      const { error } = await django
         .from('comision_bonos_calidad')
         .update({
           desde_pct: Number(b.desde_pct),
@@ -257,20 +257,20 @@ export const comisionesApi = {
     if (finISO < actual.vigente_desde) {
       throw new Error(
         `La versión nueva no puede arrancar antes que la actual (${actual.vigente_desde}). ` +
-          'Elegí una fecha posterior.',
+          'Elige una fecha posterior.',
       )
     }
 
     // Primero se desactiva el actual: hay un índice único que impide dos activos
     // a la vez, y sin esto el insert de abajo fallaría con un error de base que
     // no le dice nada a nadie.
-    const { error: eCierre } = await supabase
+    const { error: eCierre } = await django
       .from('comision_esquemas')
       .update({ activo: false, vigente_hasta: finISO })
       .eq('id', actual.id)
     if (eCierre) throw eCierre
 
-    const { data: nuevo, error } = await supabase
+    const { data: nuevo, error } = await django
       .from('comision_esquemas')
       .insert({
         nombre,
@@ -285,7 +285,7 @@ export const comisionesApi = {
     if (error) {
       // Se revierte el cierre: dejar el sistema sin ningún esquema activo sería
       // peor que no haber hecho nada.
-      await supabase
+      await django
         .from('comision_esquemas')
         .update({ activo: true, vigente_hasta: actual.vigente_hasta })
         .eq('id', actual.id)
@@ -293,7 +293,7 @@ export const comisionesApi = {
     }
 
     await Promise.all([
-      supabase.from('comision_reglas').insert({
+      django.from('comision_reglas').insert({
         esquema_id: nuevo.id,
         ...Object.fromEntries(REQUISITOS.map((r) => [r.campo, actual[r.campo]])),
         dia_cortesia_desde: actual.dia_cortesia_desde,
@@ -306,7 +306,7 @@ export const comisionesApi = {
         meses_sin_pago_retiro: actual.meses_sin_pago_retiro,
         actualizado_por: perfil?.id ?? null,
       }),
-      supabase.from('comision_niveles').insert(
+      django.from('comision_niveles').insert(
         actual.niveles.map((n) => ({
           esquema_id: nuevo.id,
           orden: n.orden,
@@ -316,7 +316,7 @@ export const comisionesApi = {
           porcentaje: n.porcentaje,
         })),
       ),
-      supabase.from('comision_bonos_calidad').insert(
+      django.from('comision_bonos_calidad').insert(
         actual.bonos.map((b) => ({
           esquema_id: nuevo.id,
           orden: b.orden,
@@ -325,7 +325,7 @@ export const comisionesApi = {
           monto: b.monto,
         })),
       ),
-      supabase.from('comision_bases_plan').insert(
+      django.from('comision_bases_plan').insert(
         actual.bases.map((b) => ({
           esquema_id: nuevo.id,
           plan_id: b.plan_id,
@@ -351,7 +351,7 @@ export const comisionesApi = {
    * filtro está en la base —RLS sobre `comision_ventas`— y no acá.
    */
   async resumen({ vendedor, periodo } = {}) {
-    let q = supabase.from('v_comision_resumen').select('*').order('periodo', { ascending: false })
+    let q = django.from('v_comision_resumen').select('*').order('periodo', { ascending: false })
     if (vendedor) q = q.eq('vendedor_id', vendedor)
     if (periodo) q = q.eq('periodo', periodo)
 
@@ -362,7 +362,7 @@ export const comisionesApi = {
 
   /** El embudo: solicitudes ingresadas frente a ventas comisionables. */
   async embudo({ vendedor, periodo } = {}) {
-    let q = supabase.from('v_comision_embudo').select('*').order('periodo', { ascending: false })
+    let q = django.from('v_comision_embudo').select('*').order('periodo', { ascending: false })
     if (vendedor) q = q.eq('vendedor_id', vendedor)
     if (periodo) q = q.eq('periodo', periodo)
 
@@ -373,7 +373,7 @@ export const comisionesApi = {
 
   /** Las ventas de un período, con qué le falta a cada una para comisionar. */
   async ventas({ vendedor, periodo } = {}) {
-    let q = supabase
+    let q = django
       .from('v_comision_ventas')
       .select('*')
       .neq('estado', 'anulada')
@@ -394,7 +394,7 @@ export const comisionesApi = {
 
   /** Los indicadores del período: embudo, ventas, dinero cerrado, calidad. */
   async kpis({ periodo } = {}) {
-    let q = supabase.from('v_comision_kpis').select('*').order('periodo', { ascending: false })
+    let q = django.from('v_comision_kpis').select('*').order('periodo', { ascending: false })
     if (periodo) q = q.eq('periodo', periodo)
 
     const { data, error } = await q
@@ -404,7 +404,7 @@ export const comisionesApi = {
 
   /** Una fila por vendedor: el embudo, las tasas y la retención de su cohorte. */
   async equipo({ periodo } = {}) {
-    let q = supabase
+    let q = django
       .from('v_comision_equipo')
       .select('*')
       .order('comisionables', { ascending: false })
@@ -417,7 +417,7 @@ export const comisionesApi = {
 
   /** Qué se vende: ventas y base promedio por plan. */
   async porPlan({ periodo } = {}) {
-    let q = supabase.from('v_comision_por_plan').select('*').order('ventas', { ascending: false })
+    let q = django.from('v_comision_por_plan').select('*').order('ventas', { ascending: false })
     if (periodo) q = q.eq('periodo', periodo)
 
     const { data, error } = await q
@@ -427,7 +427,7 @@ export const comisionesApi = {
 
   /** La foto de hoy: cartera por caerse, equipos en la calle, lo que espera firma. */
   async carteraKpis() {
-    const { data, error } = await supabase.from('v_cartera_kpis').select('*').maybeSingle()
+    const { data, error } = await django.from('v_cartera_kpis').select('*').maybeSingle()
     if (error) throw error
     return data ?? null
   },
@@ -440,7 +440,7 @@ export const comisionesApi = {
    * la hace no tiene la clave. Esconder un botón no es un control de acceso.
    */
   async moverPeriodo(periodoId, destino, nota) {
-    const { error } = await supabase.rpc('mover_periodo_comisiones', {
+    const { error } = await django.rpc('mover_periodo_comisiones', {
       p_periodo_id: periodoId,
       p_destino: destino,
       p_nota: nota || null,
@@ -450,7 +450,7 @@ export const comisionesApi = {
 
   /** Anula una venta comisionable. Exige motivo escrito: nada se cambia en silencio. */
   async anularVenta(ventaId, motivo) {
-    const { error } = await supabase.rpc('anular_comision_venta', {
+    const { error } = await django.rpc('anular_comision_venta', {
       p_venta: ventaId,
       p_motivo: motivo,
     })
@@ -459,7 +459,7 @@ export const comisionesApi = {
 
   /** Las liquidaciones: qué se cerró, con qué reglas y en qué estado quedó. */
   async liquidaciones({ vendedor } = {}) {
-    let q = supabase.from('v_comision_periodos').select('*').order('periodo', { ascending: false })
+    let q = django.from('v_comision_periodos').select('*').order('periodo', { ascending: false })
     if (vendedor) q = q.eq('vendedor_id', vendedor)
 
     const { data, error } = await q
@@ -476,7 +476,7 @@ export const comisionesApi = {
    * segunda respuesta posible a la misma pregunta.
    */
   async cohortes({ vendedor, desde } = {}) {
-    let q = supabase.from('v_comision_cohortes').select('*').order('cohorte', { ascending: false })
+    let q = django.from('v_comision_cohortes').select('*').order('cohorte', { ascending: false })
     if (vendedor) q = q.eq('vendedor_id', vendedor)
     if (desde) q = q.gte('cohorte', desde)
 
@@ -492,7 +492,7 @@ export const comisionesApi = {
    * porcentaje solo sirve para discutirlo.
    */
   async cohorteDetalle(vendedor, cohorte) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_comision_ventas')
       .select(
         'id, cliente, cliente_id, plan, base, calidad_estado, calidad_motivo, meses_sin_pago, comisionable_en',
@@ -583,14 +583,14 @@ export const comisionesApi = {
    * nada es peor que ninguna.
    */
   async verificar() {
-    const { data, error } = await supabase.rpc('verificar_comisiones')
+    const { data, error } = await django.rpc('verificar_comisiones')
     if (error) throw error
     return data ?? []
   },
 
   /** El rastro: cambios de reglas, validaciones, cierres, pagos y anulaciones. */
   async auditoria({ limite = 50 } = {}) {
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('v_auditoria_comisiones')
       .select('*')
       .order('creado_en', { ascending: false })
@@ -602,8 +602,8 @@ export const comisionesApi = {
   async guardarMotivo(motivo) {
     const { id, ...datos } = motivo
     const { error } = id
-      ? await supabase.from('motivos_baja').update(datos).eq('id', id)
-      : await supabase.from('motivos_baja').insert(datos)
+      ? await django.from('motivos_baja').update(datos).eq('id', id)
+      : await django.from('motivos_baja').insert(datos)
     if (error) throw error
   },
 }
@@ -613,7 +613,7 @@ export const comisionesApi = {
  *
  * ── Por qué está partido ──
  *
- * Este archivo habla con Supabase; aquel no importa nada. Esa diferencia es lo
+ * Este archivo habla con la base; aquel no importa nada. Esa diferencia es lo
  * que permite que la multiplicación que decide cuánto cobra un vendedor tenga
  * pruebas —`middleware/test/comisionesCalculo.test.js`— sin necesitar una base
  * de datos para correrlas.

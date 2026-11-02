@@ -39,10 +39,10 @@ function Par({ titulo, ayuda, unidad = 'Mbps', bajada, subida, onBajada, onSubid
       {ayuda && <p className="mb-2 mt-0.5 text-[11px] text-slate-500">{ayuda}</p>}
       <div className="grid grid-cols-2 gap-2">
         <Field label={`Bajada (${unidad})`}>
-          <Input type="number" min={0} step={paso} value={bajada} onChange={onBajada} />
+          <Input type="number" min={0} step={paso} value={bajada} onChange={onBajada} placeholder="Ej.: 50" />
         </Field>
         <Field label={`Subida (${unidad})`}>
-          <Input type="number" min={0} step={paso} value={subida} onChange={onSubida} />
+          <Input type="number" min={0} step={paso} value={subida} onChange={onSubida} placeholder="Ej.: 10" />
         </Field>
       </div>
     </div>
@@ -173,7 +173,7 @@ export default function ColaDelPlan({ plan, onGuardar, onCerrar }) {
           onSubida={set('garantizado_subida')}
         />
 
-        <Field
+        <Field campo="prioridad"
           label="Prioridad"
           hint="A quién se atiende primero cuando no alcanza para todos. 1 es la más alta."
           className="max-w-xs"

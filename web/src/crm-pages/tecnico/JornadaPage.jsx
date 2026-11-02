@@ -1,12 +1,27 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Camera, Check, Fuel, Gauge, PlayCircle, Route, StopCircle, TriangleAlert, Wrench } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import {
+  Camera,
+  Check,
+  Siren,
+  Fuel,
+  Gauge,
+  PlayCircle,
+  Route,
+  StopCircle,
+  TriangleAlert,
+  Wrench,
+} from 'lucide-react'
+import { django } from '../../lib/djangoClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { hoyISO } from '../../lib/campo'
-import { subirFotoIngreso, ubicacionDelIngreso } from '../../lib/jornadaFoto'
+import { subirFotoEmergencia, subirFotoIngreso, ubicacionDelIngreso } from '../../lib/jornadaFoto'
+import { ubicacionActual } from '../../lib/soporte'
 import { RADIO_LLEGADA_M } from '../../lib/soporte'
 import { cuantoFalta, urgencia } from '../../lib/mantenimiento'
 import { Button, Field, Input, Select } from '../../components/ui'
+import { hora as fmtHora } from '@/lib/formato'
+import MiCuadrilla from '../../components/tecnico/MiCuadrilla'
+import { useReparaciones } from '../../components/tecnico/ReparacionesCampo'
 
 /**
  * Mi jornada: con qué salí y cuánto marcaba el tablero.
@@ -40,6 +55,31 @@ export default function JornadaPage() {
   const [carga, setCarga] = useState(null)
 
   /**
+   * La cuadrilla de hoy (migración 208).
+   *
+   * En una cuadrilla con jefe de grupo, el vehículo y los km los carga SOLO el
+   * jefe del día: tres técnicos en la misma camioneta cargando cada uno los
+   * suyos sumaban el recorrido tres veces. Los demás marcan su ingreso —foto y
+   * ubicación— para la asistencia. Sin cuadrilla, o en una cuadrilla sin jefe
+   * definido, todo sigue como antes. `null` también si la 208 no corrió.
+   */
+  const [cuadrilla, setCuadrilla] = useState(null)
+  const cargaKm = !cuadrilla || cuadrilla.sin_jefe || cuadrilla.soy_jefe
+
+  /**
+   * El vehículo con el que sale (migración 211): el de su cuadrilla, y si
+   * trabaja suelto, el que tiene asignado en Vehículos. Viene puesto; elegir
+   * otro queda para el día que se presta o está en el taller.
+   */
+  const vehiculoFijo =
+    vehiculos.find((v) => v.id === cuadrilla?.vehiculo_id) ??
+    vehiculos.find((v) => v.tecnico_id && v.tecnico_id === perfil?.tecnico_id) ??
+    null
+  const [otroVehiculo, setOtroVehiculo] = useState(false)
+  // "Marcar ingreso ahora", para el día sin clientes (bodega, capacitación).
+  const [ingresoAhora, setIngresoAhora] = useState(false)
+
+  /**
    * Lo que le falta al vehículo de hoy.
    *
    * Se pide acá y no en el tablero de inicio porque el aviso solo tiene sentido
@@ -65,17 +105,19 @@ export default function JornadaPage() {
       setCargando(false)
       return
     }
-    const [v, j] = await Promise.all([
-      supabase.from('vehiculos').select('*').eq('activo', true).order('nombre'),
-      supabase
+    const [v, j, c] = await Promise.all([
+      django.from('vehiculos').select('*').eq('activo', true).order('nombre'),
+      django
         .from('v_jornadas')
         .select('*')
         .eq('tecnico_id', perfil.tecnico_id)
         .eq('fecha', hoyISO())
         .maybeSingle(),
+      django.rpc('mi_cuadrilla_hoy', { p_fecha: hoyISO() }),
     ])
     setVehiculos(v.data ?? [])
     setJornada(j.data ?? null)
+    setCuadrilla(c.error ? null : (c.data ?? null))
     if (j.data) {
       setForm({
         vehiculo_id: j.data.vehiculo_id ?? '',
@@ -84,7 +126,7 @@ export default function JornadaPage() {
       })
       // Lo que el vehículo tiene por hacer, vencido o por vencer.
       if (j.data.vehiculo_id) {
-        const { data: mant } = await supabase
+        const { data: mant } = await django
           .from('v_mantenimiento')
           .select('*')
           .eq('vehiculo_id', j.data.vehiculo_id)
@@ -95,16 +137,20 @@ export default function JornadaPage() {
 
       // Cuánto falta para la próxima carga de ESE vehículo.
       if (j.data.vehiculo_id) {
-        const { data: est } = await supabase
+        const { data: est } = await django
           .from('v_vehiculos')
           .select('*')
           .eq('id', j.data.vehiculo_id)
           .maybeSingle()
         setEstado(est ?? null)
       }
-    } else if (v.data?.length === 1) {
-      // Con un solo vehículo no se pregunta: se elige solo.
-      setForm((f) => ({ ...f, vehiculo_id: v.data[0].id }))
+    } else {
+      // El de la cuadrilla, el asignado, o el único que hay: no se pregunta.
+      const fijo =
+        (v.data ?? []).find((x) => x.id === c.data?.vehiculo_id) ??
+        (v.data ?? []).find((x) => x.tecnico_id && x.tecnico_id === perfil.tecnico_id) ??
+        (v.data?.length === 1 ? v.data[0] : null)
+      if (fijo) setForm((f) => ({ ...f, vehiculo_id: f.vehiculo_id || fijo.id }))
     }
     setCargando(false)
   }, [perfil?.tecnico_id])
@@ -114,7 +160,7 @@ export default function JornadaPage() {
   }, [recargar])
 
   async function abrir() {
-    if (!form.vehiculo_id || form.km_inicio === '') return
+    if (cargaKm && (!form.vehiculo_id || form.km_inicio === '')) return
     setGuardando(true)
     setError(null)
     try {
@@ -132,12 +178,14 @@ export default function JornadaPage() {
 
       // `upsert` sobre (tecnico_id, fecha), que es único: si el técnico toca dos
       // veces —o si un reintento llega tarde— actualiza en vez de duplicar.
-      const { error: err } = await supabase.from('jornadas').upsert(
+      const { error: err } = await django.from('jornadas').upsert(
         {
           tecnico_id: perfil.tecnico_id,
           fecha: hoyISO(),
-          vehiculo_id: form.vehiculo_id,
-          km_inicio: Number(form.km_inicio),
+          // Quien no es jefe de grupo marca solo su ingreso: la base rechaza
+          // vehículo y km que no le corresponden.
+          vehiculo_id: cargaKm ? form.vehiculo_id : null,
+          km_inicio: cargaKm ? Number(form.km_inicio) : null,
           inicio_at: new Date().toISOString(),
           lat_ingreso: donde.lat,
           lng_ingreso: donde.lng,
@@ -158,7 +206,7 @@ export default function JornadaPage() {
        * empezar a trabajar, y la foto se reintenta desde acá mismo cuando
        * agarre cobertura.
        */
-      const { data: nueva } = await supabase
+      const { data: nueva } = await django
         .from('jornadas')
         .select('id')
         .eq('tecnico_id', perfil.tecnico_id)
@@ -168,7 +216,7 @@ export default function JornadaPage() {
       if (foto && nueva?.id) {
         const r = await subirFotoIngreso(nueva.id, foto)
         if (r.ok) setFoto(null)
-        else setAvisoFoto('La jornada quedó abierta, pero la foto no subió. Probá de nuevo cuando tengas señal.')
+        else setAvisoFoto('La jornada quedó abierta, pero la foto no subió. Prueba de nuevo cuando tengas señal.')
       }
 
       await recargar()
@@ -177,6 +225,31 @@ export default function JornadaPage() {
     } finally {
       setGuardando(false)
     }
+  }
+
+  /**
+   * La salida del vehículo, en la base (migración 212).
+   *
+   * Solo vehículo y km: no es el ingreso. Las horas cuentan desde el primer
+   * cliente, y ahí se marca el ingreso con la foto. La jornada queda con
+   * `inicio_at` vacío hasta entonces.
+   */
+  async function registrarSalida() {
+    if (!form.vehiculo_id || form.km_inicio === '') return
+    setGuardando(true)
+    setError(null)
+    const { error: err } = await django.from('jornadas').upsert(
+      {
+        tecnico_id: perfil.tecnico_id,
+        fecha: hoyISO(),
+        vehiculo_id: form.vehiculo_id,
+        km_inicio: Number(form.km_inicio),
+      },
+      { onConflict: 'tecnico_id,fecha' },
+    )
+    setGuardando(false)
+    if (err) return setError(err)
+    await recargar()
   }
 
   /** Reintentar la foto, o sacarla de nuevo si salió movida. */
@@ -190,8 +263,21 @@ export default function JornadaPage() {
       setFoto(null)
       await recargar()
     } else {
-      setAvisoFoto('No se pudo subir. Si no tenés señal, vas a poder más tarde.')
+      setAvisoFoto('No se pudo subir. Si no tienes señal, vas a poder más tarde.')
     }
+  }
+
+  /** Quien no carga km cierra su jornada solo con la hora de salida. */
+  async function marcarSalida() {
+    setGuardando(true)
+    setError(null)
+    const { error: err } = await django
+      .from('jornadas')
+      .update({ fin_at: new Date().toISOString() })
+      .eq('id', jornada.id)
+    setGuardando(false)
+    if (err) return setError(err)
+    await recargar()
   }
 
   async function cerrar() {
@@ -199,14 +285,14 @@ export default function JornadaPage() {
     if (Number(form.km_fin) < Number(jornada.km_inicio)) {
       return setError(
         new Error(
-          `El tablero no puede marcar menos que al salir (${jornada.km_inicio} km). Revisá el número.`,
+          `El tablero no puede marcar menos que al salir (${jornada.km_inicio} km). Revisa el número.`,
         ),
       )
     }
     setGuardando(true)
     setError(null)
     try {
-      const { error: err } = await supabase
+      const { error: err } = await django
         .from('jornadas')
         .update({ km_fin: Number(form.km_fin), fin_at: new Date().toISOString() })
         .eq('id', jornada.id)
@@ -229,7 +315,7 @@ export default function JornadaPage() {
     )
   }
 
-  if (!vehiculos.length) {
+  if (cargaKm && !vehiculos.length) {
     return (
       <div className="py-16 text-center">
         <Route size={28} className="mx-auto mb-2 text-slate-700" />
@@ -240,6 +326,41 @@ export default function JornadaPage() {
       </div>
     )
   }
+
+  const avisoPrimerCliente = (
+    <p className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-[12px] leading-snug text-sky-200">
+      Tu ingreso se marca solo al llegar a tu <b>primer cliente</b>: la app te pide la foto ahí,
+      y tus horas cuentan desde ese momento.
+    </p>
+  )
+
+  const marcarIngresoAhora = (
+    <div className="border-t border-slate-800 pt-3">
+      {!ingresoAhora ? (
+        <button
+          type="button"
+          onClick={() => setIngresoAhora(true)}
+          className="w-full text-center text-[12px] text-sky-400"
+        >
+          ¿Hoy no tienes clientes (bodega, capacitación)? Marca tu ingreso ahora
+        </button>
+      ) : (
+        <div className="space-y-3">
+          <FotoIngreso foto={foto} onFoto={setFoto} />
+          <Button
+            variante="primario"
+            icon={PlayCircle}
+            className="w-full py-3"
+            onClick={abrir}
+            cargando={guardando}
+            disabled={guardando || (cargaKm && (!form.vehiculo_id || form.km_inicio === ''))}
+          >
+            Marcar ingreso ahora
+          </Button>
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <div className="mx-auto max-w-lg space-y-3">
@@ -269,11 +390,11 @@ export default function JornadaPage() {
           <div>
             <p className="text-[14px] font-semibold text-slate-100">
               {estado.km_para_cargar <= 50
-                ? `Cargá pronto: quedan unos ${estado.km_para_cargar} km`
+                ? `Carga pronto: quedan unos ${estado.km_para_cargar} km`
                 : `Quedan unos ${estado.km_para_cargar} km para cargar`}
             </p>
             <p className="mt-0.5 text-[11px] text-slate-500">
-              Este vehículo hace {estado.km_promedio_tanque} km por tanque en promedio. Llevás{' '}
+              Este vehículo hace {estado.km_promedio_tanque} km por tanque en promedio. Llevas{' '}
               {estado.km_desde_la_carga} km desde la última carga.
             </p>
           </div>
@@ -282,19 +403,48 @@ export default function JornadaPage() {
 
       <AvisoMantenimiento items={pendiente} />
 
+      <MiCuadrilla c={cuadrilla} />
+
       <section className="t-card p-4">
         <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           <Gauge size={12} /> Jornada de hoy
         </p>
 
-        {!jornada?.inicio_at ? (
+        {!jornada?.inicio_at && !cargaKm ? (
           <div className="space-y-3">
-            <Field label="Vehículo">
+            {avisoPrimerCliente}
+            <p className="text-[12px] leading-snug text-slate-400">
+              El vehículo y los km los registra el jefe de grupo
+              {cuadrilla?.jefe ? ` (${cuadrilla.jefe})` : ''} al salir de la base.
+            </p>
+            {marcarIngresoAhora}
+          </div>
+        ) : !jornada?.inicio_at && jornada?.km_inicio == null ? (
+          <div className="space-y-3">
+            {vehiculoFijo && !otroVehiculo && form.vehiculo_id === vehiculoFijo.id ? (
+              <div className="flex items-center justify-between gap-2 t-panel px-3 py-2.5">
+                <span className="text-[13px] text-slate-200">
+                  <span className="block text-[10px] uppercase tracking-wide text-slate-500">
+                    {cuadrilla?.vehiculo_id === vehiculoFijo.id ? 'Vehículo de la cuadrilla' : 'Tu vehículo'}
+                  </span>
+                  {vehiculoFijo.nombre}
+                  {vehiculoFijo.placa ? ` · ${vehiculoFijo.placa}` : ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setOtroVehiculo(true)}
+                  className="shrink-0 text-[11px] text-sky-400"
+                >
+                  ¿Sales con otro?
+                </button>
+              </div>
+            ) : (
+            <Field campo="vehiculo_id" hint="Con el que sale el técnico." label="Vehículo">
               <Select
                 value={form.vehiculo_id}
                 onChange={(e) => setForm({ ...form, vehiculo_id: e.target.value })}
               >
-                <option value="">— elegí con cuál salís —</option>
+                <option value="">— elige con cuál sales —</option>
                 {vehiculos.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.nombre}
@@ -303,7 +453,8 @@ export default function JornadaPage() {
                 ))}
               </Select>
             </Field>
-            <Field label="Kilometraje al salir" hint="El número del tablero, tal cual.">
+            )}
+            <Field campo="km_inicio" label="Kilometraje al salir" hint="El número del tablero, tal cual.">
               <Input
                 type="number"
                 inputMode="numeric"
@@ -312,21 +463,36 @@ export default function JornadaPage() {
                 placeholder="Ej: 84520"
               />
             </Field>
-            <FotoIngreso foto={foto} onFoto={setFoto} />
-
             <Button
               variante="primario"
-              icon={PlayCircle}
+              icon={Route}
               className="w-full py-3"
-              onClick={abrir}
+              onClick={registrarSalida}
               cargando={guardando}
               disabled={!form.vehiculo_id || form.km_inicio === '' || guardando}
             >
-              Iniciar jornada
+              Registrar salida del vehículo
             </Button>
+            {avisoPrimerCliente}
+            {marcarIngresoAhora}
           </div>
         ) : (
           <div className="space-y-3">
+            {jornada.km_inicio == null ? (
+              <p className="text-center text-[13px] text-slate-300">
+                Ingreso marcado a las{' '}
+                {new Date(jornada.inicio_at).toLocaleTimeString('es-EC', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                {jornada.fin_at &&
+                  ` · salida ${new Date(jornada.fin_at).toLocaleTimeString('es-EC', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}`}
+              </p>
+            ) : (
+            <>
             <div className="grid grid-cols-2 gap-2 text-center">
               <Dato label="Salida" valor={`${jornada.km_inicio} km`} />
               <Dato
@@ -336,19 +502,23 @@ export default function JornadaPage() {
             </div>
             <p className="text-center text-[11px] text-slate-500">
               {jornada.vehiculo}
-              {jornada.placa ? ` · ${jornada.placa}` : ''} · desde las{' '}
-              {new Date(jornada.inicio_at).toLocaleTimeString('es-EC', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {jornada.placa ? ` · ${jornada.placa}` : ''}
+              {jornada.inicio_at
+                ? ` · ingreso a las ${fmtHora(jornada.inicio_at)}`
+                : ' · salió de la base'}
             </p>
+            {!jornada.inicio_at && avisoPrimerCliente}
+            </>
+            )}
 
             <DistanciaIngreso j={jornada} />
 
             {/* La foto, ya con la jornada abierta: dice si está o no, y deja
                 reintentar. Aparece también con la jornada cerrada — quien
                 trabajó todo el día sin señal la sube al volver. */}
-            {jornada.foto_ingreso ? (
+            {!jornada.inicio_at ? (
+              marcarIngresoAhora
+            ) : jornada.foto_ingreso ? (
               <p className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-emerald-400">
                 <Check size={13} /> Foto de ingreso subida
               </p>
@@ -372,9 +542,21 @@ export default function JornadaPage() {
               <p className="text-center text-[11px] leading-snug text-amber-400">{avisoFoto}</p>
             )}
 
-            {jornada.km_fin == null ? (
+            {jornada.km_inicio == null ? (
+              !jornada.fin_at && (
+                <Button
+                  icon={StopCircle}
+                  className="w-full py-3"
+                  onClick={marcarSalida}
+                  cargando={guardando}
+                  disabled={guardando}
+                >
+                  Marcar salida
+                </Button>
+              )
+            ) : jornada.km_fin == null ? (
               <>
-                <Field label="Kilometraje al volver">
+                <Field campo="km_fin" label="Kilometraje al volver">
                   <Input
                     type="number"
                     inputMode="numeric"
@@ -399,6 +581,7 @@ export default function JornadaPage() {
               </p>
             )}
 
+            {jornada.km_inicio != null && (
             <button
               type="button"
               onClick={() =>
@@ -409,9 +592,19 @@ export default function JornadaPage() {
               <Fuel size={14} className="mr-1.5 inline" />
               Registrar carga de combustible
             </button>
+            )}
           </div>
         )}
       </section>
+
+      <SalidaEmergencia
+        tecnicoId={perfil.tecnico_id}
+        // Salió de la base o ya marcó ingreso: es el día normal, no una emergencia.
+        enJornada={Boolean(jornada && !jornada.fin_at && (jornada.inicio_at || jornada.km_inicio != null))}
+        cargaKm={cargaKm}
+        vehiculos={vehiculos}
+        vehiculoFijo={vehiculoFijo}
+      />
 
       {carga && (
         <CargaCombustible
@@ -427,6 +620,269 @@ export default function JornadaPage() {
         />
       )}
     </div>
+  )
+}
+
+/**
+ * La salida de emergencia (migración 210).
+ *
+ * ── Para qué ──
+ *
+ * Sin ingreso no se puede iniciar ningún trabajo. Pero la fibra se corta a las
+ * once de la noche y la torre se apaga un domingo: con la jornada cerrada, el
+ * técnico marca una salida de emergencia —motivo, foto y ubicación, como el
+ * ingreso— y mientras esté abierta puede trabajar. Al volver la cierra.
+ *
+ * Las horas quedan aparte de la jornada: son las que la oficina paga o
+ * compensa, y mezclarlas con el día normal las haría invisibles.
+ *
+ * Con la jornada abierta no se muestra: la emergencia es un trabajo más del día.
+ */
+function SalidaEmergencia({ tecnicoId, enJornada, cargaKm, vehiculos, vehiculoFijo }) {
+  const [abierta, setAbierta] = useState(undefined)
+  const [form, setForm] = useState(null)
+  const [foto, setFoto] = useState(null)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState(null)
+  const [aviso, setAviso] = useState(null)
+  // Por qué no puede salir por emergencia ahora (migración 215): en horario
+  // laboral, sin haber cerrado la jornada. null = puede.
+  const [bloqueo, setBloqueo] = useState(null)
+  const { filas: reparaciones } = useReparaciones()
+
+  const recargar = useCallback(async () => {
+    const { data, error: err } = await django
+      .from('v_salidas_emergencia')
+      .select('*')
+      .eq('tecnico_id', tecnicoId)
+      .is('fin_at', null)
+      .maybeSingle()
+    // Sin la 210 no hay emergencias: la sección no se dibuja.
+    setAbierta(err ? undefined : (data ?? null))
+    const { data: motivo, error: errMotivo } = await django.rpc('motivo_sin_emergencia')
+    setBloqueo(errMotivo ? null : (motivo ?? null))
+  }, [tecnicoId])
+
+  useEffect(() => {
+    recargar()
+  }, [recargar])
+
+  if (abierta === undefined) return null
+  if (!abierta && enJornada) return null
+
+  async function salir() {
+    setGuardando(true)
+    setError(null)
+    try {
+      const pos = await ubicacionActual()
+      const { data: id, error: err } = await django.rpc('abrir_emergencia', {
+        p_motivo: form.motivo,
+        p_reparacion: form.reparacion_id || null,
+        p_lat: pos?.lat ?? null,
+        p_lng: pos?.lng ?? null,
+        p_vehiculo: cargaKm && form.vehiculo_id ? form.vehiculo_id : null,
+        p_km_inicio: cargaKm && form.vehiculo_id && form.km_inicio !== '' ? Number(form.km_inicio) : null,
+      })
+      if (err) throw err
+      if (foto) {
+        const r = await subirFotoEmergencia(id, foto)
+        if (r.ok) setFoto(null)
+        else setAviso('La emergencia quedó abierta, pero la foto no subió. Prueba de nuevo cuando tengas señal.')
+      }
+      setForm(null)
+      await recargar()
+    } catch (err) {
+      setError(err)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function terminar() {
+    setGuardando(true)
+    setError(null)
+    const { error: err } = await django.rpc('cerrar_emergencia', {
+      p_nota: form?.nota ?? null,
+      p_km_fin: form?.km_fin ? Number(form.km_fin) : null,
+    })
+    setGuardando(false)
+    if (err) return setError(err)
+    setForm(null)
+    await recargar()
+  }
+
+  async function guardarFoto() {
+    setGuardando(true)
+    const r = await subirFotoEmergencia(abierta.id, foto)
+    setGuardando(false)
+    if (r.ok) {
+      setFoto(null)
+      setAviso(null)
+      await recargar()
+    } else setAviso('No se pudo subir. Si no tienes señal, vas a poder más tarde.')
+  }
+
+  const hora = (f) => new Date(f).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <section className={`t-card border p-4 ${abierta ? 'border-rose-500/50' : 'border-slate-800'}`}>
+      <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-rose-400">
+        <Siren size={12} /> Emergencia fuera de horario
+      </p>
+
+      {error && <p className="mb-2 text-[12px] text-rose-400">{error.message}</p>}
+      {aviso && <p className="mb-2 text-[11px] text-amber-400">{aviso}</p>}
+
+      {abierta ? (
+        <div className="space-y-3">
+          <p className="text-[13px] text-slate-200">
+            En emergencia desde las <b>{hora(abierta.inicio_at)}</b>
+            <span className="block text-[12px] text-slate-400">{abierta.motivo}</span>
+          </p>
+          <p className="text-[11px] text-slate-500">
+            Mientras esté abierta puedes salir a los trabajos y reportar la reparación. Ciérrala cuando
+            vuelvas.
+          </p>
+
+          {!abierta.foto_ingreso && (
+            <div className="space-y-2">
+              <FotoIngreso foto={foto} onFoto={setFoto} />
+              {foto && (
+                <Button icon={Camera} className="w-full" onClick={guardarFoto} cargando={guardando}>
+                  Subir la foto
+                </Button>
+              )}
+            </div>
+          )}
+
+          <Field label="Qué se hizo" hint="Opcional. Lo lee la oficina junto con las horas.">
+            <Input
+              value={form?.nota ?? ''}
+              onChange={(e) => setForm((f) => ({ ...f, nota: e.target.value }))}
+              placeholder="Ej: empalme de la troncal, torre energizada"
+            />
+          </Field>
+          {abierta.km_inicio != null && (
+            <Field label="Kilometraje al volver">
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={form?.km_fin ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, km_fin: e.target.value }))}
+                placeholder={`Más de ${abierta.km_inicio}`}
+              />
+            </Field>
+          )}
+          <Button
+            icon={StopCircle}
+            className="w-full py-3"
+            onClick={terminar}
+            cargando={guardando}
+            disabled={guardando || (abierta.km_inicio != null && !form?.km_fin)}
+          >
+            Terminar emergencia
+          </Button>
+        </div>
+      ) : !form && bloqueo ? (
+        <p className="text-[12px] leading-snug text-slate-400">{bloqueo}</p>
+      ) : !form ? (
+        <div className="space-y-3">
+          <p className="text-[12px] leading-snug text-slate-400">
+            ¿Se cayó una torre o se cortó la fibra y tu jornada ya terminó (o todavía no empezó)?
+            Marca la salida de emergencia: con eso puedes trabajar, y las horas quedan registradas
+            aparte.
+          </p>
+          <Button
+            icon={Siren}
+            className="w-full py-3"
+            onClick={() =>
+              setForm({
+                reparacion_id: reparaciones[0]?.id ?? '',
+                motivo: '',
+                vehiculo_id: vehiculoFijo?.id ?? (vehiculos.length === 1 ? vehiculos[0].id : ''),
+                km_inicio: '',
+              })
+            }
+          >
+            Salir por emergencia
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {reparaciones.length > 0 && (
+            <Field label="Reparación asignada">
+              <Select
+                value={form.reparacion_id}
+                onChange={(e) => setForm({ ...form, reparacion_id: e.target.value })}
+              >
+                <option value="">— Otra emergencia —</option>
+                {reparaciones.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    #{r.numero} · {r.titulo}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          <Field
+            label="Motivo"
+            hint={form.reparacion_id ? 'Opcional: ya va la reparación.' : 'Qué se cayó o quién te llamó.'}
+          >
+            <Input
+              value={form.motivo}
+              onChange={(e) => setForm({ ...form, motivo: e.target.value })}
+              placeholder="Ej: torre norte apagada, me llamó la oficina"
+            />
+          </Field>
+          {cargaKm && vehiculos.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Vehículo" hint="Si sales manejando">
+                <Select
+                  value={form.vehiculo_id}
+                  onChange={(e) => setForm({ ...form, vehiculo_id: e.target.value })}
+                >
+                  <option value="">— Ninguno —</option>
+                  {vehiculos.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.nombre}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Km al salir">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={form.km_inicio}
+                  onChange={(e) => setForm({ ...form, km_inicio: e.target.value })}
+                  disabled={!form.vehiculo_id}
+                />
+              </Field>
+            </div>
+          )}
+          <FotoIngreso foto={foto} onFoto={setFoto} />
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={() => setForm(null)}>
+              Volver
+            </Button>
+            <Button
+              variante="primario"
+              icon={Siren}
+              className="flex-1"
+              onClick={salir}
+              cargando={guardando}
+              disabled={
+                guardando ||
+                (!form.reparacion_id && !form.motivo.trim()) ||
+                Boolean(cargaKm && form.vehiculo_id && form.km_inicio === '')
+              }
+            >
+              Salir ahora
+            </Button>
+          </div>
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -468,7 +924,7 @@ function CargaCombustible({ jornada, tecnicoId, inicial, onCerrar, onError, onGu
       // Se busca antes de insertar: dos cargas del mismo vehículo con el mismo
       // odómetro son la misma carga cargada dos veces, y duplicarla arruinaría
       // el promedio de rendimiento.
-      const { data: repetida } = await supabase
+      const { data: repetida } = await django
         .from('cargas_combustible')
         .select('id')
         .eq('vehiculo_id', jornada.vehiculo_id)
@@ -480,7 +936,7 @@ function CargaCombustible({ jornada, tecnicoId, inicial, onCerrar, onError, onGu
         return
       }
 
-      const { error } = await supabase.from('cargas_combustible').insert({
+      const { error } = await django.from('cargas_combustible').insert({
         vehiculo_id: jornada.vehiculo_id,
         tecnico_id: tecnicoId,
         odometro: Number(f.odometro),
@@ -502,11 +958,11 @@ function CargaCombustible({ jornada, tecnicoId, inicial, onCerrar, onError, onGu
         <Fuel size={12} /> Carga de combustible
       </p>
       <div className="space-y-3">
-        <Field
+        <Field campo="odometro"
           label="Kilometraje al cargar"
           hint="Es lo que permite saber cuánto rindió el tanque anterior."
         >
-          <Input
+          <Input placeholder="Ej.: 45230"
             type="number"
             inputMode="numeric"
             value={f.odometro}
@@ -514,8 +970,8 @@ function CargaCombustible({ jornada, tecnicoId, inicial, onCerrar, onError, onGu
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Litros" hint="Opcional">
-            <Input
+          <Field campo="litros" label="Litros" hint="Opcional">
+            <Input placeholder="Ej.: 10.5"
               type="number"
               step="0.01"
               inputMode="decimal"
@@ -523,8 +979,8 @@ function CargaCombustible({ jornada, tecnicoId, inicial, onCerrar, onError, onGu
               onChange={(e) => setF({ ...f, litros: e.target.value })}
             />
           </Field>
-          <Field label="Monto" hint="Opcional">
-            <Input
+          <Field campo="monto" label="Monto" hint="Opcional">
+            <Input placeholder="Ej.: 25.00"
               type="number"
               step="0.01"
               inputMode="decimal"
@@ -536,7 +992,7 @@ function CargaCombustible({ jornada, tecnicoId, inicial, onCerrar, onError, onGu
         {!navigator.onLine && (
           <p className="flex items-start gap-1.5 text-[11px] text-amber-400">
             <TriangleAlert size={12} className="mt-0.5 shrink-0" />
-            Sin señal esto no se guarda. Anotá el kilometraje del ticket y cargalo después.
+            Sin señal esto no se guarda. Anota el kilometraje del ticket y cárgalo después.
           </p>
         )}
         <div className="flex gap-2">
@@ -592,9 +1048,9 @@ function FotoIngreso({ foto, onFoto }) {
           </span>
         )}
         <span className="min-w-0 text-[13px] leading-snug text-slate-300">
-          {previa ? 'Tocá para sacarla de nuevo' : 'Tocá para sacar la foto'}
+          {previa ? 'Toca para sacarla de nuevo' : 'Toca para sacar la foto'}
           <span className="mt-0.5 block text-[11px] text-slate-500">
-            Queda con la hora de inicio. Si no tenés señal ahora, la subís después.
+            Queda con la hora de inicio. Si no tienes señal ahora, la subes después.
           </span>
         </span>
         <input
@@ -685,9 +1141,10 @@ function AvisoMantenimiento({ items }) {
           ))}
         </ul>
         <p className="mt-1.5 text-[11px] leading-snug text-slate-500">
-          Avisale a la oficina para que lo agenden.
+          Avísale a la oficina para que lo agenden.
         </p>
       </div>
     </div>
   )
 }
+

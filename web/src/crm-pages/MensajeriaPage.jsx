@@ -16,6 +16,18 @@ import { Aviso, Button, Card, Cargando, ErrorBanner, Field, Input, Select } from
  * token en pantalla queda en el historial del navegador y en cualquier captura
  * que alguien mande por WhatsApp pidiendo ayuda.
  */
+/**
+ * La URL que hay que cargar en Meta para el webhook.
+ *
+ * El servicio de red (middleware/) ya no es alcanzable desde afuera: el webhook
+ * entra por Django, el único backend expuesto. Antes esto caía en el puerto 4000
+ * cuando faltaba la variable, y mostraba una dirección que ya no existe.
+ */
+const URL_WEBHOOK_WHATSAPP = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  `${process.env.NEXT_PUBLIC_DJANGO_API_URL || ''}/red`
+).replace(/\/$/, '') + '/api/webhooks/whatsapp'
+
 export default function MensajeriaPage() {
   const [cfg, setCfg] = useState(null)
   const [canales, setCanales] = useState(null)
@@ -119,7 +131,7 @@ export default function MensajeriaPage() {
         */}
         <Card title="Horario de los avisos" icon={Clock}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field
+            <Field campo="avisos_desde"
               label="Desde"
               hint="Antes de esta hora no se le escribe a ningún abonado."
             >
@@ -129,7 +141,7 @@ export default function MensajeriaPage() {
                 onChange={(e) => setForm((f) => ({ ...f, avisos_desde: e.target.value }))}
               />
             </Field>
-            <Field label="Hasta" hint="Lo que se genere después sale a la mañana siguiente.">
+            <Field campo="avisos_hasta" label="Hasta" hint="Lo que se genere después sale a la mañana siguiente.">
               <Input
                 type="time"
                 value={form.avisos_hasta ?? '20:00'}
@@ -159,11 +171,11 @@ export default function MensajeriaPage() {
           <div className="space-y-4">
             <Estado canal={canales?.telegram} origen={cfg?.telegram.origen} />
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field
+              <Field campo="telegram_token"
                 label="Token del bot"
                 hint={
                   cfg?.telegram.tiene_token
-                    ? 'Ya hay uno guardado: dejalo vacío para no cambiarlo.'
+                    ? 'Ya hay uno guardado: déjalo vacío para no cambiarlo.'
                     : 'Te lo da @BotFather al crear el bot.'
                 }
               >
@@ -175,7 +187,7 @@ export default function MensajeriaPage() {
                   autoComplete="new-password"
                 />
               </Field>
-              <Field label="Usuario del bot" hint="Para poder decirle al abonado a quién escribirle">
+              <Field campo="telegram_bot_usuario" label="Usuario del bot" hint="Para poder decirle al abonado a quién escribirle">
                 <Input
                   value={form.telegram_bot_usuario ?? ''}
                   onChange={set('telegram_bot_usuario')}
@@ -200,7 +212,7 @@ export default function MensajeriaPage() {
                 importa no es el precio: es que la manual NO envía sola, y con
                 ella elegida las alertas de madrugada no salen. Por eso lo dice
                 la opción y lo repite el aviso de abajo. */}
-            <Field label="Por dónde sale" hint="Todas menos la manual envían solas">
+            <Field campo="whatsapp_via" label="Por dónde sale" hint="Todas menos la manual envían solas">
               <Select value={form.whatsapp_via ?? 'manual'} onChange={set('whatsapp_via')}>
                 <option value="manual">Manual — se prepara el mensaje y lo manda una persona</option>
                 <option value="evolution">Evolution API — gratis, con tu propio número</option>
@@ -232,7 +244,7 @@ export default function MensajeriaPage() {
               Se muestra con todas las vías menos la manual, que no envía sola.
             */}
             {form.whatsapp_via !== 'manual' && (
-              <Field
+              <Field campo="whatsapp_pausa_segundos"
                 label="Pausa entre mensajes (segundos)"
                 hint={
                   form.whatsapp_via === 'crm' || form.whatsapp_via === 'evolution' || form.whatsapp_via === 'baileys'
@@ -240,7 +252,7 @@ export default function MensajeriaPage() {
                     : '0 = sin pausa. Con la API oficial no suele hacer falta: el límite de Meta es por día, no por segundo.'
                 }
               >
-                <Input
+                <Input placeholder="Ej.: 5"
                   type="number"
                   min={0}
                   max={300}
@@ -253,7 +265,7 @@ export default function MensajeriaPage() {
             {form.whatsapp_via === 'evolution' && (
               <div className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field
+                  <Field campo="whatsapp_evolution_url"
                     label="URL del servidor"
                     hint="Sin barra al final. Por ejemplo http://localhost:8080"
                   >
@@ -263,7 +275,7 @@ export default function MensajeriaPage() {
                       placeholder="http://localhost:8080"
                     />
                   </Field>
-                  <Field label="Instancia" hint="El nombre con el que la creaste en Evolution">
+                  <Field campo="whatsapp_evolution_instancia" label="Instancia" hint="El nombre con el que la creaste en Evolution">
                     <Input
                       value={form.whatsapp_evolution_instancia ?? ''}
                       onChange={set('whatsapp_evolution_instancia')}
@@ -271,7 +283,7 @@ export default function MensajeriaPage() {
                     />
                   </Field>
                 </div>
-                <Field
+                <Field campo="whatsapp_evolution_key"
                   label="API key"
                   hint={
                     cfg?.whatsapp.tiene_evolution_key
@@ -303,7 +315,7 @@ export default function MensajeriaPage() {
                 Baileys embebido todavía <b>no está implementado</b>. Es la misma librería que usa
                 Evolution API por debajo, pero corriendo dentro del middleware: hay que sostener la
                 sesión, el QR y las reconexiones acá adentro, y cada reinicio del servidor la
-                cortaría. Elegí <b>Evolution API</b>, que es lo mismo resuelto y también es gratis.
+                cortaría. Elige <b>Evolution API</b>, que es lo mismo resuelto y también es gratis.
               </Aviso>
             )}
 
@@ -312,7 +324,7 @@ export default function MensajeriaPage() {
                 queden a medias y nadie sepa por qué no sale. */}
             {form.whatsapp_via === 'meta' && (
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field
+                <Field campo="whatsapp_token"
                   label="Token permanente"
                   hint={cfg?.whatsapp.tiene_token ? 'Ya hay uno guardado.' : 'Del panel de Meta for Developers'}
                 >
@@ -324,8 +336,8 @@ export default function MensajeriaPage() {
                     autoComplete="new-password"
                   />
                 </Field>
-                <Field label="Phone Number ID" hint="El número largo, no el teléfono">
-                  <Input value={form.whatsapp_phone_id ?? ''} onChange={set('whatsapp_phone_id')} />
+                <Field campo="whatsapp_phone_id" label="Phone Number ID" hint="El número largo, no el teléfono">
+                  <Input placeholder="Ej.: 123456789012345" value={form.whatsapp_phone_id ?? ''} onChange={set('whatsapp_phone_id')} />
                 </Field>
 
                 {/*
@@ -333,9 +345,9 @@ export default function MensajeriaPage() {
                   entrega, no se sabe si la ventana de 24 h está abierta, y las
                   bajas que el abonado pide por chat no se aplican.
                 */}
-                <Field
+                <Field campo="whatsapp_verify_token"
                   label="Token de verificación del webhook"
-                  hint="Inventalo: cualquier cadena larga. Va igual acá y en el panel de Meta."
+                  hint="Invéntalo: cualquier cadena larga. Va igual acá y en el panel de Meta."
                 >
                   <Input
                     value={form.whatsapp_verify_token ?? ''}
@@ -343,7 +355,7 @@ export default function MensajeriaPage() {
                     placeholder="una-frase-larga-y-propia"
                   />
                 </Field>
-                <Field
+                <Field campo="whatsapp_app_secret"
                   label="App Secret"
                   hint={
                     cfg?.whatsapp.tiene_app_secret
@@ -362,11 +374,8 @@ export default function MensajeriaPage() {
 
                 <div className="sm:col-span-2">
                   <Aviso>
-                    En Meta → WhatsApp → Configuración → Webhooks, poné la URL{' '}
-                    <code className="font-mono text-[11px]">
-                      {(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '')}
-                      /api/webhooks/whatsapp
-                    </code>{' '}
+                    En Meta → WhatsApp → Configuración → Webhooks, pon la URL{' '}
+                    <code className="font-mono text-[11px]">{URL_WEBHOOK_WHATSAPP}</code>{' '}
                     con ese token, y suscribite al campo <b>messages</b>. Es lo que trae los acuses
                     de entrega y abre la ventana de 24 h en la que se puede escribir texto libre.
                   </Aviso>
@@ -376,7 +385,7 @@ export default function MensajeriaPage() {
 
             {form.whatsapp_via === 'twilio' && (
               <div className="space-y-3">
-                <Field label="Número emisor de WhatsApp" hint="El que habilitaste en Twilio, con código de país">
+                <Field campo="whatsapp_desde" label="Número emisor de WhatsApp" hint="El que habilitaste en Twilio, con código de país">
                   <Input
                     value={form.whatsapp_desde ?? ''}
                     onChange={set('whatsapp_desde')}
@@ -396,14 +405,14 @@ export default function MensajeriaPage() {
                 </Aviso>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Nombre del CRM" hint="Solo para que los errores digan de quién hablan.">
+                  <Field campo="whatsapp_crm_nombre" label="Nombre del CRM" hint="Solo para que los errores digan de quién hablan.">
                     <Input
                       value={form.whatsapp_crm_nombre ?? ''}
                       onChange={set('whatsapp_crm_nombre')}
                       placeholder="Mi CRM de WhatsApp"
                     />
                   </Field>
-                  <Field label="Cabecera de autenticación">
+                  <Field campo="whatsapp_crm_header" hint="Cómo pide la clave el proveedor; está en su documentación." label="Cabecera de autenticación">
                     <Select
                       value={form.whatsapp_crm_header ?? 'X-API-Key'}
                       onChange={set('whatsapp_crm_header')}
@@ -414,7 +423,7 @@ export default function MensajeriaPage() {
                   </Field>
                 </div>
 
-                <Field label="URL del endpoint" hint="A dónde se le entregan los avisos. Te la da el proveedor.">
+                <Field campo="whatsapp_crm_url" label="URL del endpoint" hint="A dónde se le entregan los avisos. Te la da el proveedor.">
                   <Input
                     value={form.whatsapp_crm_url ?? ''}
                     onChange={set('whatsapp_crm_url')}
@@ -422,7 +431,7 @@ export default function MensajeriaPage() {
                   />
                 </Field>
 
-                <Field
+                <Field campo="whatsapp_crm_key"
                   label="Llave"
                   hint={
                     cfg?.whatsapp.tiene_crm_key
@@ -440,7 +449,7 @@ export default function MensajeriaPage() {
                 </Field>
 
                 <Aviso tipo="alerta">
-                  Falta un paso más: en <b>Ajustes → Plantillas de WhatsApp</b>, cargá cómo se llama
+                  Falta un paso más: en <b>Ajustes → Plantillas de WhatsApp</b>, carga cómo se llama
                   cada aviso del lado del CRM. Un aviso sin ese nombre no sale por acá — se cae al
                   SMS o al correo.
                 </Aviso>
@@ -460,10 +469,10 @@ export default function MensajeriaPage() {
           <div className="space-y-4">
             <Estado canal={canales?.sms} origen={cfg?.sms.origen} />
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Account SID">
+              <Field campo="twilio_sid" label="Account SID">
                 <Input value={form.twilio_sid ?? ''} onChange={set('twilio_sid')} placeholder="AC…" />
               </Field>
-              <Field
+              <Field campo="twilio_token"
                 label="Auth Token"
                 hint={cfg?.sms.tiene_token ? 'Ya hay uno guardado.' : undefined}
               >
@@ -475,7 +484,7 @@ export default function MensajeriaPage() {
                   autoComplete="new-password"
                 />
               </Field>
-              <Field label="Número emisor">
+              <Field campo="twilio_desde" label="Número emisor">
                 <Input value={form.twilio_desde ?? ''} onChange={set('twilio_desde')} placeholder="+1…" />
               </Field>
             </div>
@@ -487,7 +496,7 @@ export default function MensajeriaPage() {
           subtitle="A quién avisarle cuando se cae un nodo que no tiene técnico asignado"
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Canal">
+            <Field campo="nms_canal" hint="Por dónde se le manda el mensaje." label="Canal">
               <Select value={form.nms_canal ?? 'telegram'} onChange={set('nms_canal')}>
                 <option value="telegram">Telegram</option>
                 <option value="whatsapp">WhatsApp</option>
@@ -495,11 +504,11 @@ export default function MensajeriaPage() {
                 <option value="sms">SMS</option>
               </Select>
             </Field>
-            <Field
+            <Field campo="nms_destino"
               label="Destino"
               hint="Correo, celular o chat de Telegram, según el canal elegido"
             >
-              <Input value={form.nms_destino ?? ''} onChange={set('nms_destino')} />
+              <Input placeholder="Ej.: 0991234567" value={form.nms_destino ?? ''} onChange={set('nms_destino')} />
             </Field>
           </div>
         </Card>
@@ -578,7 +587,7 @@ function Probador({ canales }) {
   }
 
   const pista = {
-    telegram: 'El chat_id, no el número. Escribile /start al bot para obtenerlo.',
+    telegram: 'El chat_id, no el número. Escríbele /start al bot para obtenerlo.',
     whatsapp: 'Celular con código de país, ej. 0991234567',
     email: 'Una casilla a la que tengas acceso',
     sms: 'Celular con código de país',
@@ -590,7 +599,7 @@ function Probador({ canales }) {
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="Canal" className="w-44">
+          <Field hint="Por dónde se le manda el mensaje." label="Canal" className="w-44">
             <Select value={canal} onChange={(e) => setCanal(e.target.value)}>
               <option value="telegram">Telegram</option>
               <option value="whatsapp">WhatsApp</option>
@@ -599,7 +608,7 @@ function Probador({ canales }) {
             </Select>
           </Field>
           <Field label="Enviar a" hint={pista} className="min-w-56 flex-1">
-            <Input value={destino} onChange={(e) => setDestino(e.target.value)} />
+            <Input placeholder="Ej.: tecnico@tuempresa.com" value={destino} onChange={(e) => setDestino(e.target.value)} />
           </Field>
           <Button
             type="button"
@@ -631,7 +640,7 @@ function Probador({ canales }) {
           <Aviso>
             {resultado.entregado
               ? 'Entregado. El proveedor confirmó que llegó al dispositivo.'
-              : 'Enviado. El proveedor lo aceptó — revisá que haya llegado de verdad.'}
+              : 'Enviado. El proveedor lo aceptó — revisa que haya llegado de verdad.'}
           </Aviso>
         )}
       </div>

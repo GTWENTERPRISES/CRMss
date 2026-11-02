@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
 import { FileText, Image as ImagenIcon, Trash2, Upload } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Aviso, Button, Card } from '../ui'
 import { comprimirImagen } from '../../lib/soporte'
 
@@ -94,7 +94,7 @@ export default function DocumentosVenta({ instalacion, onError }) {
      * —se conserva por si el reemplazo fue un error, pero mostrar las dos es
      * exactamente el problema que eso resuelve—.
      */
-    const { data, error } = await supabase
+    const { data, error } = await django
       .from('documentos')
       .select('*')
       .eq('instalacion_id', instalacion.id)
@@ -124,7 +124,7 @@ export default function DocumentosVenta({ instalacion, onError }) {
     onError?.(null)
 
     try {
-      const { data: sesion } = await supabase.auth.getUser()
+      const { data: sesion } = await django.auth.getUser()
       const esImagen = archivo.type.startsWith('image/')
 
       /**
@@ -143,12 +143,12 @@ export default function DocumentosVenta({ instalacion, onError }) {
       // vino.
       const ruta = `ordenes/${instalacion.id}/${subiendo.categoria}-${Date.now()}.${extension}`
 
-      const { error: errSubida } = await supabase.storage
+      const { error: errSubida } = await django.storage
         .from('documentos')
         .upload(ruta, contenido, { contentType: esImagen ? 'image/jpeg' : archivo.type })
       if (errSubida) throw errSubida
 
-      const { error } = await supabase.from('documentos').insert({
+      const { error } = await django.from('documentos').insert({
         instalacion_id: instalacion.id,
         // Si la orden ya tiene abonado se le pone de una: el disparador cubre el
         // caso contrario, pero así el papel aparece en la ficha sin esperar nada.
@@ -176,7 +176,7 @@ export default function DocumentosVenta({ instalacion, onError }) {
   }
 
   async function ver(doc) {
-    const { data, error } = await supabase.storage
+    const { data, error } = await django.storage
       .from('documentos')
       .createSignedUrl(doc.ruta, 3600)
     if (error) return onError?.(error)
@@ -185,8 +185,8 @@ export default function DocumentosVenta({ instalacion, onError }) {
 
   async function borrar(doc) {
     if (!await confirmar(`¿Borrar "${doc.nombre}"?`)) return
-    await supabase.storage.from('documentos').remove([doc.ruta])
-    const { error } = await supabase.from('documentos').delete().eq('id', doc.id)
+    await django.storage.from('documentos').remove([doc.ruta])
+    const { error } = await django.from('documentos').delete().eq('id', doc.id)
     if (error) onError?.(error)
     else await recargar()
   }

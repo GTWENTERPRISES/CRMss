@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { django } from './djangoClient'
 import { ordenarPorCercania } from './ruta.js'
 import { semaforoDe } from './instalaciones'
 import { conCache } from './cacheLocal'
@@ -74,7 +74,7 @@ async function leerTablero(perfil) {
     // solo devuelve las de su `tecnico_id`. El filtro de acá abajo es para el
     // día, no para la seguridad — si fuera para la seguridad estaría en el
     // lugar equivocado.
-    supabase
+    django
       .from('v_instalaciones')
       .select('*')
       .in('estado', ['agendada', 'en_ruta', 'en_curso', 'reprogramada'])
@@ -99,7 +99,7 @@ async function leerTablero(perfil) {
      *
      * Esa es la peor forma de fallar: no parece un error, parece un hecho.
      */
-    supabase
+    django
       .from('tickets')
       .select(
         'id, numero, nombre, tipo_incidencia, descripcion, estado, prioridad, direccion, fecha_visita, franja, created_at, salida_at, llegada_at, cerrado_at',
@@ -116,7 +116,7 @@ async function leerTablero(perfil) {
 
     // Va por la vista y no por el middleware: son datos que ya están en la base
     // y una llamada HTTP más es una espera más en una conexión de celular.
-    supabase
+    django
       .from('v_estado_red')
       .select('*')
       .eq('monitorear', true)
@@ -126,10 +126,10 @@ async function leerTablero(perfil) {
       // tarjeta — distinto de `[]`, que diría "no hay nodos".
       .then(({ data, error }) => (error ? null : (data ?? []))),
 
-    supabase
+    django
       .from('v_notificaciones')
       .select('*')
-      .is('leida_en', null)
+      .eq('leida', false)
       .order('creado_en', { ascending: false })
       .limit(10)
       .then(({ data, error }) => (error ? [] : (data ?? []))),
@@ -149,7 +149,7 @@ async function leerTablero(perfil) {
      * no había visto. Esconder el resto para cumplir la letra habría cumplido
      * peor la intención.
      */
-    supabase
+    django
       .from('v_novedades_red')
       .select('*')
       .order('momento', { ascending: false })
@@ -166,7 +166,7 @@ async function leerTablero(perfil) {
      * Falla en silencio a `[]` a propósito: que la cartera no responda no puede
      * dejar al técnico sin ver su ruta de instalaciones.
      */
-    supabase
+    django
       .from('v_retiros_equipo')
       .select('id, cliente, telefono, direccion, zona, serie, modelo, estado, agendado_para, agenda_nota, meses_sin_pago, intentos')
       .in('estado', ['pendiente', 'asignado'])
@@ -190,7 +190,7 @@ async function leerTablero(perfil) {
      * ver su ruta.
      */
     tecnicoId
-      ? supabase
+      ? django
           .from('v_stock_bajo')
           .select('articulo, cantidad, unidad, minimo, sugerido, agotado')
           .eq('tecnico_id', tecnicoId)
@@ -214,7 +214,7 @@ async function leerTablero(perfil) {
    */
   let partida = null
   if (perfil?.tecnico_id) {
-    const { data: j } = await supabase
+    const { data: j } = await django
       .from('jornadas')
       .select('lat_ingreso, lng_ingreso')
       .eq('tecnico_id', perfil.tecnico_id)
@@ -383,7 +383,9 @@ function resumirRed(nodos, novedades = []) {
   // igual que uno que nunca se cayó— sino del historial. Es la cuarta tarjeta
   // del tablero y la única que mira hacia atrás.
   const recuperadosHoy = novedades.filter(
-    (e) => e.clase === 'recuperado' && fechaLocalDe(e.momento) === hoy,
+    // Solo nodos: desde la 209 la vista trae también cortes y alertas de la
+    // OLT, y esta cifra está al lado de las de nodos en línea y caídos.
+    (e) => e.clase === 'recuperado' && (e.fuente ?? 'nodo') === 'nodo' && fechaLocalDe(e.momento) === hoy,
   ).length
   return { ...resumirEstado(nodos), recuperadosHoy }
 }

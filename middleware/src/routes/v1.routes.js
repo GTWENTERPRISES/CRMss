@@ -52,7 +52,7 @@ const frenoGeneral = freno('v1', 120)
 const frenoEquipos = freno(
   'v1-equipos',
   6,
-  'Usá GET /api/v1/cliente/consultar-deuda o el diagnóstico rápido, que no tocan los equipos.',
+  'Usa GET /api/v1/cliente/consultar-deuda o el diagnóstico rápido, que no tocan los equipos.',
 )
 
 /** La respuesta exitosa, siempre con el mismo sobre. */
@@ -483,7 +483,7 @@ router.post(
       aplicado,
       mensaje: aplicado
         ? 'Credenciales Wi-Fi actualizadas en el equipo remoto.'
-        : 'El cambio quedó registrado y se aplica en cuanto el equipo se reporte. Por ahora seguí usando tu clave anterior.',
+        : 'El cambio quedó registrado y se aplica en cuanto el equipo se reporte. Por ahora sigue usando tu clave anterior.',
       ...r,
     })
   }),
@@ -526,7 +526,7 @@ router.use((err, req, res, _next) => {
     code: err.codigo ?? CODIGO_POR_STATUS[status] ?? 'ERROR_INTERNO',
     message:
       status >= 500
-        ? 'Tuvimos un problema al procesar la consulta. Intentá de nuevo en un momento.'
+        ? 'Tuvimos un problema al procesar la consulta. Intenta de nuevo en un momento.'
         : err.message,
     ...(err.hint ? { hint: err.hint } : {}),
     // Lo que el error haya adjuntado y sirva del otro lado: la incidencia que

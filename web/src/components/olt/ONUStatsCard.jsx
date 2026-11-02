@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Button, Card, ErrorBanner, Stat } from '../ui'
+import { hora as fmtHora } from '@/lib/formato'
 
 /** Umbral de alerta del taller: por debajo de esto la señal se considera baja. */
 export const UMBRAL_RX_DBM = -27
@@ -36,7 +37,7 @@ export default function ONUStatsCard({ olt, ubicacion, onuId, etiqueta }) {
       setMetricas(r)
       if (r.rxPowerDbm != null) {
         setHistorial((h) =>
-          [...h, { hora: new Date().toLocaleTimeString('es', { timeStyle: 'medium' }), rx: r.rxPowerDbm }].slice(-20),
+          [...h, { hora: fmtHora(new Date()), rx: r.rxPowerDbm }].slice(-20),
         )
       }
     } catch (err) {
@@ -65,7 +66,7 @@ export default function ONUStatsCard({ olt, ubicacion, onuId, etiqueta }) {
 
         {!metricas && !error && (
           <p className="py-6 text-center text-sm text-slate-500">
-            Pulsá “Leer ahora” para consultar la potencia óptica en vivo.
+            Pulsa “Leer ahora” para consultar la potencia óptica en vivo.
           </p>
         )}
 
@@ -86,7 +87,7 @@ export default function ONUStatsCard({ olt, ubicacion, onuId, etiqueta }) {
               </div>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="t-kpis">
               <Stat
                 label="Rx power"
                 valor={metricas.rxPowerDbm != null ? `${metricas.rxPowerDbm} dBm` : '—'}

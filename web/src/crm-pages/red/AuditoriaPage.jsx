@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { AlertTriangle, Radar, ScanSearch, ShieldCheck } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { TIPOS_SUBRED } from '../../lib/red'
 import { Aviso, Badge, Button, Card, Cargando, ErrorBanner, Field, Select, Table } from '../../components/ui'
@@ -28,7 +28,7 @@ export default function AuditoriaPage() {
   const [cargando, setCargando] = useState(true)
 
   const recargar = useCallback(async () => {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('v_subredes')
       .select('*')
       .eq('activo', true)
@@ -45,7 +45,7 @@ export default function AuditoriaPage() {
   const subred = subredes.find((s) => s.id === subredId)
 
   async function escanear() {
-    if (!subredId) return setError(new Error('Elegí qué subred auditar'))
+    if (!subredId) return setError(new Error('Elige qué subred auditar'))
 
     setEscaneando(true)
     setError(null)
@@ -86,7 +86,7 @@ export default function AuditoriaPage() {
         ) : (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Subred">
+              <Field hint="De esta red se toma su IP." label="Subred">
                 <Select value={subredId} onChange={(e) => setSubredId(e.target.value)}>
                   <option value="">Elegir…</option>
                   {subredes.map((s) => (
@@ -200,7 +200,7 @@ export default function AuditoriaPage() {
               {resultado.modo === 'arp' && (
                 <p className="mt-3 text-xs text-slate-500">
                   Con el barrido pasivo, un equipo prendido pero callado no aparece. Antes de dar de
-                  baja una dirección, confirmalo con el barrido activo.
+                  baja una dirección, confírmalo con el barrido activo.
                 </p>
               )}
             </Card>

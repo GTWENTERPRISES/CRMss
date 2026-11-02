@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Aviso, Button, Card, ErrorBanner, Select, SkeletonTabla, Table } from '../../components/ui'
 import ConPermiso from '../../components/layout/ConPermiso'
 import BotonTema from '../../components/ventas/BotonTema'
@@ -18,6 +18,7 @@ import { useTemaCampo } from '../../lib/temaCampo'
 import { dineroCero as dinero } from '../../lib/formato'
 import { paleta } from '../../lib/comercial'
 import { personalApi } from '../../lib/personal'
+import { fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Reportes comerciales.
@@ -59,10 +60,10 @@ export default function ReportesPage() {
     setCargando(true)
     try {
       const [mensual, vendedores, planes, sectores] = await Promise.all([
-        supabase.from('v_reporte_mensual').select('*').order('mes'),
-        supabase.from('v_reporte_vendedores').select('*').order('ganados', { ascending: false }),
-        supabase.from('v_reporte_planes').select('*'),
-        supabase.from('v_reporte_sectores').select('*'),
+        django.from('v_reporte_mensual').select('*').order('mes'),
+        django.from('v_reporte_vendedores').select('*').order('ganados', { ascending: false }),
+        django.from('v_reporte_planes').select('*'),
+        django.from('v_reporte_sectores').select('*'),
       ])
       if (mensual.error) throw mensual.error
       setDatos({
@@ -88,10 +89,7 @@ export default function ReportesPage() {
     const recorte = meses > 0 ? filas.slice(-meses) : filas
     return recorte.map((m) => ({
       ...m,
-      etiqueta: new Date(`${m.mes}T12:00:00`).toLocaleDateString('es-EC', {
-        month: 'short',
-        year: '2-digit',
-      }),
+      etiqueta: fmtFecha(`${m.mes}T12:00:00`),
     }))
   }, [datos.mensual, meses])
 

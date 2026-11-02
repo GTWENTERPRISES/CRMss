@@ -17,6 +17,7 @@ const ICONO = {
   ont_caida: '⚠️',
   potencia_critica: '🟡',
   degradacion: '🟡',
+  subida_saturada: '⬆️',
 }
 
 const hora = (f) => {
@@ -100,6 +101,48 @@ export function textoAlerta(evento, ahora = new Date()) {
       .join('\n')
   }
 
+  /*
+   * La subida saturada no es una avería: es un abonado que llena su propia
+   * subida. El texto lo dice de entrada, para que quien atiende la llamada de
+   * "anda lento" sepa qué contestar.
+   */
+  if (e.regla === 'subida_saturada') {
+    const d = e.detalle ?? {}
+    const identidad = d.codigo != null ? ` (${String(d.codigo).padStart(6, '0')})` : ''
+    const mbps = (n) => Number(n ?? 0).toLocaleString('es-EC', { maximumFractionDigits: 1 })
+    return [
+      `${icono} Subida saturada — ${e.etiqueta ?? 'abonado'}${identidad}`,
+      d.ultimo_mbps != null && d.limite_mbps != null
+        ? `${mbps(d.ultimo_mbps)} de ${mbps(d.limite_mbps)} Mbps (${Math.round(d.ultimo_pct ?? 0)}%) desde las ${hora(e.empezo_en)} (${haceCuanto(e.empezo_en, ahora)})`
+        : `Desde las ${hora(e.empezo_en)} (${haceCuanto(e.empezo_en, ahora)})`,
+      'Es tráfico que sale de su casa: se le va a notar lento para todo.',
+      e.zona ? `Zona: ${e.zona}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  /*
+   * Por caja NAP: el promedio de todos sus clientes empeoró. El texto dice
+   * cuánto, en cuántos días y QUÉ revisar, porque quien lo lee es el técnico
+   * que va a salir, y lo primero que necesita saber es que no es una casa.
+   */
+  if (e.regla === 'degradacion' && e.entidad === 'nap') {
+    const d = e.detalle ?? {}
+    const dbm = (n) => Number(n).toLocaleString('es-EC', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+    return [
+      `${icono} ${e.etiqueta ?? 'Caja NAP'} degradándose — ${e.abonados ?? d.onus ?? 0} clientes`,
+      d.desde != null && d.hasta != null
+        ? `Promedio: de ${dbm(d.desde)} a ${dbm(d.hasta)} dBm (${dbm(d.hasta - d.desde)} dB en ${d.dias ?? 7} días)`
+        : null,
+      d.direccion ? `📍 ${d.direccion}` : null,
+      e.zona ? `Zona: ${e.zona}` : null,
+      'Revisar fibra, conector o splitter que alimenta la caja.',
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
+
   if (e.regla === 'degradacion') {
     return [
       `${icono} Señal bajando — ${e.etiqueta ?? 'abonado'}`,
@@ -169,5 +212,6 @@ export const UNIDAD_UMBRAL = {
   ont_caida: null,
   corte_grupo: 'abonados de la misma caja',
   potencia_critica: 'dBm',
-  degradacion: 'dBm de caída',
+  degradacion: 'dB de caída del promedio de la caja (7 días)',
+  subida_saturada: '% del límite de subida',
 }

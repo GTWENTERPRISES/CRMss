@@ -25,11 +25,9 @@
  * limpieza general también lo levanta.
  */
 import 'dotenv/config'
-import { createClient } from '@supabase/supabase-js'
+import { db as clienteDjango } from '../src/lib/djangoDb.js'
 
-const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false },
-})
+const db = clienteDjango()
 
 const hoy = new Date()
 const haceMeses = (n) => {

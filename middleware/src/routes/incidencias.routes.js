@@ -35,13 +35,13 @@ async function exigir(req, permiso) {
   if (!actor) {
     throw new AppError('Tu usuario no tiene un legajo de personal asociado', {
       status: 403,
-      hint: 'Pedile a un Super Administrador que te cree el usuario en Ajustes → Gestión de personal.',
+      hint: 'Pídele a un Super Administrador que te cree el usuario en Ajustes → Gestión de personal.',
     })
   }
   if (!actor.activo) throw new AppError('Tu usuario está desactivado', { status: 403 })
 
   if (permiso && !tienePermiso(actor, permiso)) {
-    throw new AppError('No tenés permiso para esto', {
+    throw new AppError('No tienes permiso para esto', {
       status: 403,
       hint: `Hace falta el permiso "${permiso}". Se otorga en Ajustes → Gestión de personal.`,
     })

@@ -270,9 +270,9 @@ export async function guardar(datos = {}) {
     throw new AppError(`No se pudo guardar la configuración: ${error.message}`, {
       status: 502,
       hint: falta
-        ? 'Falta correr supabase/migracion-61-configuracion-de-mensajeria.sql'
+        ? 'Falta actualizar la base (python manage.py migrate)'
         : restriccion
-          ? 'La base no admite ese valor. Si acabás de elegir una vía nueva de WhatsApp, falta correr la migración que la habilita (la 180 para "CRM externo").'
+          ? 'La base no admite ese valor. Si acabas de elegir una vía nueva de WhatsApp, falta correr la migración que la habilita (la 180 para "CRM externo").'
           : undefined,
     })
   }

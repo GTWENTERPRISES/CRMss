@@ -150,7 +150,7 @@ export async function detectarComunidad(olt, { escritura = false } = {}) {
   const comunidad = await olts.leerComunidadSnmp(olt, { escritura })
   if (!comunidad) {
     throw badRequest('El equipo no devolvió ninguna comunidad SNMP', {
-      hint: 'Puede que SNMP no esté configurado. Miralo en la pestaña Avanzado.',
+      hint: 'Puede que SNMP no esté configurado. Míralo en la pestaña Avanzado.',
     })
   }
 
@@ -173,7 +173,7 @@ export async function detectarComunidad(olt, { escritura = false } = {}) {
 export async function leerPotencias(olt, opciones) {
   if (!olt.snmp_ro_encrypted) {
     throw badRequest('Esta OLT no tiene cargada la comunidad SNMP de lectura', {
-      hint: 'Usá "Detectar comunidad": se lee del propio equipo y se guarda cifrada.',
+      hint: 'Usa "Detectar comunidad": se lee del propio equipo y se guarda cifrada.',
     })
   }
 
@@ -241,7 +241,7 @@ export function compararInventario(delEquipo, deLaBase) {
 export async function importarOnus(olt, { aplicar = false } = {}) {
   if (!olt.snmp_ro_encrypted) {
     throw badRequest('Esta OLT no tiene cargada la comunidad SNMP de lectura', {
-      hint: 'Usá "Detectar comunidad": se lee del propio equipo y se guarda cifrada.',
+      hint: 'Usa "Detectar comunidad": se lee del propio equipo y se guarda cifrada.',
     })
   }
 
@@ -295,7 +295,7 @@ export async function importarOnus(olt, { aplicar = false } = {}) {
             aviso:
               `Ojo: ${puertosCaidos.map((p) => `el puerto ${p.slot}/${p.puerto} (${p.onus} ONTs)`).join(' y ')} ` +
               'no reporta ninguna ONT. Eso no significa que se hayan ido los abonados: significa que el puerto ' +
-              'está caído. Esperá a que vuelva antes de sacar conclusiones — y no borres esas filas.',
+              'está caído. Espera a que vuelva antes de sacar conclusiones — y no borres esas filas.',
           }
         : {}),
     }
@@ -596,7 +596,7 @@ export async function emparejarAbonados(olt, { aplicar = false, crear = false } 
           aviso:
             `Se crearon ${creados} fichas SIN plan ni identificación: el equipo no los tiene. ` +
             'Hasta que se los cargues no se les puede facturar ni aplicar velocidad. ' +
-            'Las encontrás filtrando por origen "onu".',
+            'Las encuentras filtrando por origen "onu".',
         }
       : {}),
   }
@@ -623,7 +623,7 @@ export async function esperandoAutorizacion(olt) {
 
   if (!olt.snmp_ro_encrypted) {
     throw badRequest('Esta OLT no tiene cargada la comunidad SNMP de lectura', {
-      hint: 'Sin SNMP habría que barrer todos los puertos por la CLI, que tarda minutos. Usá "Detectar comunidad" en la ficha.',
+      hint: 'Sin SNMP habría que barrer todos los puertos por la CLI, que tarda minutos. Usa "Detectar comunidad" en la ficha.',
     })
   }
 
@@ -699,7 +699,7 @@ export async function datosAutorizacion(olt, sn) {
   const ont = esperando.data
   if (!ont) {
     throw badRequest(`La ONT ${serie} no figura esperando autorización en esta OLT`, {
-      hint: 'Puede que ya se haya autorizado, o que el último barrido sea viejo. Volvé a escanear.',
+      hint: 'Puede que ya se haya autorizado, o que el último barrido sea viejo. Vuelve a escanear.',
     })
   }
 
@@ -790,7 +790,7 @@ export async function detalleEsperando(olt, sn) {
 
   if (!guardada) {
     throw badRequest(`La ONT ${serie} no figura esperando autorización en esta OLT`, {
-      hint: 'Puede que ya se haya autorizado, o que el último barrido sea viejo. Probá "Resincronizar".',
+      hint: 'Puede que ya se haya autorizado, o que el último barrido sea viejo. Prueba "Resincronizar".',
     })
   }
 
@@ -1370,7 +1370,7 @@ export async function cambiarPlan(olt, { onuId, planId }) {
       throw badRequest(
         `La OLT no tiene la traffic table ${[...new Set(faltan)].join(' ni la ')}`,
         {
-          hint: `El plan "${plan.nombre}" apunta a un índice que no existe en este equipo. Corregilo en Servicios → Planes.`,
+          hint: `El plan "${plan.nombre}" apunta a un índice que no existe en este equipo. Corrígelo en Servicios → Planes.`,
         },
       )
     }
@@ -1439,12 +1439,19 @@ export async function fichaOnu(olt, onuId) {
       .catch((err) => ({ error: err.message })),
   ])
 
-  const { data: historial } = await db()
+  // Las columnas de la tabla son medida_at / rx_dbm / tx_dbm (migración 41);
+  // la respuesta conserva los nombres que esta función siempre devolvió.
+  const { data: medidas } = await db()
     .from('onu_optica_historial')
-    .select('leida_at, rx_power_dbm, tx_power_dbm')
+    .select('medida_at, rx_dbm, tx_dbm')
     .eq('onu_id', onu.id)
-    .order('leida_at', { ascending: false })
+    .order('medida_at', { ascending: false })
     .limit(60)
+  const historial = (medidas ?? []).map((m) => ({
+    leida_at: m.medida_at,
+    rx_power_dbm: m.rx_dbm,
+    tx_power_dbm: m.tx_dbm,
+  }))
 
   return {
     guardado: vista ?? onu,
@@ -1660,14 +1667,14 @@ export async function configurarWanTr069Onu(olt, onuId, datos = {}) {
   if (!onu.sn) throw badRequest('Esta ONU no tiene número de serie cargado')
   if (!hayAcs()) {
     throw badRequest('No hay servidor TR-069 configurado en este sistema', {
-      hint: 'Definí GENIEACS_URL en middleware/.env apuntando al NBI de GenieACS.',
+      hint: 'Define GENIEACS_URL en middleware/.env apuntando al NBI de GenieACS.',
     })
   }
 
   const equipo = await buscarPorSerie(onu.sn)
   if (!equipo) {
     throw badRequest('La ONT nunca se reportó al servidor TR-069', {
-      hint: 'Revisá que tenga el perfil TR-069 apuntado, la IP de gestión, y que haya levantado la interfaz.',
+      hint: 'Revisa que tenga el perfil TR-069 apuntado, la IP de gestión, y que haya levantado la interfaz.',
     })
   }
 
@@ -1724,7 +1731,7 @@ export async function configurarWanOnu(olt, onuId, datos = {}) {
   const profileId = datos.profileId ?? perfil?.profileId
   if (profileId == null) {
     throw badRequest('Falta el perfil de WAN', {
-      hint: 'Elegí uno de los que ya tiene la OLT, o definí uno nuevo.',
+      hint: 'Elige uno de los que ya tiene la OLT, o define uno nuevo.',
     })
   }
 
@@ -1836,7 +1843,7 @@ export async function configurarGestionOnu(olt, onuId, datos = {}) {
 
     if (!gateway) {
       throw badRequest('No se pudo deducir la puerta de enlace de gestión', {
-        hint: 'La IP no cae en ningún pool de gestión de esta OLT. Cargá el pool en Red → Redes IPv4.',
+        hint: 'La IP no cae en ningún pool de gestión de esta OLT. Carga el pool en Red → Redes IPv4.',
       })
     }
 
@@ -1927,7 +1934,7 @@ export async function cambiarPerfilesOnu(olt, onuId, { srvProfileId = null, line
         antes,
         ...r,
         aviso: `El perfil cambió en la OLT, pero no se pudo guardar en la ficha: ${error.message}. `
-          + 'Resincronizá la ONU para que la ficha se ponga al día.',
+          + 'Resincroniza la ONU para que la ficha se ponga al día.',
       }
     }
   }
@@ -2037,7 +2044,7 @@ export async function softwareOnu(olt, onuId) {
       hint:
         m?.online === false
           ? 'Es una consulta OMCI en vivo y la ONT está caída: no puede contestar.'
-          : 'Volvé a intentar.',
+          : 'Vuelve a intentar.',
     })
   }
 
@@ -2542,7 +2549,7 @@ export function analizarCoherencia({ olts: listaOlts = [], onus = [], planes = [
           'media',
           'Versiones nunca leídas del equipo',
           'No se sabe qué modelo ni qué firmware tiene. Sin esto no se puede detectar una actualización hecha por fuera del sistema.',
-          { ...ref, sugerencia: 'Abrí la OLT y usá "Leer del equipo" en la pestaña de detalles.' },
+          { ...ref, sugerencia: 'Abre la OLT y usa "Leer del equipo" en la pestaña de detalles.' },
         ),
       )
     }
@@ -2562,7 +2569,7 @@ export function analizarCoherencia({ olts: listaOlts = [], onus = [], planes = [
           {
             ...ref,
             sugerencia:
-              'Corré la revisión profunda para ver el estado real del reloj, y anotá los servidores en la ficha.',
+              'Ejecuta la revisión profunda para ver el estado real del reloj, y anota los servidores en la ficha.',
           },
         ),
       )
@@ -2575,7 +2582,7 @@ export function analizarCoherencia({ olts: listaOlts = [], onus = [], planes = [
           'alta',
           'Escucha de traps activada sin comunidad SNMP',
           'Está esperando notificaciones del equipo pero no tiene con qué autenticarlas. No va a llegar ninguna.',
-          { ...ref, sugerencia: 'Cargá la comunidad de solo lectura o desactivá la escucha de traps.' },
+          { ...ref, sugerencia: 'Carga la comunidad de solo lectura o desactiva la escucha de traps.' },
         ),
       )
     }
@@ -2589,7 +2596,7 @@ export function analizarCoherencia({ olts: listaOlts = [], onus = [], planes = [
           'alta',
           `OLT desactivada con ${suyas.length} ONUs vivas`,
           'Está marcada como inactiva pero sigue teniendo abonados colgando. Ninguna operación automática la va a tocar.',
-          { ...ref, sugerencia: 'Reactivala, o migrá sus ONUs antes de dejarla apagada.' },
+          { ...ref, sugerencia: 'Reactívala, o migra sus ONUs antes de dejarla apagada.' },
         ),
       )
     }
@@ -2601,7 +2608,7 @@ export function analizarCoherencia({ olts: listaOlts = [], onus = [], planes = [
           'baja',
           'OLT activa sin ninguna ONU registrada',
           'O es nueva, o las ONUs se dieron de alta por la CLI y nunca se importaron a la base.',
-          { ...ref, sugerencia: 'Corré un descubrimiento desde la pestaña de puertos PON.' },
+          { ...ref, sugerencia: 'Ejecuta un descubrimiento desde la pestaña de puertos PON.' },
         ),
       )
     }
@@ -2618,7 +2625,7 @@ export function analizarCoherencia({ olts: listaOlts = [], onus = [], planes = [
             'alta',
             `Dos line profiles con el ID ${p.profile_id_olt}`,
             `"${previo.nombre}" y "${p.nombre}" apuntan al mismo perfil dentro del equipo. El que se aplique último pisa al otro.`,
-            { ...ref, sugerencia: 'Cambiá el ID interno de uno de los dos.' },
+            { ...ref, sugerencia: 'Cambia el ID interno de uno de los dos.' },
           ),
         )
       } else {
@@ -2637,7 +2644,7 @@ export function analizarCoherencia({ olts: listaOlts = [], onus = [], planes = [
           'media',
           `El plan "${p.nombre}" no tiene índice de traffic table`,
           'No se puede aplicar en una OLT: el índice es la posición donde vive dentro del equipo.',
-          { sugerencia: 'Asignale un índice libre desde Servicios → Planes.' },
+          { sugerencia: 'Asígnale un índice libre desde Servicios → Planes.' },
         ),
       )
       continue
@@ -2650,7 +2657,7 @@ export function analizarCoherencia({ olts: listaOlts = [], onus = [], planes = [
           'alta',
           `Dos planes usan el índice ${p.traffic_table_index}`,
           `"${previo.nombre}" y "${p.nombre}" escriben la misma traffic table. El último que se aplique le cambia la velocidad a los abonados del otro.`,
-          { sugerencia: 'Dale un índice distinto a uno de los dos y volvé a aplicarlo.' },
+          { sugerencia: 'Dale un índice distinto a uno de los dos y vuelve a aplicarlo.' },
         ),
       )
     } else {
@@ -2713,7 +2720,7 @@ export function analizarCoherencia({ olts: listaOlts = [], onus = [], planes = [
         `${repetidas.length} números de serie registrados en más de una OLT`,
         'Un mismo equipo físico no puede estar en dos OLTs. Una de las filas sobró de una migración o de una mudanza mal cerrada.',
         {
-          sugerencia: 'Verificá en qué OLT está realmente y borrá la otra fila.',
+          sugerencia: 'Verifica en qué OLT está realmente y borra la otra fila.',
           ejemplos: repetidas
             .slice(0, 8)
             .map(([sn, v]) => `${sn} → ${v.map((x) => nombreOlt.get(x.olt_id) ?? '?').join(' + ')}`),
@@ -2790,7 +2797,7 @@ export async function buscarInconsistencias({ profundo = false } = {}) {
               'alta',
               'El firmware del equipo no es el que dice la base',
               `La base tiene "${o.sw_version}" y el equipo responde "${vivo.version}". Alguien actualizó por fuera del sistema, o la base nunca se refrescó.`,
-              { ...ref, sugerencia: 'Usá "Leer del equipo" para dejar la ficha al día.' },
+              { ...ref, sugerencia: 'Usa "Leer del equipo" para dejar la ficha al día.' },
             ),
           )
         }
@@ -2806,7 +2813,7 @@ export async function buscarInconsistencias({ profundo = false } = {}) {
               'media',
               'El reloj del equipo no está sincronizado',
               `El equipo reporta "${ntp.estado}"${ntp.sin_referencia ? ' y estrato 16, que significa sin referencia' : ''}. Los eventos que registre van a quedar fechados con una hora que se corre, y no se van a poder cruzar con los del resto del sistema.`,
-              { ...ref, sugerencia: 'Revisá la configuración NTP del equipo y que alcance a su servidor.' },
+              { ...ref, sugerencia: 'Revisa la configuración NTP del equipo y que alcance a su servidor.' },
             ),
           )
         }
@@ -2818,7 +2825,7 @@ export async function buscarInconsistencias({ profundo = false } = {}) {
               'alta',
               'El modelo del equipo no es el que dice la base',
               `La base tiene "${o.hw_version}" y responde "${vivo.modelo}". Esa IP puede estar apuntando a otro equipo.`,
-              { ...ref, sugerencia: 'Confirmá que la IP de gestión sea la correcta.' },
+              { ...ref, sugerencia: 'Confirma que la IP de gestión sea la correcta.' },
             ),
           )
         }
@@ -2829,7 +2836,7 @@ export async function buscarInconsistencias({ profundo = false } = {}) {
             'alta',
             'No se pudo consultar el equipo',
             err.message,
-            { ...ref, sugerencia: err.hint ?? 'Revisá alcance, puerto y credenciales.' },
+            { ...ref, sugerencia: err.hint ?? 'Revisa alcance, puerto y credenciales.' },
           ),
         )
       }

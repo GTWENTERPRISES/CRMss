@@ -33,7 +33,7 @@ class Command(BaseCommand):
 
     def _flush_data(self):
         """Elimina datos de prueba manteniendo estructura"""
-        from apps.pagos.models import Corte, Pago, PagoFactura
+        from apps.pagos.models import Corte, Pago
         from apps.facturacion.models import DetalleFactura, Factura
         from apps.clientes.models import Servicio, Contrato, Cliente
         from apps.olts.models import ONU, LineProfile, TipoONT, OLT
@@ -48,7 +48,7 @@ class Command(BaseCommand):
             AlertaRed, SondeoRed,
             TicketComentario, Ticket, Instalacion,
             FirewallBloqueo, IPAddress,
-            PagoFactura, Corte, Pago,
+            Corte, Pago,
             DetalleFactura, Factura,
             Servicio, Contrato,
             ONU, LineProfile,
@@ -73,7 +73,7 @@ class Command(BaseCommand):
         self.stdout.write('\n📦 Cargando fixtures...')
         for app, fixture in fixtures:
             try:
-                call_command('loaddata', f'{app}/fixtures/{fixture}.json', verbosity=0)
+                call_command('loaddata', fixture, app_label=app, verbosity=0)
                 self.stdout.write(f'  ✓ {app}/{fixture}')
             except Exception as e:
                 self.stdout.write(self.style.WARNING(f'  ⚠ {app}/{fixture}: {e}'))

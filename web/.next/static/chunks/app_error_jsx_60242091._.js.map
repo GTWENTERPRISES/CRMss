@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/BTC-SERVER/Desktop/CRMss/web/app/error.jsx"],"sourcesContent":["'use client'\n\nexport default function Error({ reset }) {\n  return (\n    <main className=\"grid min-h-dvh place-items-center bg-slate-950 px-6 text-center text-slate-100\">\n      <section>\n        <h1 className=\"text-2xl font-bold\">No se pudo cargar la pantalla</h1>\n        <p className=\"mt-2 text-sm text-slate-400\">Intenta nuevamente o revisa la conexión con el servidor.</p>\n        <button\n          type=\"button\"\n          onClick={() => reset()}\n          className=\"mt-5 rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600\"\n        >\n          Reintentar\n        </button>\n      </section>\n    </main>\n  )\n}\n\n"],"names":[],"mappings":";;;;;AAAA;;AAEe,SAAS,MAAM,KAAS;QAAT,EAAE,KAAK,EAAE,GAAT;IAC5B,qBACE,6LAAC;QAAK,WAAU;kBACd,cAAA,6LAAC;;8BACC,6LAAC;oBAAG,WAAU;8BAAqB;;;;;;8BACnC,6LAAC;oBAAE,WAAU;8BAA8B;;;;;;8BAC3C,6LAAC;oBACC,MAAK;oBACL,SAAS,IAAM;oBACf,WAAU;8BACX;;;;;;;;;;;;;;;;;AAMT;KAhBwB","debugId":null}}]
+}

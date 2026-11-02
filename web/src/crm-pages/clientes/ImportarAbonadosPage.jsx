@@ -6,6 +6,7 @@ import {
 import { Link } from '@/lib/nextNavigation'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Badge, Button, Card, ErrorBanner, Field, Input, Select } from '../../components/ui'
+import { dineroCero, fecha as fmtFecha } from '@/lib/formato'
 
 /**
  * Traer la base de abonados de otro sistema.
@@ -43,7 +44,7 @@ export default function ImportarAbonadosPage() {
       <div>
         <h1 className="t-titulo text-lg font-bold text-slate-100">Importar de otro sistema</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
-          Generá la plantilla para un router, llenala con tus abonados y subila. También podés subir
+          Genera la plantilla para un router, llénala con tus abonados y súbela. También puedes subir
           directamente el archivo que exporta tu sistema actual, en Excel o en CSV.
         </p>
       </div>
@@ -155,8 +156,8 @@ function GenerarFormato({ opciones }) {
     <Card title="Generar formato">
       <div className="p-4">
         <Aviso>
-          Antes de generar la plantilla, registrá el router en{' '}
-          <b>Red → Routers</b> y creá los planes de velocidad en <b>Servicios → Planes</b>.
+          Antes de generar la plantilla, registra el router en{' '}
+          <b>Red → Routers</b> y crea los planes de velocidad en <b>Servicios → Planes</b>.
         </Aviso>
 
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
@@ -166,7 +167,7 @@ function GenerarFormato({ opciones }) {
               que ata a cada abonado con el equipo que lo corta y lo limita. */}
           <Paso n={1} titulo="Router">
             <Select value={routerId} onChange={(e) => setRouterId(e.target.value)}>
-              <option value="">Elegí el router…</option>
+              <option value="">Elige el router…</option>
               {(opciones?.routers ?? []).map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.nombre}
@@ -177,7 +178,7 @@ function GenerarFormato({ opciones }) {
             </Select>
             <p className="mt-1 text-[11px] leading-snug text-slate-500">
               Todos los abonados de esta plantilla van a quedar en este router. El router viaja
-              adentro del archivo: si lo subís dos veces, van al mismo lado las dos veces.
+              adentro del archivo: si lo subes dos veces, van al mismo lado las dos veces.
             </p>
           </Paso>
 
@@ -220,7 +221,7 @@ function GenerarFormato({ opciones }) {
               onCambiar={setVerFacturacion}
               resumen={`${facturacion.modalidad_pago}${Number(facturacion.cortar_tras_meses) > 0 ? ` · corta a los ${facturacion.cortar_tras_meses} meses` : ' · sin corte'}`}
             >
-              <Field label="Modalidad">
+              <Field hint="Prepago: se cobra el mes por adelantado." label="Modalidad">
                 <Select
                   value={facturacion.modalidad_pago}
                   onChange={(e) => cambiarF('modalidad_pago', e.target.value)}
@@ -234,7 +235,7 @@ function GenerarFormato({ opciones }) {
               </Field>
 
               <Field label="Día que se genera la factura" hint="del 1 al 28; vacío = el del sistema">
-                <Input
+                <Input placeholder="Ej.: 1"
                   type="number"
                   min={1}
                   max={28}
@@ -244,7 +245,7 @@ function GenerarFormato({ opciones }) {
               </Field>
 
               <Field label="Días de gracia" hint="antes de cortar por mora">
-                <Input
+                <Input placeholder="Ej.: 3"
                   type="number"
                   min={0}
                   value={facturacion.dias_gracia}
@@ -310,7 +311,7 @@ function GenerarFormato({ opciones }) {
               Generar plantilla
             </Button>
             {!routerId && (
-              <p className="mt-1 text-[11px] text-slate-500">Elegí primero el router.</p>
+              <p className="mt-1 text-[11px] text-slate-500">Elige primero el router.</p>
             )}
           </Paso>
         </div>
@@ -446,7 +447,7 @@ function ImportarClientes({ opciones }) {
         {/* No es una formalidad: importar mal quinientos abonados no se deshace
             fila por fila, y el respaldo es lo único que lo revierte. */}
         <Aviso tipo="alerta">
-          Antes de importar, generá un respaldo de la base de datos y de tu MikroTik, para poder
+          Antes de importar, genera un respaldo de la base de datos y de tu MikroTik, para poder
           revertir cualquier cambio no deseado.
         </Aviso>
 
@@ -500,7 +501,7 @@ function ImportarClientes({ opciones }) {
                     onChange={(e) => elegirRouter(e.target.value)}
                     className="max-w-xs"
                   >
-                    <option value="">Elegí el router…</option>
+                    <option value="">Elige el router…</option>
                     {(opciones?.routers ?? []).map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.nombre}
@@ -562,7 +563,7 @@ function Revision({ revision, trabajando, onAplicar, onVolver }) {
       {revision.comunes?.falta_router && (
         <Aviso tipo="alerta">
           <AlertTriangle size={14} className="mr-1 inline" />
-          Este archivo no dice a qué router pertenecen estos abonados. Elegilo arriba antes de
+          Este archivo no dice a qué router pertenecen estos abonados. Elígelo arriba antes de
           importar: sin router no se les aplica el corte por mora ni aparecen en el tablero del
           equipo.
         </Aviso>
@@ -578,7 +579,7 @@ function Revision({ revision, trabajando, onAplicar, onVolver }) {
           <p className="mt-0.5 text-[11px] text-slate-500">
             {revision.comunes.viene_del_archivo
               ? 'Viene adentro del archivo, así que volver a subirlo da lo mismo.'
-              : 'Lo elegiste acá: si volvés a subir este archivo, acordate de elegir el mismo.'}
+              : 'Lo elegiste acá: si vuelves a subir este archivo, acordate de elegir el mismo.'}
           </p>
         </div>
       )}
@@ -591,7 +592,7 @@ function Revision({ revision, trabajando, onAplicar, onVolver }) {
           valor={r.con_problemas}
           color={r.con_problemas ? 'text-amber-400' : undefined}
         />
-        <Metrica titulo="Con deuda" valor={r.con_deuda} ayuda={`$${r.deuda_total} en total`} />
+        <Metrica titulo="Con deuda" valor={r.con_deuda} ayuda={`${dineroCero(r.deuda_total)} en total`} />
       </div>
 
       {/* Cada columna que no se entendió puede ser un dato importante con un
@@ -607,7 +608,7 @@ function Revision({ revision, trabajando, onAplicar, onVolver }) {
       {r.sin_plan > 0 && (
         <Aviso tipo="alerta">
           {r.sin_plan} abonados traen un plan que no existe en el sistema. Esas filas no se importan:
-          creá esos planes primero, o el abonado quedaría sin velocidad ni precio.
+          crea esos planes primero, o el abonado quedaría sin velocidad ni precio.
         </Aviso>
       )}
 
@@ -659,7 +660,7 @@ function Revision({ revision, trabajando, onAplicar, onVolver }) {
         <Aviso>
           Los {r.con_deuda} con deuda —${r.deuda_total} en total— van a quedar con una{' '}
           <b>factura de saldo anterior</b>, que se cobra y aparece en su estado de cuenta como
-          cualquier otra. No se crea dos veces si reimportás.
+          cualquier otra. No se crea dos veces si reimportas.
         </Aviso>
       )}
 
@@ -712,7 +713,7 @@ function Revision({ revision, trabajando, onAplicar, onVolver }) {
                           {f.nombre || '(sin nombre)'}
                           {f.fecha_instalacion && (
                             <span className="ml-1.5 text-[11px] text-slate-600">
-                              desde {f.fecha_instalacion}
+                              desde {fmtFecha(f.fecha_instalacion)}
                             </span>
                           )}
                         </td>
@@ -757,7 +758,7 @@ function Revision({ revision, trabajando, onAplicar, onVolver }) {
           onClick={onAplicar}
         >
           {revision.comunes?.falta_router
-            ? 'Elegí el router para poder importar'
+            ? 'Elige el router para poder importar'
             : `Iniciar importación de ${r.se_crean + r.se_actualizan}`}
         </Button>
         <Button variante="fantasma" onClick={onVolver}>

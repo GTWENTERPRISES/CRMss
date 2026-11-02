@@ -138,7 +138,7 @@ export function revisarRango({ cidr, desde, hasta, gateway }) {
   const total = h - d + 1
   if (total > MAX_DIRECCIONES) {
     throw badRequest(`El rango tiene ${total} direcciones y el máximo por pool es ${MAX_DIRECCIONES}`, {
-      hint: 'Cargá un rango más chico, o dividí el bloque en varios pools.',
+      hint: 'Carga un rango más chico, o divide el bloque en varios pools.',
     })
   }
 
@@ -266,7 +266,7 @@ async function materializar(subredId, revision) {
     if (error) {
       throw new AppError(`Se cargaron ${creadas} de ${filas.length} direcciones: ${error.message}`, {
         status: 400,
-        hint: 'El pool quedó a medias. Volvé a guardar para completar las que faltan.',
+        hint: 'El pool quedó a medias. Vuelve a guardar para completar las que faltan.',
       })
     }
     creadas += Math.min(TANDA, filas.length - i)
@@ -441,7 +441,7 @@ export async function borrarPool(subredId, { forzar = false } = {}) {
     const plural = entregadas === 1 ? 'dirección entregada' : 'direcciones entregadas'
     throw new AppError(`El pool ${pool.cidr} tiene ${entregadas} ${plural}`, {
       status: 409,
-      hint: 'Liberalas primero, o confirmá que querés borrarlo igual.',
+      hint: 'Liberalas primero, o confirma que quieres borrarlo igual.',
       usadas: pool.usadas,
       reservadas: pool.reservadas,
     })
@@ -472,7 +472,7 @@ export async function siguienteLibre(subredId) {
   if (!data?.length) {
     throw new AppError(`No queda ninguna dirección libre en ${pool.cidr}`, {
       status: 409,
-      hint: 'Ampliá el rango del pool o liberá las de las ONUs dadas de baja.',
+      hint: 'Amplía el rango del pool o libera las de las ONUs dadas de baja.',
     })
   }
 
@@ -509,7 +509,7 @@ export async function sincronizarPool(subredId) {
 
   if (!sub.rango_desde || !sub.rango_hasta) {
     throw badRequest('El bloque no declara desde y hasta qué dirección entrega', {
-      hint: 'Cargá el rango en la ficha del bloque y volvé a guardar.',
+      hint: 'Carga el rango en la ficha del bloque y vuelve a guardar.',
     })
   }
 

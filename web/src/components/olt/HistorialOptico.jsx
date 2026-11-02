@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { TrendingDown, TrendingUp, Minus } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { UMBRAL_DBM, dbm, nivel } from '../../lib/optica'
 import { Cargando } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Serie de potencia óptica de una ONT.
@@ -24,7 +25,7 @@ export default function HistorialOptico({ onuId, nombre }) {
   const [error, setError] = useState(null)
 
   const cargar = useCallback(async () => {
-    const { data, error: err } = await supabase
+    const { data, error: err } = await django
       .from('onu_optica_historial')
       .select('rx_dbm, tx_dbm, medida_at')
       .eq('onu_id', onuId)
@@ -35,7 +36,7 @@ export default function HistorialOptico({ onuId, nombre }) {
     if (err) {
       setError(
         err.code === '42P01'
-          ? { message: 'Falta la tabla de historial óptico', hint: 'Corré la migración 41.' }
+          ? { message: 'Falta la tabla de historial óptico', hint: 'Ejecuta la migración 41.' }
           : err,
       )
       setPuntos([])
@@ -72,7 +73,7 @@ export default function HistorialOptico({ onuId, nombre }) {
     return (
       <p className="py-3 text-xs leading-relaxed text-slate-500">
         Un solo punto: <b className="text-slate-300">{dbm(puntos[0].rx)}</b> el{' '}
-        {puntos[0].at.toLocaleString('es-EC')}. Hace falta al menos una lectura más para poder
+        {fmtFechaHora(puntos[0].at)}. Hace falta al menos una lectura más para poder
         hablar de tendencia — con una sola no se puede saber si viene bajando.
       </p>
     )
@@ -163,7 +164,7 @@ export default function HistorialOptico({ onuId, nombre }) {
             r="2"
             fill={p.rx < UMBRAL_DBM ? 'rgb(244 63 94)' : 'rgb(56 189 248)'}
           >
-            <title>{`${p.at.toLocaleString('es-EC')} — ${p.rx.toFixed(2)} dBm`}</title>
+            <title>{`${fmtFechaHora(p.at)} — ${p.rx.toFixed(2)} dBm`}</title>
           </circle>
         ))}
       </svg>

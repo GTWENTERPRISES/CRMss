@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle2, Router as RouterIcon, UploadCloud } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { ESTADO_APROVISIONAMIENTO } from '../../lib/planes'
 import { Aviso, Badge, Button, Cargando, ErrorBanner, Modal } from '../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * En qué routers se vende el plan, y si su perfil ya existe en cada equipo.
@@ -50,8 +51,8 @@ export default function AsignacionRouters({ plan, onCerrar }) {
     setError(null)
     try {
       const { error: err } = r.asignado
-        ? await supabase.from('plan_routers').delete().eq('plan_id', plan.id).eq('router_id', r.id)
-        : await supabase.from('plan_routers').insert({ plan_id: plan.id, router_id: r.id })
+        ? await django.from('plan_routers').delete().eq('plan_id', plan.id).eq('router_id', r.id)
+        : await django.from('plan_routers').insert({ plan_id: plan.id, router_id: r.id })
 
       if (err) throw err
       await recargar()
@@ -90,7 +91,7 @@ export default function AsignacionRouters({ plan, onCerrar }) {
         <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
         <p className="text-sm text-slate-400">
-          Marcá en qué equipos se ofrece el plan. El perfil PPP se llama{' '}
+          Marca en qué equipos se ofrece el plan. El perfil PPP se llama{' '}
           <b className="text-slate-200">{plan?.perfil_ppp || plan?.nombre}</b> y se crea{' '}
           <b>sin rate-limit</b>: en fibra el caudal lo controla la traffic table de la OLT.
         </p>
@@ -133,7 +134,7 @@ export default function AsignacionRouters({ plan, onCerrar }) {
                     </Badge>
                     {r.aprovisionado_at && (
                       <p className="mt-0.5 text-[10px] text-slate-500">
-                        {new Date(r.aprovisionado_at).toLocaleString()}
+                        {fmtFechaHora(r.aprovisionado_at)}
                       </p>
                     )}
                     {r.error && (
@@ -181,7 +182,7 @@ export default function AsignacionRouters({ plan, onCerrar }) {
             disabled={asignados.length === 0}
           >
             {asignados.length === 0
-              ? 'Elegí al menos un router'
+              ? 'Elige al menos un router'
               : `Aprovisionar en ${asignados.length}`}
           </Button>
         </div>

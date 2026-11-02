@@ -4,6 +4,7 @@ import { ArrowLeft, Image, Settings } from 'lucide-react'
 import { Link } from '@/lib/nextNavigation'
 import { api } from '../lib/apiNetwork'
 import { configurarMoneda } from '../lib/formato'
+import PaisIsp from '../components/ajustes/PaisIsp'
 import { Aviso, Button, Card, Cargando, ErrorBanner, Field, Input } from '../components/ui'
 
 /**
@@ -104,28 +105,32 @@ export default function GeneralPage() {
       <div>
         <h1 className="t-titulo text-lg font-bold text-slate-100">General</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
-          Cómo se ve el sistema por dentro: el nombre y el logo que ven quienes lo usan todos los
-          días.
+          El país donde opera el ISP, y cómo se ve el sistema por dentro: el nombre y el logo que
+          ven quienes lo usan todos los días.
         </p>
       </div>
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
+      {/* Fuera del formulario de la marca: se guarda aparte, y cambiar de país
+          no tiene por qué esperar a que alguien toque el logo. */}
+      <PaisIsp onError={setError} />
+
       <form onSubmit={guardar} className="space-y-4">
         <Card title="Identidad" icon={Settings}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Nombre del sistema" hint="Se ve al entrar y en la pestaña del navegador">
-              <Input
+            <Field campo="nombre_sistema" label="Nombre del sistema" hint="Se ve al entrar y en la pestaña del navegador">
+              <Input placeholder="Ej.: QA Net"
                 value={form?.nombre_sistema ?? ''}
                 onChange={set('nombre_sistema')}
                 maxLength={60}
               />
             </Field>
-            <Field
+            <Field campo="lema"
               label="Lema"
               hint="Debajo del nombre. Sirve para distinguir producción de pruebas."
             >
-              <Input value={form?.lema ?? ''} onChange={set('lema')} maxLength={80} />
+              <Input placeholder="Ej.: Internet que sí llega" value={form?.lema ?? ''} onChange={set('lema')} maxLength={80} />
             </Field>
           </div>
         </Card>
@@ -134,7 +139,7 @@ export default function GeneralPage() {
           <div className="flex flex-wrap items-center gap-6">
             <Field
               label="Imagen"
-              hint="PNG, JPG o WebP. Se achica solo: subí el que tengas."
+              hint="PNG, JPG o WebP. Se achica solo: sube el que tengas."
             >
               <input
                 type="file"
@@ -153,7 +158,7 @@ export default function GeneralPage() {
                 </div>
               )}
               <p className="mt-1 text-xs leading-snug text-slate-500">
-                Si lo tenés en PNG con fondo transparente, usá ese: el de fondo blanco deja un
+                Si lo tienes en PNG con fondo transparente, usa ese: el de fondo blanco deja un
                 recuadro alrededor sobre el gris del sistema.
               </p>
             </Field>
@@ -186,16 +191,16 @@ export default function GeneralPage() {
 
         <Card title="Moneda">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Símbolo" hint="Lo que se imprime antes del monto">
-              <Input
+            <Field campo="moneda_simbolo" label="Símbolo" hint="Lo que se imprime antes del monto">
+              <Input placeholder="Ej.: $"
                 value={form?.moneda_simbolo ?? '$'}
                 onChange={set('moneda_simbolo')}
                 maxLength={5}
                 className="w-24"
               />
             </Field>
-            <Field label="Código" hint="Para las pasarelas de pago, que lo piden así">
-              <Input
+            <Field campo="moneda_codigo" label="Código" hint="Para las pasarelas de pago, que lo piden así">
+              <Input placeholder="Ej.: ONT-HG8145"
                 value={form?.moneda_codigo ?? 'USD'}
                 onChange={set('moneda_codigo')}
                 maxLength={3}

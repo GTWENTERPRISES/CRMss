@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { ArrowRight, Briefcase, ChevronDown, Wrench } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { Skeleton } from '../ui'
 import { usePermisos } from '../../lib/AuthContext'
+import { hora as fmtHora } from '@/lib/formato'
 
 /**
  * Las dos áreas, desde arriba.
@@ -52,13 +53,13 @@ export default function ResumenAreas() {
     const [ventas, movimiento, expedientes, ordenes, jornadas, criticas] = await Promise.all([
       // Una venta es un prospecto GANADO. No una cotización enviada ni un
       // prospecto cargado: es cuando la persona dijo que sí.
-      supabase
+      django
         .from('v_prospectos')
         .select('id, nombre, vendedor, vendedor_id, valor_mensual, plan')
         .eq('estado', 'ganado')
         .gte('ganado_en', desde),
 
-      supabase
+      django
         .from('v_prospectos')
         .select('id, nombre, vendedor, vendedor_id, estado')
         .gte('actualizado_en', desde),
@@ -66,14 +67,14 @@ export default function ResumenAreas() {
       // Ventas cerradas que todavía no pueden convertirse en orden de trabajo.
       // Es el cuello de botella real del área comercial: la venta está hecha y
       // el técnico no puede salir.
-      supabase
+      django
         .from('v_expedientes')
         .select(
           'id, cliente, ok_datos, ok_cedula_frontal, ok_cedula_posterior, ok_fotos, ok_ubicacion, ok_plan, ok_contrato, ok_firma',
         )
         .eq('completo', false),
 
-      supabase
+      django
         .from('v_instalaciones')
         .select('id, numero, cliente, nombre, tecnico_nombre, estado, hora')
         .eq('fecha', iso)
@@ -81,7 +82,7 @@ export default function ResumenAreas() {
 
       // Jornada abierta = arrancó y no cerró. Es quién está trabajando ahora,
       // no quién tiene turno asignado.
-      supabase
+      django
         .from('v_jornadas')
         .select('id, tecnico, tecnico_id, vehiculo, placa, inicio_at')
         .is('fin_at', null)
@@ -94,7 +95,7 @@ export default function ResumenAreas() {
       // en NULL —no en `false`— cuando el nodo se cayó solo, así que comparar
       // con `false` no contaba ninguna. Con una torre caída arrastrando dos APs,
       // el tablero decía "0 incidencias críticas" con el sector sin servicio.
-      supabase
+      django
         .from('v_estado_red')
         .select('id, nombre, minutos_asi, clientes_afectados')
         .eq('estado', 'down')
@@ -222,7 +223,7 @@ export default function ResumenAreas() {
             filas: d?.jornadas?.map((j) => ({
               principal: j.tecnico ?? 'sin nombre',
               secundario: j.vehiculo ? `${j.vehiculo}${j.placa ? ` · ${j.placa}` : ''}` : 'sin vehículo',
-              extra: j.inicio_at ? `desde ${new Date(j.inicio_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : null,
+              extra: j.inicio_at ? `desde ${fmtHora(j.inicio_at)}` : null,
             })),
           },
           {
@@ -273,6 +274,24 @@ function duracion(minutos) {
 function Area({ titulo, icon: Icon, color, borde, a, enlace, partes, cargando, abierto, onAbrir }) {
   const parteAbierta = partes.find((p) => p.clave === abierto)
 
+  // Todo en cero: una línea, no tres ceros grandes que tapan lo que sí pasa.
+  if (!cargando && partes.every((p) => p.valor === 0)) {
+    return (
+      // Del ancho de su contenido (justify-self-start), no estirada a media pantalla.
+      <div className={`flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 justify-self-start rounded-xl border bg-card px-4 py-2.5 sm:w-auto ${borde}`}>
+        <Icon size={16} className="text-slate-600" />
+        <h2 className="text-sm font-semibold text-slate-300">{titulo}</h2>
+        <span className="text-[12px] text-slate-500">· sin movimiento hoy</span>
+        <Link
+          to={a}
+          className="ml-auto inline-flex items-center gap-1 pl-4 text-[12px] text-slate-500 transition hover:text-slate-200"
+        >
+          {enlace} <ArrowRight size={13} />
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <div className={`rounded-xl border bg-[#F6F8FB] p-4 ${borde}`}>
       <div className="flex items-center gap-2">
@@ -306,7 +325,7 @@ function Area({ titulo, icon: Icon, color, borde, a, enlace, partes, cargando, a
               ) : (
                 <p
                   className={`text-2xl font-semibold ${
-                    p.valor == null
+                    p.valor == null || p.valor === 0
                       ? 'text-slate-600'
                       : p.alerta
                         ? 'text-amber-400'

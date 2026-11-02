@@ -3,7 +3,7 @@ import { useConfirmar } from '../../lib/confirmar'
 import { dineroCero as dinero } from '../../lib/formato'
 import { Link } from '@/lib/nextNavigation'
 import { ExternalLink, FileSignature, Plus, Printer, Square, Trash2, X } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { abrirPdf } from '../../lib/pdf'
 import { useTabla } from '../../lib/useTabla'
@@ -22,6 +22,8 @@ import {
   Table,
   Textarea,
 } from '../ui'
+import { fecha as fmtFecha } from '@/lib/formato'
+import { COLOR_ESTADO } from '../../lib/estados'
 
 /**
  * Contratos del abonado.
@@ -31,10 +33,10 @@ import {
  * quedar ambiguo cuál es el precio que rige.
  */
 
-const COLOR = { vigente: 'verde', terminado: 'gris', anulado: 'rojo', suspendido: 'ambar' }
+const COLOR = COLOR_ESTADO.contrato // lib/estados
 
 const hoy = () => new Date().toISOString().slice(0, 10)
-const fecha = (f) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(`${String(f).slice(0, 10)}T12:00:00`) : '—')
 
 const VACIO = {
   numero: '',
@@ -62,7 +64,7 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    let consulta = supabase.from('v_contratos').select('*').order('fecha_inicio', { ascending: false })
+    let consulta = django.from('v_contratos').select('*').order('fecha_inicio', { ascending: false })
     if (cliente) consulta = consulta.eq('client_id', cliente.id)
 
     const { data, error } = await consulta
@@ -89,13 +91,13 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
   async function crear(e) {
     e.preventDefault()
     const paraQuien = cliente ?? destino
-    if (!paraQuien) return onError?.(new Error('Elegí de qué cliente es el contrato'))
+    if (!paraQuien) return onError?.(new Error('Elige de qué cliente es el contrato'))
 
     setGuardando(true)
     onError?.(null)
     try {
-      const { data: sesion } = await supabase.auth.getUser()
-      const { error } = await supabase.from('contratos').insert({
+      const { data: sesion } = await django.auth.getUser()
+      const { error } = await django.from('contratos').insert({
         client_id: paraQuien.id,
         // Sin número escrito se usa el del abonado: es el identificador con el
         // que se lo busca en papel y el que ya está impreso en su carpeta.
@@ -120,7 +122,7 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
       if (error) {
         if (error.code === '23505') {
           throw new Error(
-            'Ese cliente ya tiene un contrato vigente. Terminá el anterior antes de firmar otro.',
+            'Ese cliente ya tiene un contrato vigente. Termina el anterior antes de firmar otro.',
           )
         }
         throw error
@@ -146,7 +148,7 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
     )
       return
 
-    const { error } = await supabase
+    const { error } = await django
       .from('contratos')
       .update({ estado: 'terminado', fecha_fin: c.fecha_fin ?? hoy() })
       .eq('id', c.id)
@@ -160,7 +162,7 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
 
   async function eliminar(c) {
     if (!await confirmar(`¿Eliminar el contrato ${c.numero ?? ''} de ${c.cliente}?`)) return
-    const { error } = await supabase.from('contratos').delete().eq('id', c.id)
+    const { error } = await django.from('contratos').delete().eq('id', c.id)
     if (error) onError?.(error)
     else {
       await recargar()
@@ -173,10 +175,10 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
   return (
     <div className="space-y-4">
       {!cliente && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Stat label="Contratos" valor={filas.length} icon={FileSignature} />
-          <Stat label="Vigentes" valor={vigentes.length} color="text-emerald-400" />
-          <Stat
+        <div className="t-kpis">
+          <Stat cargando={cargando} label="Contratos" valor={filas.length} icon={FileSignature} />
+          <Stat cargando={cargando} label="Vigentes" valor={vigentes.length} color="text-emerald-400" />
+          <Stat cargando={cargando}
             label="Facturación mensual comprometida"
             valor={dinero(vigentes.reduce((s, c) => s + Number(c.precio_mensual ?? 0), 0))}
           />
@@ -199,7 +201,7 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
 
           {(cliente || destino) && (
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              <Field
+              <Field campo="numero"
                 label="N° de contrato"
                 hint={
                   (cliente ?? destino)?.codigo
@@ -213,7 +215,7 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
                   placeholder={codigoLargo((cliente ?? destino)?.codigo) || 'CT-0001'}
                 />
               </Field>
-              <Field label="Plan">
+              <Field campo="plan_id" hint="El plan de internet que contrata." label="Plan">
                 <Select value={form.plan_id} onChange={elegirPlan}>
                   <option value="">— el del cliente —</option>
                   {planes.map((p) => (
@@ -223,8 +225,8 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
                   ))}
                 </Select>
               </Field>
-              <Field label="Precio mensual">
-                <Input
+              <Field campo="precio_mensual" label="Precio mensual">
+                <Input placeholder="Ej.: 25.00"
                   type="number"
                   step="0.01"
                   min={0}
@@ -232,7 +234,7 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
                   onChange={set('precio_mensual')}
                 />
               </Field>
-              <Field label="Día de pago">
+              <Field campo="dia_pago" hint="Día del mes en que vence la factura." label="Día de pago">
                 <Select value={form.dia_pago} onChange={set('dia_pago')}>
                   <option value="">— el del cliente —</option>
                   {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
@@ -243,26 +245,26 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
                 </Select>
               </Field>
 
-              <Field label="Inicio">
+              <Field campo="fecha_inicio" label="Inicio">
                 <Input type="date" value={form.fecha_inicio} onChange={set('fecha_inicio')} required />
               </Field>
-              <Field label="Fin" hint="Vacío = sin plazo">
+              <Field campo="fecha_fin" label="Fin" hint="Vacío = sin plazo">
                 <Input type="date" value={form.fecha_fin} onChange={set('fecha_fin')} />
               </Field>
-              <Field label="Permanencia (meses)">
-                <Input
+              <Field campo="permanencia_meses" label="Permanencia (meses)">
+                <Input placeholder="Ej.: 12"
                   type="number"
                   min={0}
                   value={form.permanencia_meses}
                   onChange={set('permanencia_meses')}
                 />
               </Field>
-              <Field label="Documento firmado" hint="Enlace a Drive o carpeta compartida">
+              <Field campo="documento_url" label="Documento firmado" hint="Enlace a Drive o carpeta compartida">
                 <Input value={form.documento_url} onChange={set('documento_url')} />
               </Field>
 
-              <Field label="Notas" className="sm:col-span-2 lg:col-span-3">
-                <Textarea rows={2} value={form.notas} onChange={set('notas')} />
+              <Field campo="notas" label="Notas" className="sm:col-span-2 lg:col-span-3">
+                <Textarea placeholder="Ej.: Llamar antes de ir" rows={2} value={form.notas} onChange={set('notas')} />
               </Field>
 
               <div className="flex items-end pb-1">
@@ -341,10 +343,7 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
                         abrirPdf(() =>
                           api.documentos.contrato(c.client_id, { contratoId: c.id }),
                         ).catch(onError)
-                      }
-                    >
-                      Imprimir
-                    </Button>
+                      } />
                     {c.documento_url && (
                       <a
                         href={c.documento_url}

@@ -61,14 +61,14 @@ export default function UnconfiguredONUs({ olt, ubicacion, onRegistrar }) {
 
         {!cargando && onus === null && (
           <p className="py-6 text-center text-sm text-slate-500">
-            Escaneá para ver las ONUs pendientes de registro.
+            Escanea para ver las ONUs pendientes de registro.
           </p>
         )}
 
         {!cargando && onus?.length === 0 && (
           <Aviso>
-            La OLT no reporta ninguna ONU sin registrar. Si acabás de conectar una, esperá unos
-            segundos y volvé a escanear.
+            La OLT no reporta ninguna ONU sin registrar. Si acabas de conectar una, espera unos
+            segundos y vuelve a escanear.
           </Aviso>
         )}
 

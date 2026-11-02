@@ -17,7 +17,7 @@ import { ejecutarCortes, estadoCortes } from '../services/cortesPromesas.js'
 /**
  * Cobros.
  *
- * El registro de pagos es CRUD y va directo a Supabase desde el navegador. Acá
+ * El registro de pagos es CRUD y va directo a Django (/api/v1/tables) desde el navegador. Acá
  * solo vive lo que el navegador no puede hacer: armar el PDF del recibo, que
  * necesita el logo y los datos del emisor —y esos viven junto al certificado,
  * que nunca sale del backend.
@@ -76,13 +76,13 @@ async function exigir(req, permiso) {
   if (!actor) {
     throw new AppError('Tu usuario no tiene un legajo de personal asociado', {
       status: 403,
-      hint: 'Pedile a un Super Administrador que te cree el usuario en Ajustes → Gestión de personal.',
+      hint: 'Pídele a un Super Administrador que te cree el usuario en Ajustes → Gestión de personal.',
     })
   }
   if (!actor.activo) throw new AppError('Tu usuario está desactivado', { status: 403 })
 
   if (permiso && !tienePermiso(actor, permiso)) {
-    throw new AppError('No tenés permiso para esto', {
+    throw new AppError('No tienes permiso para esto', {
       status: 403,
       hint: `Hace falta el permiso "${permiso}". Se otorga en Ajustes → Gestión de personal.`,
     })
@@ -132,7 +132,7 @@ router.get(
     if (error) {
       throw new AppError(
         /does not exist/i.test(error.message)
-          ? 'Falta la vista del reporte. Corré supabase/migracion-162-el-reporte-para-arcotel.sql'
+          ? 'Falta la vista del reporte. Actualiza la base: python manage.py migrate'
           : `No se pudo armar el reporte: ${error.message}`,
         { status: 502 },
       )
@@ -221,7 +221,7 @@ router.post(
     if (!archivo) {
       throw new AppError('Falta el archivo del extracto', {
         status: 400,
-        hint: 'Subí el Excel que descargaste del banco.',
+        hint: 'Sube el Excel que descargaste del banco.',
       })
     }
 
@@ -279,7 +279,7 @@ router.post(
     if (!archivo) {
       throw new AppError('Falta el archivo del extracto', {
         status: 400,
-        hint: 'Subí el Excel que descargaste del banco.',
+        hint: 'Sube el Excel que descargaste del banco.',
       })
     }
 
@@ -383,7 +383,7 @@ router.get(
     if (error) {
       throw new AppError(
         /does not exist/i.test(error.message)
-          ? 'Falta la vista de transacciones. Corré supabase/migracion-157-la-pantalla-de-transacciones.sql'
+          ? 'Falta la vista de transacciones. Actualiza la base: python manage.py migrate'
           : `No se pudieron leer las transacciones: ${error.message}`,
         { status: 502 },
       )

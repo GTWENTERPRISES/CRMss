@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from '@/lib/nextNavigation'
 import { AlertTriangle, ArrowRight } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 
 /**
  * "Ojo: la torre de este cliente está caída."
@@ -32,7 +32,7 @@ export default function AvisoIncidencia({ clientId }) {
   useEffect(() => {
     if (!clientId) return
     let vivo = true
-    supabase
+    django
       .from('v_incidencia_de_cliente')
       .select('*')
       .eq('client_id', clientId)

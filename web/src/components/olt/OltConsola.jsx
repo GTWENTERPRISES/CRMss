@@ -102,7 +102,7 @@ export default function OltConsola({ olt }) {
         <div className="h-80 overflow-y-auto rounded-lg border border-slate-800 bg-black/50 p-3 font-mono text-[11.5px] leading-relaxed">
           {lineas.length === 0 ? (
             <p className="text-slate-600">
-              La salida va a aparecer acá. Probá con{' '}
+              La salida va a aparecer acá. Prueba con{' '}
               <span className="text-slate-400">display version</span> en Huawei o{' '}
               <span className="text-slate-400">show version</span> en V-SOL.
             </p>
@@ -130,7 +130,7 @@ export default function OltConsola({ olt }) {
             value={comando}
             onChange={(e) => setComando(e.target.value)}
             onKeyDown={teclas}
-            placeholder="Escribí un comando y presioná Enter — ↑ recorre los anteriores"
+            placeholder="Escribe un comando y presiona Enter — ↑ recorre los anteriores"
             className="font-mono"
             autoComplete="off"
             spellCheck={false}

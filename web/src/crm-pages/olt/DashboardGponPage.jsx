@@ -11,7 +11,7 @@ import {
   Waves,
   XCircle,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { hace } from '../../lib/olts'
 import DetalleTarjeta from '../../components/olt/DetalleTarjeta'
@@ -115,10 +115,10 @@ export default function DashboardGponPage() {
 
   const cargar = useCallback(async () => {
     const [r1, r2, r3, r4, r5, r6] = await Promise.all([
-      supabase.from('v_olt_resumen').select('*').order('numero'),
-      supabase.from('v_pon_puertos').select('*'),
-      supabase.from('v_onus_por_dia').select('*').order('dia'),
-      supabase
+      django.from('v_olt_resumen').select('*').order('numero'),
+      django.from('v_pon_puertos').select('*'),
+      django.from('v_onus_por_dia').select('*').order('dia'),
+      django
         .from('olt_historial')
         .select('*')
         .order('created_at', { ascending: false })
@@ -126,8 +126,8 @@ export default function DashboardGponPage() {
       // Lo esperando se LEE de la base, no se consulta a los equipos: eso lo
       // hace la tarea de fondo cada pocos minutos. Abrir el tablero tiene que
       // ser instantáneo.
-      supabase.from('v_esperando_autorizacion').select('*').order('numero'),
-      supabase.from('onts_esperando').select('*').order('detectada'),
+      django.from('v_esperando_autorizacion').select('*').order('numero'),
+      django.from('onts_esperando').select('*').order('detectada'),
     ])
 
     const fallo = [r1, r2, r3, r4, r5, r6].find((r) => r.error)
@@ -136,7 +136,7 @@ export default function DashboardGponPage() {
         fallo.error.code === '42P01'
           ? {
               message: 'Faltan las vistas del tablero',
-              hint: 'Corré supabase/migracion-40-dashboard-gpon.sql en el SQL Editor.',
+              hint: 'Actualiza la base: python manage.py migrate.',
             }
           : fallo.error,
       )
@@ -189,7 +189,7 @@ export default function DashboardGponPage() {
     if (!panel || !oltPanel) return
     let vivo = true
     cargarPresets()
-    supabase
+    django
       .from('planes_velocidad')
       .select('*')
       .order('bajada_kbps')
@@ -471,7 +471,7 @@ export default function DashboardGponPage() {
                     <b>{p.olt}</b> · slot {p.slot} puerto {p.puerto}
                   </span>
                   <span className="text-xs text-rose-300/80">
-                    {p.onus} ONTs, todas caídas — revisá la fibra o el módulo óptico
+                    {p.onus} ONTs, todas caídas — revisa la fibra o el módulo óptico
                   </span>
                 </div>
               ))}
@@ -570,8 +570,8 @@ export default function DashboardGponPage() {
       <Aviso>
         Falta el gráfico de estado a lo largo del tiempo: este sistema todavía no guarda un
         histórico de cuántas ONTs estaban en línea en cada momento, y dibujarlo con los datos de
-        hoy sería inventarlo. Se resuelve tomando una muestra cada tanto y guardándola — decime si
-        lo querés y lo agrego.
+        hoy sería inventarlo. Se resuelve tomando una muestra cada tanto y guardándola — dime si
+        lo quieres y lo agrego.
       </Aviso>
     </div>
   )

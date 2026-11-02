@@ -3,6 +3,7 @@ import { Activity, KeyRound, RefreshCw } from 'lucide-react'
 import { api } from '../../../lib/apiNetwork'
 import { COLOR_SEMAFORO, OPTICA, RADIO, conUnidad, semaforoDe } from '../../../lib/instalaciones'
 import { Aviso, Button, Field, Input, Select } from '../../ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Paso 2 — cómo llegó la señal.
@@ -125,11 +126,11 @@ export default function PasoSenal({ orden, onError, onGuardado }) {
         <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
           <p className="text-sm font-semibold text-amber-200">Esta orden no tiene OLT asignada</p>
           <p className="text-xs leading-snug text-amber-200/80">
-            Normalmente sale sola de la caja NAP que se elige al validar la factibilidad. Elegila
+            Normalmente sale sola de la caja NAP que se elige al validar la factibilidad. Elígela
             acá para medir ahora: queda guardada en la orden y no se vuelve a preguntar.
           </p>
           <Select value={oltElegida} onChange={(e) => setOltElegida(e.target.value)}>
-            <option value="">— elegí la OLT —</option>
+            <option value="">— elige la OLT —</option>
             {oltsAElegir.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.numero ? `${o.numero} · ` : ''}
@@ -156,7 +157,7 @@ export default function PasoSenal({ orden, onError, onGuardado }) {
             <p className="text-sm font-semibold text-sky-200">La fibra llegó bien</p>
             <p className="mt-0.5 text-xs leading-snug text-sky-200/80">
               La OLT ve la ONT en el puerto PON {porAutorizar.puerto}. Falta darla de alta: se hace
-              desde acá y terminás.
+              desde acá y terminas.
             </p>
           </div>
 
@@ -360,15 +361,15 @@ export default function PasoSenal({ orden, onError, onGuardado }) {
 
       {semaforo === 'rojo' && (
         <Aviso tipo="alerta">
-          Con este valor el servicio se va a caer. Corregí la instalación —conectores, empalmes,
-          alineación de la antena— y volvé a medir antes de seguir. Cerrar así es garantizar un
+          Con este valor el servicio se va a caer. Corrige la instalación —conectores, empalmes,
+          alineación de la antena— y vuelve a medir antes de seguir. Cerrar así es garantizar un
           reclamo esta semana.
         </Aviso>
       )}
 
       {orden.lectura_at && (
         <p className="text-xs text-slate-500">
-          Última lectura: {new Date(orden.lectura_at).toLocaleString()}
+          Última lectura: {fmtFechaHora(orden.lectura_at)}
         </p>
       )}
     </div>

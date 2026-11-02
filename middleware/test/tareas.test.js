@@ -16,7 +16,7 @@ import { TAREAS, _COLUMNAS, _TAREAS, _llaveActiva, _resumenDeFallas } from '../s
  * veces dejaría dos temporizadores corriendo la misma tarea, y cada guardado
  * agregaría otro.
  *
- * NO SE PRUEBA la lectura de la base: eso exige Supabase de verdad. Lo que sí
+ * NO SE PRUEBA la lectura de la base: eso exige la base de verdad. Lo que sí
  * se prueba es la parte que decide, que es donde estarían los errores.
  */
 
@@ -32,6 +32,8 @@ const TODO_APAGADO = {
   stock_automatico: false,
   avisos_pago_automatico: false,
   mora_automatico: false,
+  foto_routers_automatico: false,
+  subida_automatico: false,
   cortes_hora: '09:00',
   facturacion_hora: '06:00',
   comisiones_hora: '03:30',
@@ -43,6 +45,8 @@ const TODO_APAGADO = {
   stock_hora: '07:00',
   avisos_pago_hora: '09:00',
   mora_hora: '05:00',
+  foto_routers_hora: '23:30',
+  subida_cada_minutos: 5,
   mora_reconexion_segundos: 5,
   mora_barrida_minutos: 15,
 }
@@ -62,6 +66,8 @@ test('cada tarea arma su temporizador cuando está encendida', () => {
     comisiones_automatico: true,
     cartera_automatico: true,
     pausas_automatico: true,
+    foto_routers_automatico: true,
+    subida_automatico: true,
     consumo_automatico: true,
     nms_automatico: true,
     optica_automatica: true,
@@ -150,6 +156,8 @@ test('cada tarea tiene su columna de encendido en la pantalla de ajustes', () =>
     cartera: 'cartera_automatico',
     alertas: 'alertas_automaticas',
     pausas: 'pausas_automatico',
+    foto_routers: 'foto_routers_automatico',
+    subida: 'subida_automatico',
     stock: 'stock_automatico',
     avisos_pago: 'avisos_pago_automatico',
     mora: 'mora_automatico',
@@ -213,12 +221,13 @@ test('la columna que la pantalla muestra encendida es la que enciende de verdad'
  * nada.
  */
 test('todo campo numérico cae en la rama numérica, no en la de interruptores', async () => {
-  const { _COLUMNAS } = await import('../src/services/tareas.js')
+  const { _COLUMNAS, _DEL_ARCHIVO } = await import('../src/services/tareas.js')
 
-  // Los que son números por su naturaleza, no por su nombre.
-  const NUMERICOS = _COLUMNAS().filter(
-    (c) => /_(limite|minutos|segundos|paquetes)$/.test(c) || c === 'nms_paquetes',
-  )
+  // Los que son números por su valor de fábrica, no por su nombre: por el nombre
+  // se escapó `incidencias_lote`, y no dejaba guardar ninguna tarea.
+  const fabrica = _DEL_ARCHIVO()
+  const NUMERICOS = _COLUMNAS().filter((c) => typeof fabrica[c] === 'number')
+  assert.ok(NUMERICOS.includes('incidencias_lote'))
 
   assert.ok(NUMERICOS.length >= 5, `esperaba varios numéricos, encontré ${NUMERICOS.length}`)
 
@@ -235,6 +244,7 @@ test('todo campo numérico cae en la rama numérica, no en la de interruptores',
     || campo === 'nms_paquetes'
     || campo === 'cortes_limite'
     || CERO_ES_SIN_TOPE.includes(campo)
+    || typeof fabrica[campo] === 'number'
 
   for (const campo of NUMERICOS) {
     assert.ok(
@@ -286,6 +296,8 @@ test('el resumen distingue no haber corrido, haber fallado entero, y fallar en c
     error: null,
     fallidos: 0,
     ejemplos: [],
+    lista: [],
+    routers: [],
   })
 
   // No pudo ni empezar.
@@ -313,6 +325,20 @@ test('el resumen distingue no haber corrido, haber fallado entero, y fallar en c
   })
 })
 
+test('la lista entera trae el router de cada caso, para mandar a repararlo', () => {
+  const r = _resumenDeFallas({
+    fallidos: [
+      { accion: 'cortar', cliente: 'Ana', router_id: 'r1', error: 'timeout' },
+      { accion: 'cortar', cliente: 'Beto', router_id: 'r1', error: 'timeout' },
+      { accion: 'cortar', cliente: 'Carla', router_id: 'r2', error: 'timeout' },
+      { accion: 'cortar', cliente: 'Dario', router_id: 'r1', error: 'timeout' },
+    ],
+  })
+  assert.equal(r.lista.length, 4)
+  assert.equal(r.lista[3].router_id, 'r1')
+  assert.deepEqual(r.routers, ['r1', 'r2'])
+})
+
 test('el motivo se lee venga como venga', () => {
   // `corteMora` usa `error`; los avisos de pago usan `motivo`. El panel no
   // tiene por qué saber cuál lo mandó.
@@ -322,4 +348,17 @@ test('el motivo se lee venga como venga', () => {
 
   assert.equal(r.ejemplos[0].cliente, 'Elsa')
   assert.equal(r.ejemplos[0].motivo, 'sin correo ni celular')
+})
+
+test('TAREAS_APAGADAS deja una copia de desarrollo sin automatismos', async () => {
+  const { tareasApagadas } = await import('../src/services/tareas.js')
+  for (const v of ['1', 'true', 'TRUE', 'si', 'sí', ' 1 ']) assert.equal(tareasApagadas({ TAREAS_APAGADAS: v }), true, v)
+  for (const v of [undefined, '', '0', 'false', 'no']) assert.equal(tareasApagadas({ TAREAS_APAGADAS: v }), false, String(v))
+})
+
+test('en producción TAREAS_APAGADAS se ignora: un ISP no puede quedarse sin tareas por error', async () => {
+  const { tareasApagadas, pidieronApagarTareas } = await import('../src/services/tareas.js')
+  const env = { NODE_ENV: 'production', TAREAS_APAGADAS: '1' }
+  assert.equal(pidieronApagarTareas(env), true)
+  assert.equal(tareasApagadas(env), false)
 })

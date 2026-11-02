@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 // import. Esto es más raro de leer y bastante más difícil de dejar sin correr.
 //
 // Los dos archivos son ESM puro y no importan nada: si alguien les mete un
-// `import` de Supabase, esta prueba falla al cargar y avisa.
+// `import` del cliente de datos, esta prueba falla al cargar y avisa.
 import { calcular, siguienteNivel, proyeccion } from '../../web/src/lib/comisionesCalculo.js'
 import { basePromedio, bonoDe, simular } from '../../web/src/lib/simulador.js'
 

@@ -9,7 +9,7 @@ import {
   TrendingUp,
   Wrench,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { conCache } from '../../lib/cacheLocal'
 
@@ -46,7 +46,7 @@ export default function DesempenoPage() {
   const recargar = useCallback(async () => {
     try {
       const r = await conCache(`desempeno:${perfil?.id ?? 'anonimo'}`, async () => {
-        const { data, error: err } = await supabase
+        const { data, error: err } = await django
           .from('v_desempeno_tecnico')
           .select('*')
           .order('mes', { ascending: false })
@@ -95,7 +95,7 @@ export default function DesempenoPage() {
         <Gauge size={28} className="campo-tenue mx-auto mb-2" />
         <p className="campo-suave text-[14px]">Todavía no hay trabajos cerrados este mes.</p>
         <p className="campo-tenue mt-1 text-[12px]">
-          Las cifras aparecen solas a medida que cerrás órdenes y tickets.
+          Las cifras aparecen solas a medida que cierras órdenes y tickets.
         </p>
       </div>
     )
@@ -138,12 +138,12 @@ export default function DesempenoPage() {
           sufijo="%"
           base={mes.con_hora_y_llegada}
           unidadBase="trabajos con hora y llegada"
-          faltante="Marcá la llegada al domicilio para que este número exista."
+          faltante="Marca la llegada al domicilio para que este número exista."
           previo={anterior?.pct_puntual}
           detalle={
             mes.atraso_mediana != null
               ? mes.atraso_mediana <= 0
-                ? `Solés llegar ${Math.abs(mes.atraso_mediana)} min antes`
+                ? `Sueles llegar ${Math.abs(mes.atraso_mediana)} min antes`
                 : `Atraso habitual: ${mes.atraso_mediana} min`
               : null
           }
@@ -156,7 +156,7 @@ export default function DesempenoPage() {
           sufijo=" min"
           base={mes.trabajos}
           unidadBase="trabajos"
-          faltante="Marcá la llegada para poder medir cuánto durás adentro."
+          faltante="Marca la llegada para poder medir cuánto duras adentro."
           previo={anterior?.minutos_mediana}
           // Menos minutos es mejor, así que la flecha se invierte.
           menosEsMejor
@@ -201,7 +201,7 @@ export default function DesempenoPage() {
           sufijo=" m"
           base={mes.instalaciones}
           unidadBase="instalaciones"
-          faltante="Descontá el material en el paso 5 para que se mida."
+          faltante="Descuenta el material en el paso 5 para que se mida."
           previo={anterior?.metros_por_instalacion}
           detalle={mes.metros_cable ? `${mes.metros_cable} m en total` : null}
         />
@@ -213,7 +213,7 @@ export default function DesempenoPage() {
           sufijo=" km"
           base={mes.dias_con_km}
           unidadBase="días con odómetro cargado"
-          faltante="Cargá el kilometraje al salir y al volver."
+          faltante="Carga el kilometraje al salir y al volver."
           previo={anterior?.km_mes}
           detalle={
             mes.km_por_trabajo != null ? `${mes.km_por_trabajo} km por trabajo` : null

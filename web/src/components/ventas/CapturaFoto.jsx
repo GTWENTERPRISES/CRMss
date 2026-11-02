@@ -85,10 +85,7 @@ export default function CapturaFoto({ expedienteId, tipo, documento, perfil, onC
               } catch (err) {
                 onError?.(err)
               }
-            }}
-          >
-            Ver
-          </Button>
+            }} title="Ver" />
           <Button
             variante="fantasma"
             icon={Camera}

@@ -10,7 +10,7 @@ import {
   TriangleAlert,
   Wifi,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabaseClient'
+import { django } from '../../lib/djangoClient'
 import { api } from '../../lib/apiNetwork'
 import { UNIDAD_UMBRAL, textoAlerta } from '../../lib/alertas'
 import {
@@ -25,6 +25,7 @@ import {
   Select,
   Table,
 } from '../../components/ui'
+import { fechaHora as fmtFechaHora } from '@/lib/formato'
 
 /**
  * Ajustes → Alertas.
@@ -78,10 +79,10 @@ export default function AlertasPage() {
     setCargando(true)
     try {
       const [r, d, e, z] = await Promise.all([
-        supabase.from('alerta_reglas').select('*').order('clave'),
-        supabase.from('alerta_destinos').select('*').order('creado_en'),
-        supabase.from('v_alerta_envios').select('*').order('creado_en', { ascending: false }).limit(30),
-        supabase.from('clientes').select('zona').not('zona', 'is', null),
+        django.from('alerta_reglas').select('*').order('clave'),
+        django.from('alerta_destinos').select('*').order('creado_en'),
+        django.from('v_alerta_envios').select('*').order('creado_en', { ascending: false }).limit(30),
+        django.from('clientes').select('zona').not('zona', 'is', null),
       ])
       if (r.error) throw r.error
       setReglas(r.data ?? [])
@@ -104,7 +105,7 @@ export default function AlertasPage() {
 
   async function guardarRegla(clave, cambios) {
     try {
-      const { error: e } = await supabase.from('alerta_reglas').update(cambios).eq('clave', clave)
+      const { error: e } = await django.from('alerta_reglas').update(cambios).eq('clave', clave)
       if (e) throw e
       await recargar()
     } catch (err) {
@@ -120,8 +121,8 @@ export default function AlertasPage() {
         hasta_hora: datos.hasta_hora || null,
       }
       const { error: e } = datos.id
-        ? await supabase.from('alerta_destinos').update(limpio).eq('id', datos.id)
-        : await supabase.from('alerta_destinos').insert(limpio)
+        ? await django.from('alerta_destinos').update(limpio).eq('id', datos.id)
+        : await django.from('alerta_destinos').insert(limpio)
       if (e) throw e
       setEnFormulario(null)
       await recargar()
@@ -133,7 +134,7 @@ export default function AlertasPage() {
   async function borrarDestino(d) {
     if (!await confirmar(`¿Dejar de avisarle a ${d.nombre}?`)) return
     try {
-      const { error: e } = await supabase.from('alerta_destinos').delete().eq('id', d.id)
+      const { error: e } = await django.from('alerta_destinos').delete().eq('id', d.id)
       if (e) throw e
       await recargar()
     } catch (err) {
@@ -250,7 +251,7 @@ export default function AlertasPage() {
             )}
 
             <p className="mt-3 text-[11px] text-slate-500">
-              Probá cada destino al cargarlo. Es lo único que evita descubrir que el número estaba mal
+              Prueba cada destino al cargarlo. Es lo único que evita descubrir que el número estaba mal
               el día del primer corte.
             </p>
           </Card>
@@ -275,7 +276,7 @@ export default function AlertasPage() {
                 renderFila={(e) => (
                   <tr key={e.id} className="text-slate-300">
                     <td className="px-3 py-2 text-[11px] text-slate-400">
-                      {new Date(e.creado_en).toLocaleString('es-EC')}
+                      {fmtFechaHora(e.creado_en)}
                     </td>
                     <td className="px-3 py-2 text-xs">
                       {e.destino_nombre ?? e.destino}
@@ -350,14 +351,14 @@ function EstadoDelCanal({ estado }) {
         <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-300">
           <TriangleAlert size={14} className="mt-0.5 shrink-0" />
           La vía elegida no envía sola: a las tres de la mañana no hay nadie apretando el botón.
-          Cambiala a <b>Evolution API</b>, Meta o Twilio en Ajustes → Mensajería.
+          Cámbiala a <b>Evolution API</b>, Meta o Twilio en Ajustes → Mensajería.
         </p>
       )}
 
       <div className="mt-2 text-[11px] text-slate-500">
         Tarea: {estado.tarea?.encendida ? `encendida, cada ${estado.tarea.cada_minutos} min` : 'apagada'}
         {estado.tarea?.ultima_corrida
-          ? ` · última corrida ${new Date(estado.tarea.ultima_corrida).toLocaleString('es-EC')}`
+          ? ` · última corrida ${fmtFechaHora(estado.tarea.ultima_corrida)}`
           : ''}
       </div>
     </div>
@@ -379,11 +380,22 @@ function Regla({ r, onGuardar }) {
       textoAlerta({
         regla: r.clave,
         nombre: r.nombre,
-        etiqueta: r.clave === 'corte_grupo' ? 'NAP-12' : 'Ana Pérez',
-        abonados: r.clave === 'corte_grupo' ? Number(umbral) || 3 : 1,
+        etiqueta: ['corte_grupo', 'degradacion'].includes(r.clave) ? 'NAP-12' : 'Ana Pérez',
+        entidad: r.clave === 'degradacion' ? 'nap' : 'onu',
+        abonados: r.clave === 'corte_grupo' ? Number(umbral) || 3 : r.clave === 'degradacion' ? 14 : 1,
         zona: 'Centro',
         empezo_en: new Date(Date.now() - 12 * 60000),
-        detalle: { codigo: 132, rx_dbm: Number(umbral) || -27 },
+        detalle: {
+          codigo: 132,
+          rx_dbm: Number(umbral) || -27,
+          ultimo_mbps: 9.4,
+          limite_mbps: 10,
+          ultimo_pct: Math.max(Number(umbral) || 80, 94),
+          desde: -21.3,
+          hasta: -21.3 - Math.max(Number(umbral) || 2, 2.5),
+          dias: 7,
+          direccion: 'Av. Principal y Calle 5',
+        },
       }),
     [r.clave, r.nombre, umbral],
   )
@@ -409,8 +421,9 @@ function Regla({ r, onGuardar }) {
             Esperar
             <div className="mt-1 flex items-center gap-1">
               <div className="w-16">
-                <Input
+                <Input regla="cantidad"
                   type="number"
+                  placeholder="0"
                   min={0}
                   max={1440}
                   value={espera}
@@ -429,6 +442,7 @@ function Regla({ r, onGuardar }) {
                 <div className="w-20">
                   <Input
                     type="number"
+                    placeholder="0"
                     step="0.5"
                     value={umbral}
                     onChange={(e) => setUmbral(e.target.value)}
@@ -518,7 +532,7 @@ function FormularioDestino({ datos, reglas, zonas, onCerrar, onGuardar }) {
 
         <label className="block text-xs text-slate-400">
           {form.canal === 'email' ? 'Correo' : form.canal === 'telegram' ? 'Chat ID' : 'Número'}
-          <Input
+          <Input campo={form.canal === 'email' ? 'email' : form.canal === 'telegram' ? undefined : 'telefono'}
             value={form.destino}
             onChange={set('destino')}
             placeholder={form.canal === 'email' ? 'soporte@…' : '0999000000'}

@@ -3,6 +3,8 @@ import { dinero } from '../../lib/formato'
 import { Activity, Pencil, Radio, Trash2, Wifi } from 'lucide-react'
 import { Aviso, Badge, Button, Card, EnlaceIp } from '../ui'
 import Trasladar from './Trasladar'
+import { fecha as fmtFecha, fechaHora as fmtFechaHora } from '@/lib/formato'
+import { SoloTecnico } from '../../lib/tecnico'
 
 /**
  * Lo que se ve al entrar a Servicio: el servicio en una fila y el estado de la
@@ -14,7 +16,7 @@ import Trasladar from './Trasladar'
  */
 
 const mbps = (kbps) => (kbps ? `${(kbps / 1000).toFixed(kbps % 1000 === 0 ? 0 : 1)} Mbps` : '—')
-const fecha = (f) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : '—')
+const fecha = (f) => (f ? fmtFecha(`${String(f).slice(0, 10)}T12:00:00`) : '—')
 
 /** Umbral por debajo del cual la fibra está al límite y el enlace se cae solo. */
 export const UMBRAL_RX = -27
@@ -45,7 +47,7 @@ const QUE_HACER = {
   los: 'Sin señal óptica: hay que revisar la fibra o el empalme.',
   desactivada: 'La dieron de baja desde la OLT.',
   reinicio: 'La ONU se reinició.',
-  otra: 'Causa no reconocida: mirá el texto que devolvió la OLT.',
+  otra: 'Causa no reconocida: mira el texto que devolvió la OLT.',
 }
 
 export default function ResumenServicio({
@@ -74,9 +76,7 @@ export default function ResumenServicio({
             {/* El traslado va junto a Editar y no adentro del formulario: no es
                 corregir un dato mal cargado, es abrir un trabajo. */}
             <Trasladar cliente={cliente} onError={onError} onGuardado={onGuardado} />
-            <Button variante="primario" icon={Pencil} onClick={onEditar}>
-              Editar
-            </Button>
+            <Button variante="primario" icon={Pencil} onClick={onEditar} title="Editar" />
             <Button
               variante="fantasma"
               icon={Trash2}
@@ -140,10 +140,12 @@ export default function ResumenServicio({
             Conectado a: <span className="text-slate-200">{cliente.conectado_a ?? '—'}</span>
             {cliente.tipo_antena ? ` · ${cliente.tipo_antena}` : ''}
           </p>
-          <p>
-            IP de administración:{' '}
-            <span className="font-mono text-slate-200">{cliente.ip_administracion ?? '—'}</span>
-          </p>
+          <SoloTecnico>
+            <p>
+              IP de administración:{' '}
+              <span className="font-mono text-slate-200">{cliente.ip_administracion ?? '—'}</span>
+            </p>
+          </SoloTecnico>
         </div>
       </Card>
 
@@ -153,9 +155,11 @@ export default function ResumenServicio({
         icon={Radio}
         actions={
           onu?.olt_id ? (
-            <Button variante="secundario" icon={Activity} cargando={midiendo} onClick={onMedir}>
-              Medir ahora
-            </Button>
+            <SoloTecnico>
+              <Button variante="secundario" icon={Activity} cargando={midiendo} onClick={onMedir}>
+                Medir ahora
+              </Button>
+            </SoloTecnico>
           ) : null
         }
       >
@@ -174,6 +178,9 @@ export default function ResumenServicio({
                 )}
               </div>
 
+              {/* Potencias, serie y distancia: para quien opera la red. Al resto
+                  le alcanza con el estado y qué hacer. */}
+              <SoloTecnico>
               <div className="t-panel p-3">
                 <p className="text-[11px] text-slate-500">Rx de la ONU</p>
                 <p
@@ -201,6 +208,7 @@ export default function ResumenServicio({
                   {onu?.distancia_m != null ? `${onu.distancia_m} m` : 'sin medir'}
                 </p>
               </div>
+              </SoloTecnico>
             </div>
 
             {rxBajo && (
@@ -213,7 +221,7 @@ export default function ResumenServicio({
 
             <p className="text-[11px] text-slate-500">
               Última lectura:{' '}
-              {onu?.ultima_lectura ? new Date(onu.ultima_lectura).toLocaleString() : 'nunca'}
+              {onu?.ultima_lectura ? fmtFechaHora(onu.ultima_lectura) : 'nunca'}
               {onu?.puerto != null
                 ? ` · puerto ${onu.frame}/${onu.slot}/${onu.puerto}, ONT ${onu.onu_index}`
                 : ''}
