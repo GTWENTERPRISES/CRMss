@@ -1,6 +1,7 @@
 # Django Core
 Django==5.0.14
 djangorestframework==3.17.1
+sqlglot==30.22.0  # Traduce las vistas y funciones de Postgres a SQLite (apps/dashboard)
 djangorestframework-simplejwt==5.5.1
 django-filter==25.1
 django-cors-headers==4.9.0
