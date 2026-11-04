@@ -70,7 +70,9 @@ services:
 
   middleware:
     build:
-      context: ./middleware
+      # Desde la raíz: importa reglas compartidas de web/src/lib (ver middleware/Dockerfile).
+      context: .
+      dockerfile: middleware/Dockerfile
     restart: unless-stopped
     environment:
       PORT: "4000"

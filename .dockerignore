@@ -1,0 +1,12 @@
+# Contexto de la imagen del middleware (se construye desde la raíz del repo):
+# solo entra el middleware y las reglas de web/src/lib que importa.
+*
+!middleware/
+!web/src/lib/permisos.js
+!web/src/lib/alertas.js
+!web/src/lib/telefono.js
+!web/src/lib/crecimientoRouters.js
+middleware/node_modules/
+middleware/test/
+middleware/.env
+middleware/.env.*
