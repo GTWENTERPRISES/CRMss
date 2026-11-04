@@ -660,12 +660,19 @@ class Motor:
             resultado = self.ejecutar_sql(s, ctx)
         if resultado is None:
             return None
+        # Como Postgres: las columnas de RETURNS TABLE (...) se asignan por
+        # posición, no por el nombre del SELECT (que puede repetirse: n, n...).
+        declaradas = list((self.columnas_de_retorno(nombre) or {}).keys())
+        if declaradas and len(declaradas) == len(resultado.columnas):
+            registros = [dict(zip(declaradas, fila)) for fila in resultado.filas]
+        else:
+            registros = resultado.registros()
         if self.devuelve_conjunto(nombre):
-            return resultado.registros()
+            return registros
         if not resultado.filas:
             return None
-        if self.columnas_de_retorno(nombre) and len(resultado.columnas) > 1:
-            return resultado.registros()[0]
+        if declaradas and len(resultado.columnas) > 1:
+            return registros[0]
         return resultado.filas[0][0]
 
     # -- sentencias --

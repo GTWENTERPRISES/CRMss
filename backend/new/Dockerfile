@@ -1,16 +1,17 @@
-# Dockerfile para CRM ISP Django
+# Backend Django del CRM (SQLite en el volumen /data).
 FROM python:3.11-slim
 
-# Variables de entorno
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    SQLITE_PATH=/data/db.sqlite3 \
+    MEDIA_ROOT_PATH=/data/media \
+    RESPALDOS_DIR=/data/respaldos \
+    DJANGO_DEBUG=False
 
-# Instalar dependencias del sistema
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
-    postgresql-client \
     libpq-dev \
     libxml2-dev \
     libxslt1-dev \
@@ -18,28 +19,18 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Crear directorio de trabajo
 WORKDIR /app
 
-# Copiar requirements
 COPY requirements.txt .
-
-# Instalar dependencias Python
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt && \
     pip install gunicorn
 
-# Copiar proyecto
 COPY . .
+RUN sed -i 's/\r$//' docker-entrypoint.sh && chmod +x docker-entrypoint.sh
 
-# Crear directorios necesarios
-RUN mkdir -p logs staticfiles media
-
-# Recolectar archivos estáticos
-RUN python manage.py collectstatic --noinput || true
-
-# Exponer puerto
+VOLUME ["/data"]
 EXPOSE 8000
 
-# Comando por defecto
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["web"]
