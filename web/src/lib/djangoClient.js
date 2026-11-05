@@ -13,6 +13,7 @@
 
 import { errorDeValidacion, validarArgumentos, validarDatos } from './validacion/index.js'
 import { avisarErrores } from './validacion/enVivo.js'
+import { fetchConReintento } from './reintento.js'
 
 /** El error para la pantalla, y cada campo en pantalla marcado con el suyo. */
 function rechazar(errores) {
@@ -49,7 +50,7 @@ async function fetchConSesion(url, opciones = {}) {
     delete headers.Authorization
     delete headers.authorization
     if (token) headers.Authorization = `Bearer ${token}`
-    return fetch(url, { ...opciones, headers })
+    return fetchConReintento(url, { ...opciones, headers })
   }
   let respuesta = await enviar()
   if (respuesta.status === 401 && typeof window !== 'undefined' && localStorage.getItem('django_refresh_token')) {

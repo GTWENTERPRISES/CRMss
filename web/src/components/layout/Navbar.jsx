@@ -17,24 +17,35 @@ export default function Navbar({ onAbrirMenu = () => {} }) {
 
   useEffect(() => {
     let vigente = true
+    let fallos = 0
+    let reintento = null
     const consultar = () =>
       api
         .health()
         .then((r) => {
           if (!vigente) return
+          fallos = 0
           setMiddleware(
             r.ok
               ? { estado: 'ok' }
               : { estado: 'incompleto', detalle: r.configuracionFaltante?.join(', ') },
           )
         })
-        .catch(() => vigente && setMiddleware({ estado: 'caido' }))
+        .catch(() => {
+          if (!vigente) return
+          // Un fallo suelto es la red (un paquete perdido, un redespliegue de un
+          // minuto): se vuelve a mirar en 5 s y recién al segundo se avisa.
+          fallos += 1
+          if (fallos >= 2) setMiddleware({ estado: 'caido' })
+          else reintento = setTimeout(consultar, 5000)
+        })
 
     consultar()
     const t = setInterval(consultar, 30000)
     return () => {
       vigente = false
       clearInterval(t)
+      clearTimeout(reintento)
     }
   }, [])
 

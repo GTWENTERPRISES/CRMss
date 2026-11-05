@@ -2,6 +2,7 @@ import { django } from './djangoClient'
 import { modoDemo, demoApi } from './demo'
 import { errorDeValidacion, validarPorNombre } from './validacion/index.js'
 import { avisarErrores } from './validacion/enVivo.js'
+import { fetchConReintento } from './reintento.js'
 
 /**
  * Cliente del módulo de red: OLTs, MikroTik, TR-069, SRI, documentos, portal…
@@ -85,7 +86,7 @@ async function request(metodo, ruta, body) {
 
   let res
   try {
-    res = await fetch(`${BASE}${ruta}`, {
+    res = await fetchConReintento(`${BASE}${ruta}`, {
       method: metodo,
       headers: {
         'Content-Type': 'application/json',
