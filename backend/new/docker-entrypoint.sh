@@ -17,9 +17,16 @@ case "$1" in
     python manage.py sincronizar_personal
     python manage.py crear_administrador
     python manage.py collectstatic --noinput >/dev/null
+    # Con hilos, no un pedido por proceso: lo de /api/v1/red/ espera al
+    # middleware, y el middleware para contestar le pide sus datos a Django.
+    # Con 3 procesos de a un pedido, tres esperas a la vez ocupaban todo y el
+    # middleware no tenía a quién preguntarle: todo quedaba colgado hasta que
+    # gunicorn mataba los procesos a los 120 s.
     exec gunicorn config.wsgi:application \
       --bind 0.0.0.0:8000 \
+      --worker-class gthread \
       --workers "${GUNICORN_WORKERS:-3}" \
+      --threads "${GUNICORN_THREADS:-8}" \
       --timeout "${GUNICORN_TIMEOUT:-120}" \
       --access-logfile -
     ;;

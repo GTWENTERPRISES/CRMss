@@ -51,7 +51,10 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 5)"]
+      # Un pedido HTTP de verdad, no solo el puerto: si gunicorn se cuelga, el
+      # contenedor queda "unhealthy" en vez de verse sano. Cualquier respuesta
+      # (el login contesta 405 a un GET) es que está vivo; sin respuesta, falla.
+      test: ["CMD", "python", "-c", "import http.client as h; c = h.HTTPConnection('127.0.0.1', 8000, timeout=10); c.request('GET', '/api/v1/auth/token/'); c.getresponse()"]
       interval: 30s
       timeout: 10s
       retries: 5
