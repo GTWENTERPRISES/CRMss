@@ -22,7 +22,7 @@ const DJANGO = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000
 const BASE = (process.env.NEXT_PUBLIC_API_URL || `${DJANGO}/red`).replace(/\/$/, '')
 
 const POR_DEFECTO = {
-  nombre_sistema: 'Taller SmartOLT',
+  nombre_sistema: 'HomeLink',
   lema: 'Gestión de OLTs y MikroTik',
   logo_b64: null,
   moneda_simbolo: '$',

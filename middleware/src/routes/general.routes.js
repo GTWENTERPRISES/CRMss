@@ -21,7 +21,7 @@ import { PAISES, PAIS_POR_DEFECTO, perfilDe } from '../lib/paises.js'
 const router = Router()
 
 const POR_DEFECTO = {
-  nombre_sistema: 'Taller SmartOLT',
+  nombre_sistema: 'HomeLink',
   lema: 'Gestión de OLTs y MikroTik',
   logo_b64: null,
   moneda_simbolo: '$',

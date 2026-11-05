@@ -89,7 +89,7 @@ def _nombre_del_sistema():
             fila = cursor.fetchone()
     except Exception:
         fila = None
-    return (fila and fila[0]) or getattr(settings, 'NOMBRE_SISTEMA', '') or 'Taller SmartOLT'
+    return (fila and fila[0]) or getattr(settings, 'NOMBRE_SISTEMA', '') or 'HomeLink'
 
 
 def _texto_del_correo(codigo, minutos):

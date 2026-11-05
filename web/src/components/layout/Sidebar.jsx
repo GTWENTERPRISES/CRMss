@@ -621,7 +621,7 @@ export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
         {!plegado && (
           <div className="min-w-0 leading-tight">
             <p className="truncate text-sm font-semibold text-foreground">
-              {marca?.nombre_sistema ?? 'SmartOLT'}
+              {marca?.nombre_sistema ?? 'HomeLink'}
             </p>
             <p className="truncate text-xs text-muted-foreground">{marca?.lema ?? ''}</p>
           </div>

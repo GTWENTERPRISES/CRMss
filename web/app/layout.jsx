@@ -2,7 +2,7 @@ import '../src/index.css'
 import NextProviders from '../src/NextProviders'
 
 export const metadata = {
-  title: 'Taller SmartOLT',
+  title: 'HomeLink',
   description: 'Sistema web de gestión OLT GPON, MikroTik y operaciones ISP',
 }
 
